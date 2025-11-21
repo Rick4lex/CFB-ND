@@ -81,7 +81,7 @@ const formatCurrency = (amount: number) => new Intl.NumberFormat('es-CO', { styl
 const parseCurrency = (value: string) => parseFloat(value.replace(/[^0-9]/g, '')) || 0;
 
 
-export function CotizadorView({ onBack }: { onBack: () => void }) {
+export function CotizadorView() {
   // --- STATE MANAGEMENT ---
   const imageRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -436,7 +436,7 @@ export function CotizadorView({ onBack }: { onBack: () => void }) {
     <PageLayout 
         title="Cotizador Inteligente" 
         subtitle="Calcula aportes a seguridad social y costos de trámite."
-        onBack={onBack}
+        onBackRoute="/app/dashboard"
     >
         <div className="w-full max-w-7xl mx-auto">
             <div className="absolute -left-[9999px] top-0">

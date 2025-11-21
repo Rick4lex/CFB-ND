@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useCFBraindStorage } from '../hooks/useCFBraindStorage';
 import { PageLayout } from '../components/layout/Layout';
 import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Shared';
@@ -22,7 +23,8 @@ const getStatusBadgeVariant = (status: string) => {
     }
 };
 
-export const ClientsView = ({ onNavigate }: { onNavigate: (view: string, params?: any) => void }) => {
+export const ClientsView = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [clients, setClients] = useCFBraindStorage<Client[]>('clients', []);
   const [advisors, setAdvisors] = useCFBraindStorage<Advisor[]>('advisors', [{ id: '1', name: "Asesor Principal", commissionType: 'percentage', commissionValue: 10 }]);
@@ -146,11 +148,15 @@ export const ClientsView = ({ onNavigate }: { onNavigate: (view: string, params?
       setCurrentPage(1);
   };
 
+  const handleGenerateDocuments = (clientId: string) => {
+      navigate('/app/documentos', { state: { clientId } });
+  };
+
   return (
     <PageLayout 
         title="Gestión de Clientes" 
         subtitle="CRM simplificado para administrar tu base de datos."
-        onBack={() => onNavigate('services')}
+        onBackRoute="/app/dashboard"
         actions={
             <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setIsAdvisorModalOpen(true)}><UserCog className="mr-2 h-4 w-4"/> Asesores</Button>
@@ -271,7 +277,7 @@ export const ClientsView = ({ onNavigate }: { onNavigate: (view: string, params?
                                 <TableCell className="text-muted-foreground text-sm">{c.entryDate}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-1 opacity-80 group-hover:opacity-100">
-                                        <Button variant="ghost" size="icon" onClick={() => onNavigate('documents', { clientId: c.id })} title="Generar Documentos">
+                                        <Button variant="ghost" size="icon" onClick={() => handleGenerateDocuments(c.id)} title="Generar Documentos">
                                             <FileText className="h-4 w-4 text-blue-600"/>
                                         </Button>
                                         <Button variant="ghost" size="icon" onClick={() => handleEdit(c)} title="Editar">

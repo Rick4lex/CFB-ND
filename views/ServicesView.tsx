@@ -1,13 +1,17 @@
+
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-export const ServicesView = ({ onNavigate }: { onNavigate: (view: string) => void }) => {
+export const ServicesView = () => {
+  const navigate = useNavigate();
   const tools = [
-    { id: 'clients', title: 'Gestión de Clientes', description: 'Base de datos, CRM y perfiles.', icon: 'fa-users', color: 'bg-blue-500/10 text-blue-600' },
-    { id: 'documents', title: 'Generador Documentos', description: 'Cuentas de cobro y reportes.', icon: 'fa-file-invoice', color: 'bg-orange-500/10 text-orange-600' },
-    { id: 'cotizador', title: 'Cotizador', description: 'Calculadora rápida de seguridad social.', icon: 'fa-calculator', color: 'bg-green-500/10 text-green-600' },
-    { id: 'theme', title: 'Branding', description: 'Visualización de marca.', icon: 'fa-palette', color: 'bg-purple-500/10 text-purple-600' }
+    { id: 'clients', route: '/app/clientes', title: 'Gestión de Clientes', description: 'Base de datos, CRM y perfiles.', icon: 'fa-users', color: 'bg-blue-500/10 text-blue-600' },
+    { id: 'documents', route: '/app/documentos', title: 'Generador Documentos', description: 'Cuentas de cobro y reportes.', icon: 'fa-file-invoice', color: 'bg-orange-500/10 text-orange-600' },
+    { id: 'cotizador', route: '/app/cotizador', title: 'Cotizador', description: 'Calculadora rápida de seguridad social.', icon: 'fa-calculator', color: 'bg-green-500/10 text-green-600' },
+    { id: 'theme', route: '/app/theme', title: 'Branding', description: 'Visualización de marca.', icon: 'fa-palette', color: 'bg-purple-500/10 text-purple-600' }
   ];
+
   return (
     <div className="max-w-5xl mx-auto mt-12">
         <div className="text-center mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -17,7 +21,7 @@ export const ServicesView = ({ onNavigate }: { onNavigate: (view: string) => voi
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
             {tools.map((t) => (
-                <div key={t.id} onClick={() => onNavigate(t.id)} className="group bg-card p-8 rounded-2xl border border-border/50 shadow-sm hover:shadow-xl hover:border-primary/30 cursor-pointer transition-all duration-300 relative overflow-hidden">
+                <div key={t.id} onClick={() => navigate(t.route)} className="group bg-card p-8 rounded-2xl border border-border/50 shadow-sm hover:shadow-xl hover:border-primary/30 cursor-pointer transition-all duration-300 relative overflow-hidden">
                     <div className={`h-16 w-16 ${t.color} rounded-2xl flex items-center justify-center mb-6 text-2xl shadow-sm group-hover:scale-110 transition-transform`}><i className={`fas ${t.icon}`}></i></div>
                     <h3 className="font-bold text-2xl mb-2 text-foreground group-hover:text-primary transition-colors font-belanosima">{t.title}</h3>
                     <p className="text-muted-foreground">{t.description}</p>

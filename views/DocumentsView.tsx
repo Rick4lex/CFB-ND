@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as htmlToImage from 'html-to-image';
-import { Loader2, Eye, Printer, Download, FileText, DollarSign, ArrowLeft, Share2 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Loader2, Eye, Printer, Download, FileText, DollarSign, Share2 } from 'lucide-react';
 import { useCFBraindStorage } from '../hooks/useCFBraindStorage';
 import { PageLayout } from '../components/layout/Layout';
 import { InvoicePreview } from '../components/features/InvoicePreview';
@@ -21,13 +22,14 @@ interface AdditionalItem {
   value: number;
 }
 
-export const DocumentsView = ({ onBack, initialClientId }: { onBack: () => void, initialClientId?: string }) => {
+export const DocumentsView = () => {
+  const location = useLocation();
   const { toast } = useToast();
   const [clients] = useCFBraindStorage<Client[]>('clients', []);
   const [advisors] = useCFBraindStorage<Advisor[]>('advisors', []);
   
   // Invoice state
-  const [selectedInvoiceClient, setSelectedInvoiceClient] = useState<string>(initialClientId || '');
+  const [selectedInvoiceClient, setSelectedInvoiceClient] = useState<string>('');
   const [additionalInvoiceItems, setAdditionalInvoiceItems] = useState<AdditionalItem[]>([]);
   const [newAdditionalItem, setNewAdditionalItem] = useState({ description: '', value: '' });
 
@@ -44,8 +46,11 @@ export const DocumentsView = ({ onBack, initialClientId }: { onBack: () => void,
   const imageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-      if(initialClientId) setSelectedInvoiceClient(initialClientId);
-  }, [initialClientId]);
+      // Check for client ID passed via navigation state
+      if (location.state && location.state.clientId) {
+          setSelectedInvoiceClient(location.state.clientId);
+      }
+  }, [location.state]);
   
   // Reset additional items when client changes
   useEffect(() => {
@@ -175,7 +180,7 @@ export const DocumentsView = ({ onBack, initialClientId }: { onBack: () => void,
     <PageLayout 
         title="Generador de Documentos" 
         subtitle="Crea cuentas de cobro y reportes de comisiones."
-        onBack={onBack}
+        onBackRoute="/app/dashboard"
     >
         <div className="absolute -left-[9999px] top-0">
             {clientForInvoice && (

@@ -1,9 +1,22 @@
-import React, { useState } from 'react';
 
-export const TokenView = ({ onVerified }: { onVerified: () => void }) => {
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+export const TokenView = () => {
   const [token, setToken] = useState("");
   const [error, setError] = useState("");
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (token.trim().length > 0) { localStorage.setItem("cfbnd_token", token); onVerified(); } else setError("Token inválido"); };
+  const navigate = useNavigate();
+
+  const handleSubmit = (e: React.FormEvent) => { 
+      e.preventDefault(); 
+      if (token.trim().length > 0) { 
+          localStorage.setItem("cfbnd_token", token); 
+          navigate('/app/dashboard');
+      } else {
+          setError("Token inválido"); 
+      }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
        <div className="w-full max-w-md space-y-8 p-8 bg-card rounded-2xl border shadow-xl animate-in zoom-in-95 duration-300">

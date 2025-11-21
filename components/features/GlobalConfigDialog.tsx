@@ -4,10 +4,10 @@ import { useCFBraindStorage } from '../../hooks/useCFBraindStorage';
 import { defaultGlobalConfig } from '../../lib/constants';
 import { 
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-    Tabs, TabsList, TabsTrigger, Button, Input, Label, Switch, ScrollArea, 
-    Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Badge
+    Tabs, TabsList, TabsTrigger, Button, Input, Switch, ScrollArea, 
+    Table, TableHeader, TableRow, TableHead, TableBody, TableCell
 } from '../ui/Shared';
-import { Save, Download, Upload, RefreshCw, PlusCircle, Trash2 } from 'lucide-react';
+import { Save, Download, Upload, PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 
 export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (open: boolean) => void }) {
@@ -115,7 +115,7 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
                                 <div className="flex-1 overflow-hidden border rounded-md relative">
                                      <div className="absolute inset-0 overflow-auto">
                                         <Table>
-                                            <TableHeader className="sticky top-0 bg-card z-10">
+                                            <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
                                                 <TableRow>
                                                     <TableHead className="w-[100px]">ID</TableHead>
                                                     <TableHead>Nombre del Servicio</TableHead>
