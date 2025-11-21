@@ -808,6 +808,7 @@ export function CotizadorView() {
                     </div>
                 </div>
             </div>
-        </PageLayout>
+        </div>
+    </PageLayout>
   );
 }
