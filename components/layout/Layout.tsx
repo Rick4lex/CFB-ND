@@ -51,7 +51,7 @@ interface PageLayoutProps {
     onBack?: () => void; // Legacy support or custom action
     onBackRoute?: string; // Router support
     actions?: React.ReactNode;
-    children: React.ReactNode;
+    children?: React.ReactNode;
 }
 
 export const PageLayout = ({ title, subtitle, onBack, onBackRoute, actions, children }: PageLayoutProps) => {
