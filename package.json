@@ -1,0 +1,29 @@
+{
+  "name": "cfbnd",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react-dom": "^19.2.0",
+    "react": "^19.2.0",
+    "html-to-image": "1.11.11",
+    "lucide-react": "0.378.0",
+    "zod": "3.23.8",
+    "react-hook-form": "7.51.3",
+    "papaparse": "5.4.1",
+    "date-fns": "^4.1.0",
+    "@hookform/resolvers": "^5.2.2",
+    "next": "^16.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
