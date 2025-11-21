@@ -15,8 +15,7 @@ import {
 import { CotizacionSummaryImage, type CotizacionData } from '../components/features/CotizacionSummaryImage';
 import { useToast } from '../hooks/use-toast';
 import { PageLayout } from '../components/layout/Layout';
-import { useCFBraindStorage } from '../hooks/useCFBraindStorage';
-import { defaultGlobalConfig } from '../lib/constants';
+import { useAppStore } from '../lib/store';
 
 const initialProcedureCosts = {
     pensionAffiliation: 15000,
@@ -85,7 +84,8 @@ export function CotizadorView() {
   // --- STATE MANAGEMENT ---
   const imageRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const [config, setConfig] = useCFBraindStorage('sys_config', defaultGlobalConfig);
+  
+  const { config, setConfig, cotizadorProfiles, setCotizadorProfiles } = useAppStore();
   const SMLV = config.financials.smlv;
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -93,7 +93,7 @@ export function CotizadorView() {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
-  const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
+  
   const [newProfileName, setNewProfileName] = useState('');
 
 
@@ -162,17 +162,6 @@ export function CotizadorView() {
              setIbc(SMLV);
         }
     }, [SMLV]);
-
-    useEffect(() => {
-        try {
-            const storedProfiles = localStorage.getItem('cotizadorProfiles');
-            if(storedProfiles) {
-                setSavedProfiles(JSON.parse(storedProfiles));
-            }
-        } catch (e) {
-            console.error("Failed to load profiles from localStorage", e);
-        }
-    }, []);
 
   useEffect(() => {
     if (autoCalculateIbc && modality === 'independent') {
@@ -395,10 +384,10 @@ export function CotizadorView() {
     let updatedProfiles: SavedProfile[];
 
     if (id) { // Overwriting existing profile
-        updatedProfiles = savedProfiles.map(p => 
+        updatedProfiles = cotizadorProfiles.map(p => 
             p.id === id ? { ...p, state: stateToSave, date: new Date().toISOString() } : p
         );
-        toast({ title: 'Perfil Sobrescrito', description: `El perfil "${savedProfiles.find(p=>p.id === id)?.name}" ha sido actualizado.` });
+        toast({ title: 'Perfil Sobrescrito', description: `El perfil "${cotizadorProfiles.find(p=>p.id === id)?.name}" ha sido actualizado.` });
     } else { // Saving new profile
         const newProfile: SavedProfile = {
             id: crypto.randomUUID(),
@@ -406,17 +395,16 @@ export function CotizadorView() {
             date: new Date().toISOString(),
             state: stateToSave,
         };
-        updatedProfiles = [...savedProfiles, newProfile];
+        updatedProfiles = [...cotizadorProfiles, newProfile];
         toast({ title: 'Perfil Guardado', description: `La cotización se guardó como "${newProfileName}".` });
     }
 
-    setSavedProfiles(updatedProfiles);
-    localStorage.setItem('cotizadorProfiles', JSON.stringify(updatedProfiles));
+    setCotizadorProfiles(updatedProfiles);
     setNewProfileName('');
   };
   
   const handleLoadProfile = (id: string) => {
-    const profileToLoad = savedProfiles.find(p => p.id === id);
+    const profileToLoad = cotizadorProfiles.find(p => p.id === id);
     if(profileToLoad) {
         loadState(profileToLoad.state);
         toast({ title: 'Perfil Cargado', description: `Se ha cargado la cotización "${profileToLoad.name}".` });
@@ -425,9 +413,8 @@ export function CotizadorView() {
   };
 
   const handleDeleteProfile = (id: string) => {
-    const updatedProfiles = savedProfiles.filter(p => p.id !== id);
-    setSavedProfiles(updatedProfiles);
-    localStorage.setItem('cotizadorProfiles', JSON.stringify(updatedProfiles));
+    const updatedProfiles = cotizadorProfiles.filter(p => p.id !== id);
+    setCotizadorProfiles(updatedProfiles);
     toast({ title: 'Perfil Eliminado', variant: 'destructive' });
   };
 
@@ -479,9 +466,9 @@ export function CotizadorView() {
                                                 
                                                 <div className="space-y-2">
                                                     <h4 className="text-sm font-medium">Perfiles Guardados</h4>
-                                                    {savedProfiles.length > 0 ? (
+                                                    {cotizadorProfiles.length > 0 ? (
                                                         <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
-                                                            {savedProfiles.map(profile => (
+                                                            {cotizadorProfiles.map(profile => (
                                                                 <div key={profile.id} className="flex justify-between items-center p-3 border rounded-md">
                                                                     <div>
                                                                         <p className="font-semibold">{profile.name}</p>

@@ -1,11 +1,12 @@
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppHeader, ThemeToggleButton, PageLayout } from './components/layout/Layout';
 import { TokenView } from './views/TokenView';
 import { Loader2 } from 'lucide-react';
+import { useAppStore } from './lib/store';
 
 // --- Lazy Load Views ---
 const ServicesView = React.lazy(() => import('./views/ServicesView').then(module => ({ default: module.ServicesView })));
@@ -47,6 +48,17 @@ const ThemeView = () => (
 );
 
 const App = () => {
+  const initStore = useAppStore(state => state.initStore);
+  const isInitialized = useAppStore(state => state.isInitialized);
+
+  useEffect(() => {
+    initStore();
+  }, []);
+
+  if (!isInitialized) {
+    return <LoadingScreen />;
+  }
+
   return (
       <ThemeProvider>
         <HashRouter>

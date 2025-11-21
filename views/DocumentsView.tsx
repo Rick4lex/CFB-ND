@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { useLocation } from 'react-router-dom';
 import { Loader2, Eye, Printer, Download, FileText, DollarSign, Share2 } from 'lucide-react';
-import { useCFBraindStorage } from '../hooks/useCFBraindStorage';
+import { useAppStore } from '../lib/store';
 import { PageLayout } from '../components/layout/Layout';
 import { InvoicePreview } from '../components/features/InvoicePreview';
 import { 
@@ -12,7 +12,6 @@ import {
     Input, Accordion, AccordionItem, AccordionTrigger, AccordionContent,
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
 } from '../components/ui/Shared';
-import { Client, Advisor } from '../lib/types';
 import { proceduralServices } from '../lib/constants';
 import { useToast } from '../hooks/use-toast';
 
@@ -25,8 +24,7 @@ interface AdditionalItem {
 export const DocumentsView = () => {
   const location = useLocation();
   const { toast } = useToast();
-  const [clients] = useCFBraindStorage<Client[]>('clients', []);
-  const [advisors] = useCFBraindStorage<Advisor[]>('advisors', []);
+  const { clients, advisors } = useAppStore();
   
   // Invoice state
   const [selectedInvoiceClient, setSelectedInvoiceClient] = useState<string>('');

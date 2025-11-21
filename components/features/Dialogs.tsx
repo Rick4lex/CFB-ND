@@ -24,7 +24,7 @@ import {
     credentialTypes, entityContactDepartments, entityContactTypes, 
     documentTypes, serviceStatuses, defaultGlobalConfig
 } from '@/lib/constants';
-import { useCFBraindStorage } from '@/hooks/useCFBraindStorage';
+import { useAppStore } from '@/lib/store';
 import type { Advisor, Client, Entity, EntityContact, ClientWithMultiple } from '@/lib/types';
 
 // --- Advisor Manager ---
@@ -480,7 +480,7 @@ interface ClientFormDialogProps {
 
 export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisors }: ClientFormDialogProps) {
   const { toast } = useToast();
-  const [config] = useCFBraindStorage('sys_config', defaultGlobalConfig);
+  const { config } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter active services for the UI, but keep logic to handle potentially inactive ones if already selected
@@ -932,4 +932,24 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                               <div><p className="text-xs text-muted-foreground">Valor Neto</p><p className="font-bold text-primary">{netOperationValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}</p></div>
                           </div>
                        </div>
-                       
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+
+                <div className="space-y-2">
+                    <FormField name="notes" control={form.control} render={({ field }: any) => (
+                        <FormItem><FormLabel>Notas Adicionales</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
+                    )} />
+                </div>
+              </div>
+            </ScrollArea>
+            <DialogFooter className="mt-4 pt-4 border-t">
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+              <Button type="submit">Guardar Cliente</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}

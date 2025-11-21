@@ -1,8 +1,7 @@
 
 import React from 'react';
 import type { Client } from '../../lib/types';
-import { defaultGlobalConfig } from '../../lib/constants';
-import { useCFBraindStorage } from '../../hooks/useCFBraindStorage';
+import { useAppStore } from '../../lib/store';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Separator, Button } from '../ui/Shared';
@@ -23,7 +22,7 @@ interface InvoicePreviewProps {
 const formatCurrency = (amount: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
 export function InvoicePreview({ client, additionalItems, totalAmount }: InvoicePreviewProps) {
-  const [config] = useCFBraindStorage('sys_config', defaultGlobalConfig);
+  const { config } = useAppStore();
   const catalog = config.servicesCatalog;
   
   const generationDate = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });

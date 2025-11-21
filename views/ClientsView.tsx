@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useCFBraindStorage } from '../hooks/useCFBraindStorage';
+import { useAppStore } from '../lib/store';
 import { PageLayout } from '../components/layout/Layout';
 import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Shared';
 import { EntityManagerDialog, AdvisorManagerDialog, ClientFormDialog } from '../components/features/Dialogs';
@@ -26,9 +26,9 @@ const getStatusBadgeVariant = (status: string) => {
 export const ClientsView = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [clients, setClients] = useCFBraindStorage<Client[]>('clients', []);
-  const [advisors, setAdvisors] = useCFBraindStorage<Advisor[]>('advisors', [{ id: '1', name: "Asesor Principal", commissionType: 'percentage', commissionValue: 10 }]);
-  const [entities, setEntities] = useCFBraindStorage<Entity[]>('entities', []);
+  
+  // Global Store
+  const { clients, setClients, advisors, setAdvisors, entities, setEntities } = useAppStore();
   
   // Modals
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);

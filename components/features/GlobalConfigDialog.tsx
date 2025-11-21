@@ -1,7 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { useCFBraindStorage } from '../../hooks/useCFBraindStorage';
-import { defaultGlobalConfig } from '../../lib/constants';
+import { useAppStore } from '../../lib/store';
 import { 
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
     Tabs, TabsList, TabsTrigger, Button, Input, Switch, ScrollArea, 
@@ -11,7 +10,7 @@ import { Save, Download, Upload, PlusCircle, Trash2 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 
 export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (open: boolean) => void }) {
-    const [config, setConfig] = useCFBraindStorage('sys_config', defaultGlobalConfig);
+    const { config, setConfig } = useAppStore();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState('services');
@@ -43,12 +42,22 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
     };
 
     const handleBackup = () => {
+        // Fetch current data directly from localStorage as fallback or construct from store
+        // Since we moved to IndexedDB, reading from localStorage might be stale if we strictly use IDB.
+        // However, the previous logic read from localStorage.
+        // We should backup from the current store state to be consistent.
+        
+        // Note: This backup logic currently exports persistence keys. 
+        // If we want to be thorough, we should use the state from the store.
+        
+        const state = useAppStore.getState();
+        
         const data = {
-            clients: localStorage.getItem('clients'),
-            advisors: localStorage.getItem('advisors'),
-            entities: localStorage.getItem('entities'),
-            sys_config: localStorage.getItem('sys_config'),
-            cotizadorProfiles: localStorage.getItem('cotizadorProfiles'),
+            clients: JSON.stringify(state.clients),
+            advisors: JSON.stringify(state.advisors),
+            entities: JSON.stringify(state.entities),
+            sys_config: JSON.stringify(state.config),
+            cotizadorProfiles: JSON.stringify(state.cotizadorProfiles),
             theme: localStorage.getItem('cfbnd-theme'),
             timestamp: new Date().toISOString()
         };
@@ -66,23 +75,30 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             try {
                 const content = e.target?.result as string;
                 const data = JSON.parse(content);
                 
                 if (window.confirm("¿Estás seguro? Esto sobrescribirá todos los datos actuales con los de la copia de seguridad.")) {
-                    if (data.clients) localStorage.setItem('clients', data.clients);
-                    if (data.advisors) localStorage.setItem('advisors', data.advisors);
-                    if (data.entities) localStorage.setItem('entities', data.entities);
-                    if (data.sys_config) localStorage.setItem('sys_config', data.sys_config);
-                    if (data.cotizadorProfiles) localStorage.setItem('cotizadorProfiles', data.cotizadorProfiles);
+                    // We need to update the store AND persist to IDB.
+                    // The simplest way is to update the store state, which triggers persistence.
+                    const { setClients, setAdvisors, setEntities, setConfig, setCotizadorProfiles } = useAppStore.getState();
+
+                    if (data.clients) setClients(JSON.parse(data.clients));
+                    if (data.advisors) setAdvisors(JSON.parse(data.advisors));
+                    if (data.entities) setEntities(JSON.parse(data.entities));
+                    if (data.sys_config) setConfig(JSON.parse(data.sys_config));
+                    if (data.cotizadorProfiles) setCotizadorProfiles(JSON.parse(data.cotizadorProfiles));
+                    
                     if (data.theme) localStorage.setItem('cfbnd-theme', data.theme);
                     
-                    toast({ title: "Restauración Exitosa", description: "La aplicación se recargará para aplicar los cambios." });
-                    setTimeout(() => window.location.reload(), 1500);
+                    toast({ title: "Restauración Exitosa", description: "Los datos han sido actualizados." });
+                    // Reload not strictly necessary with React state, but good for a fresh start feeling
+                    setTimeout(() => window.location.reload(), 1000);
                 }
             } catch (error) {
+                console.error(error);
                 toast({ variant: "destructive", title: "Error de Restauración", description: "El archivo no tiene un formato válido." });
             }
         };
