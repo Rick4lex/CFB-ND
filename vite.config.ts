@@ -14,7 +14,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./"),
     },
   },
-  base: './',
+  base: '/CFB-ND/',
   build: {
     outDir: 'dist',
     sourcemap: false,
