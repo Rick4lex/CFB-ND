@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "homepage": "https://rick4lex.github.io/CFB-ND/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
