@@ -1,144 +1,183 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Plataforma CFBND</title>
-    
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Belanosima:wght@400;600;700&display=swap" rel="stylesheet" crossorigin="anonymous">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" crossorigin="anonymous" />
-    
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          container: {
-            center: true,
-            padding: "2rem",
-            screens: {
-              "2xl": "1400px",
-            },
-          },
-          extend: {
-            fontFamily: {
-              sans: ['ui-sans-serif', 'system-ui', 'sans-serif'],
-              belanosima: ['Belanosima', 'sans-serif'],
-            },
-            colors: {
-              border: "hsl(var(--border))",
-              input: "hsl(var(--input))",
-              ring: "hsl(var(--ring))",
-              background: "hsl(var(--background))",
-              foreground: "hsl(var(--foreground))",
-              primary: {
-                DEFAULT: "hsl(var(--primary))",
-                foreground: "hsl(var(--primary-foreground))",
-              },
-              secondary: {
-                DEFAULT: "hsl(var(--secondary))",
-                foreground: "hsl(var(--secondary-foreground))",
-              },
-              destructive: {
-                DEFAULT: "hsl(var(--destructive))",
-                foreground: "hsl(var(--destructive-foreground))",
-              },
-              muted: {
-                DEFAULT: "hsl(var(--muted))",
-                foreground: "hsl(var(--muted-foreground))",
-              },
-              accent: {
-                DEFAULT: "hsl(var(--accent))",
-                foreground: "hsl(var(--accent-foreground))",
-              },
-              popover: {
-                DEFAULT: "hsl(var(--popover))",
-                foreground: "hsl(var(--popover-foreground))",
-              },
-              card: {
-                DEFAULT: "hsl(var(--card))",
-                foreground: "hsl(var(--card-foreground))",
-              },
-            },
-            borderRadius: {
-              lg: "var(--radius)",
-              md: "calc(var(--radius) - 2px)",
-              sm: "calc(var(--radius) - 4px)",
-            },
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plataforma CFBND</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Belanosima:wght@400;600;700&display=swap" rel="stylesheet"
+    crossorigin="anonymous">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"
+    crossorigin="anonymous" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        container: {
+          center: true,
+          padding: "2rem",
+          screens: {
+            "2xl": "1400px",
           },
         },
+        extend: {
+          fontFamily: {
+            sans: ['ui-sans-serif', 'system-ui', 'sans-serif'],
+            belanosima: ['Belanosima', 'sans-serif'],
+          },
+          colors: {
+            border: "hsl(var(--border))",
+            input: "hsl(var(--input))",
+            ring: "hsl(var(--ring))",
+            background: "hsl(var(--background))",
+            foreground: "hsl(var(--foreground))",
+            primary: {
+              DEFAULT: "hsl(var(--primary))",
+              foreground: "hsl(var(--primary-foreground))",
+            },
+            secondary: {
+              DEFAULT: "hsl(var(--secondary))",
+              foreground: "hsl(var(--secondary-foreground))",
+            },
+            destructive: {
+              DEFAULT: "hsl(var(--destructive))",
+              foreground: "hsl(var(--destructive-foreground))",
+            },
+            muted: {
+              DEFAULT: "hsl(var(--muted))",
+              foreground: "hsl(var(--muted-foreground))",
+            },
+            accent: {
+              DEFAULT: "hsl(var(--accent))",
+              foreground: "hsl(var(--accent-foreground))",
+            },
+            popover: {
+              DEFAULT: "hsl(var(--popover))",
+              foreground: "hsl(var(--popover-foreground))",
+            },
+            card: {
+              DEFAULT: "hsl(var(--card))",
+              foreground: "hsl(var(--card-foreground))",
+            },
+          },
+          borderRadius: {
+            lg: "var(--radius)",
+            md: "calc(var(--radius) - 2px)",
+            sm: "calc(var(--radius) - 4px)",
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    @layer base {
+      :root {
+        --background: 46 71% 90%;
+        /* #F8EDD2 */
+        --foreground: 20 16% 19%;
+        /* #3A2E27 */
+        --card: 46 71% 90%;
+        --card-foreground: 20 16% 19%;
+        --popover: 46 71% 93%;
+        --popover-foreground: 20 16% 19%;
+        --primary: 11 67% 68%;
+        /* #E08C79 */
+        --primary-foreground: 0 0% 100%;
+        --secondary: 46 90% 80%;
+        --secondary-foreground: 20 16% 19%;
+        --muted: 46 71% 85%;
+        --muted-foreground: 20 16% 45%;
+        --accent: 46 90% 70%;
+        /* #F7DC6F */
+        --accent-foreground: 20 16% 19%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 46 71% 80%;
+        --input: 46 71% 80%;
+        --ring: 11 67% 68%;
+        --radius: 0.5rem;
       }
-    </script>
 
-    <style>
-      @layer base {
-        :root {
-          --background: 46 71% 90%; /* #F8EDD2 */
-          --foreground: 20 16% 19%; /* #3A2E27 */
-          --card: 46 71% 90%;
-          --card-foreground: 20 16% 19%;
-          --popover: 46 71% 93%;
-          --popover-foreground: 20 16% 19%;
-          --primary: 11 67% 68%; /* #E08C79 */
-          --primary-foreground: 0 0% 100%;
-          --secondary: 46 90% 80%;
-          --secondary-foreground: 20 16% 19%;
-          --muted: 46 71% 85%;
-          --muted-foreground: 20 16% 45%;
-          --accent: 46 90% 70%; /* #F7DC6F */
-          --accent-foreground: 20 16% 19%;
-          --destructive: 0 84.2% 60.2%;
-          --destructive-foreground: 0 0% 98%;
-          --border: 46 71% 80%;
-          --input: 46 71% 80%;
-          --ring: 11 67% 68%;
-          --radius: 0.5rem;
-        }
-      
-        .dark {
-          --background: 20 16% 10%;
-          --foreground: 46 71% 85%;
-          --card: 20 16% 15%;
-          --card-foreground: 46 71% 85%;
-          --popover: 20 16% 12%;
-          --popover-foreground: 46 71% 85%;
-          --primary: 46 90% 70%; /* #F7DC6F */
-          --primary-foreground: 20 16% 10%;
-          --secondary: 46 90% 60%;
-          --secondary-foreground: 20 16% 19%;
-          --muted: 20 16% 20%;
-          --muted-foreground: 46 71% 70%;
-          --accent: 11 67% 68%;
-          --accent-foreground: 20 16% 10%;
-          --destructive: 0 62.8% 30.6%;
-          --destructive-foreground: 0 0% 98%;
-          --border: 20 16% 25%;
-          --input: 20 16% 25%;
-          --ring: 46 90% 70%;
-        }
-
-        * {
-          border-color: hsl(var(--border));
-        }
-        
-        body {
-          background-color: hsl(var(--background));
-          color: hsl(var(--foreground));
-        }
-
-        h1, h2, h3, h4, h5, h6 {
-          font-family: 'Belanosima', sans-serif;
-        }
+      .dark {
+        --background: 20 16% 10%;
+        --foreground: 46 71% 85%;
+        --card: 20 16% 15%;
+        --card-foreground: 46 71% 85%;
+        --popover: 20 16% 12%;
+        --popover-foreground: 46 71% 85%;
+        --primary: 46 90% 70%;
+        /* #F7DC6F */
+        --primary-foreground: 20 16% 10%;
+        --secondary: 46 90% 60%;
+        --secondary-foreground: 20 16% 19%;
+        --muted: 20 16% 20%;
+        --muted-foreground: 46 71% 70%;
+        --accent: 11 67% 68%;
+        --accent-foreground: 20 16% 10%;
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 20 16% 25%;
+        --input: 20 16% 25%;
+        --ring: 46 90% 70%;
       }
-    </style>
 
+      * {
+        border-color: hsl(var(--border));
+      }
+
+      body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6 {
+        font-family: 'Belanosima', sans-serif;
+      }
+    }
+  </style>
+
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "zod": "https://aistudiocdn.com/zod@^4.1.12",
+    "react-hook-form": "https://aistudiocdn.com/react-hook-form@^7.66.1",
+    "date-fns": "https://aistudiocdn.com/date-fns@^4.1.0",
+    "date-fns/": "https://aistudiocdn.com/date-fns@^4.1.0/",
+    "@hookform/resolvers/": "https://aistudiocdn.com/@hookform/resolvers@^5.2.2/",
+    "papaparse": "https://aistudiocdn.com/papaparse@^5.5.3",
+    "html-to-image": "https://aistudiocdn.com/html-to-image@^1.11.13",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "path": "https://aistudiocdn.com/path@^0.12.7",
+    "url": "https://aistudiocdn.com/url@^0.11.4",
+    "zustand": "https://aistudiocdn.com/zustand@^5.0.8",
+    "idb-keyval": "https://aistudiocdn.com/idb-keyval@^6.2.2"
+  }
+}
+</script>
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
-  </body>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="./index.tsx"></script>
+</body>
+
 </html>
