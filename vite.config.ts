@@ -16,13 +16,17 @@ export default defineConfig({
   },
   base: '/CFB-ND/',
   build: {
+    target: 'es2015', // Mayor compatibilidad con móviles
     outDir: 'dist',
     sourcemap: false,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', 'zustand', 'idb-keyval'],
-          utils: ['date-fns', 'html-to-image', 'papaparse', 'zod', 'lucide-react']
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': ['lucide-react', 'clsx', 'tailwind-merge'],
+          'data-vendor': ['zustand', 'idb-keyval', 'zod', 'react-hook-form'],
+          'utils': ['date-fns', 'html-to-image', 'papaparse']
         }
       }
     }
