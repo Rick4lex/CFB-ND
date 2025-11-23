@@ -39,7 +39,7 @@ export function CotizacionSummaryImage({
     return (
         <div id="summary-image-content" className="w-[400px] bg-white p-6 font-sans text-[#3A2E27]">
             <div className="flex items-center justify-start gap-2 mb-4">
-                <img src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1748304382/codefaker-04_pjvwsp.png" alt="CFBND Logo" width={32} height={32} />
+                <img src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1748304382/codefaker-04_pjvwsp.png" alt="CFBND Logo" width={32} height={32} crossOrigin="anonymous" />
                 <span className="font-bold text-xl text-[#E08C79]">CFBND</span>
             </div>
 
@@ -66,6 +66,7 @@ export function CotizacionSummaryImage({
                         height={80}
                         className="rounded-full object-cover"
                         style={{width: 80, height: 80}}
+                        crossOrigin="anonymous"
                     />
                 </div>
             </div>

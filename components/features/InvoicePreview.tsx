@@ -57,6 +57,7 @@ export function InvoicePreview({ client, additionalItems, totalAmount }: Invoice
                                 src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1733031738/tu_imagen_gapghc.png" 
                                 alt="Asesor" 
                                 className="absolute inset-0 w-full h-full object-cover"
+                                crossOrigin="anonymous"
                             />
                         </div>
                     </div>
@@ -80,7 +81,7 @@ export function InvoicePreview({ client, additionalItems, totalAmount }: Invoice
                 <div className="grid grid-cols-9 gap-6 print:grid print:grid-cols-9 print:gap-4">
                     <div className="col-span-9 md:col-span-3 print:col-span-3 space-y-4 flex flex-col justify-start">
                         <div className='bg-white p-4 rounded-lg text-center border-2 border-dashed print:p-2'>
-                            <img src='https://res.cloudinary.com/dyeppbrfl/image/upload/v1763148510/codigo_QR_MOVii_yiv4sc.jpg' alt='QR Code' width={200} height={200} className='mx-auto w-full max-w-[150px]'/>
+                            <img src='https://res.cloudinary.com/dyeppbrfl/image/upload/v1763148510/codigo_QR_MOVii_yiv4sc.jpg' alt='QR Code' width={200} height={200} className='mx-auto w-full max-w-[150px]' crossOrigin="anonymous"/>
                             <p className='font-bold text-sm mt-2 print:text-xs'>Paga desde la app de cualquier entidad habilitada</p>
                             <div className='flex justify-center mt-2 print:flex print:justify-center'>
                                 <EntidadHabilitadaIcon/>
@@ -118,7 +119,7 @@ export function InvoicePreview({ client, additionalItems, totalAmount }: Invoice
                             ))}
                         </div>
                          <div className="flex items-center justify-center gap-2 print:flex print:items-center mt-auto pt-4">
-                            <img src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1748304382/codefaker-04_pjvwsp.png" alt="CFBND Logo" width={32} height={32} />
+                            <img src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1748304382/codefaker-04_pjvwsp.png" alt="CFBND Logo" width={32} height={32} crossOrigin="anonymous" />
                             <span className="font-bold text-xl text-[#E08C79] print:text-lg">CFBND</span>
                         </div>
                     </div>
