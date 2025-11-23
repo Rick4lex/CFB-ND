@@ -1,4 +1,4 @@
-
+import './index.css';
 import React, { Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';

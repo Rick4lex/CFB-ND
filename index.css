@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 46 71% 90%; /* #F8EDD2 */
+    --foreground: 20 16% 19%; /* #3A2E27 */
+    --card: 46 71% 90%;
+    --card-foreground: 20 16% 19%;
+    --popover: 46 71% 93%;
+    --popover-foreground: 20 16% 19%;
+    --primary: 11 67% 68%; /* #E08C79 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 46 90% 80%;
+    --secondary-foreground: 20 16% 19%;
+    --muted: 46 71% 85%;
+    --muted-foreground: 20 16% 45%;
+    --accent: 46 90% 70%; /* #F7DC6F */
+    --accent-foreground: 20 16% 19%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 46 71% 80%;
+    --input: 46 71% 80%;
+    --ring: 11 67% 68%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 20 16% 10%;
+    --foreground: 46 71% 85%;
+    --card: 20 16% 15%;
+    --card-foreground: 46 71% 85%;
+    --popover: 20 16% 12%;
+    --popover-foreground: 46 71% 85%;
+    --primary: 46 90% 70%; /* #F7DC6F */
+    --primary-foreground: 20 16% 10%;
+    --secondary: 46 90% 60%;
+    --secondary-foreground: 20 16% 19%;
+    --muted: 20 16% 20%;
+    --muted-foreground: 46 71% 70%;
+    --accent: 11 67% 68%;
+    --accent-foreground: 20 16% 10%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 20 16% 25%;
+    --input: 20 16% 25%;
+    --ring: 46 90% 70%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+  
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Belanosima', sans-serif;
+  }
+}
