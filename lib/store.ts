@@ -1,10 +1,7 @@
-
 import { create } from 'zustand';
-import { get, set as setItem } from 'idb-keyval';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { defaultGlobalConfig } from './constants';
 import type { Client, Advisor, Entity } from './types';
-
-type Setter<T> = (value: T | ((prev: T) => T)) => void;
 
 interface AppState {
   clients: Client[];
@@ -13,81 +10,62 @@ interface AppState {
   config: typeof defaultGlobalConfig;
   cotizadorProfiles: any[];
   
-  setClients: Setter<Client[]>;
-  setAdvisors: Setter<Advisor[]>;
-  setEntities: Setter<Entity[]>;
-  setConfig: Setter<typeof defaultGlobalConfig>;
-  setCotizadorProfiles: Setter<any[]>;
+  setClients: (value: Client[] | ((prev: Client[]) => Client[])) => void;
+  setAdvisors: (value: Advisor[] | ((prev: Advisor[]) => Advisor[])) => void;
+  setEntities: (value: Entity[] | ((prev: Entity[]) => Entity[])) => void;
+  setConfig: (value: typeof defaultGlobalConfig | ((prev: typeof defaultGlobalConfig) => typeof defaultGlobalConfig)) => void;
+  setCotizadorProfiles: (value: any[] | ((prev: any[]) => any[])) => void;
   
   isInitialized: boolean;
   initStore: () => Promise<void>;
 }
 
-export const useAppStore = create<AppState>((set, getStore) => ({
-  clients: [],
-  advisors: [{ id: '1', name: "Asesor Principal", commissionType: 'percentage', commissionValue: 10 }],
-  entities: [],
-  config: defaultGlobalConfig,
-  cotizadorProfiles: [],
-  isInitialized: false,
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      clients: [],
+      advisors: [{ id: '1', name: "Asesor Principal", commissionType: 'percentage', commissionValue: 10 }],
+      entities: [],
+      config: defaultGlobalConfig,
+      cotizadorProfiles: [],
+      isInitialized: false,
 
-  setClients: (value) => {
-    set((state) => {
-      const newValue = typeof value === 'function' ? (value as any)(state.clients) : value;
-      setItem('clients', newValue).catch(err => console.error('Failed to persist clients', err));
-      return { clients: newValue };
-    });
-  },
-  setAdvisors: (value) => {
-    set((state) => {
-        const newValue = typeof value === 'function' ? (value as any)(state.advisors) : value;
-        setItem('advisors', newValue).catch(err => console.error('Failed to persist advisors', err));
-        return { advisors: newValue };
-      });
-  },
-  setEntities: (value) => {
-    set((state) => {
-        const newValue = typeof value === 'function' ? (value as any)(state.entities) : value;
-        setItem('entities', newValue).catch(err => console.error('Failed to persist entities', err));
-        return { entities: newValue };
-      });
-  },
-  setConfig: (value) => {
-    set((state) => {
-        const newValue = typeof value === 'function' ? (value as any)(state.config) : value;
-        setItem('sys_config', newValue).catch(err => console.error('Failed to persist config', err));
-        return { config: newValue };
-      });
-  },
-  setCotizadorProfiles: (value) => {
-    set((state) => {
-        const newValue = typeof value === 'function' ? (value as any)(state.cotizadorProfiles) : value;
-        setItem('cotizadorProfiles', newValue).catch(err => console.error('Failed to persist profiles', err));
-        return { cotizadorProfiles: newValue };
-      });
-  },
+      setClients: (value) => set((state) => ({ 
+        clients: typeof value === 'function' ? value(state.clients) : value 
+      })),
+      setAdvisors: (value) => set((state) => ({ 
+        advisors: typeof value === 'function' ? value(state.advisors) : value 
+      })),
+      setEntities: (value) => set((state) => ({ 
+        entities: typeof value === 'function' ? value(state.entities) : value 
+      })),
+      setConfig: (value) => set((state) => ({ 
+        config: typeof value === 'function' ? value(state.config) : value 
+      })),
+      setCotizadorProfiles: (value) => set((state) => ({ 
+        cotizadorProfiles: typeof value === 'function' ? value(state.cotizadorProfiles) : value 
+      })),
 
-  initStore: async () => {
-    try {
-        const [clients, advisors, entities, config, cotizadorProfiles] = await Promise.all([
-            get('clients'),
-            get('advisors'),
-            get('entities'),
-            get('sys_config'),
-            get('cotizadorProfiles')
-        ]);
-        
-        set({
-            clients: clients || [],
-            advisors: advisors || [{ id: '1', name: "Asesor Principal", commissionType: 'percentage', commissionValue: 10 }],
-            entities: entities || [],
-            config: config || defaultGlobalConfig,
-            cotizadorProfiles: cotizadorProfiles || [],
-            isInitialized: true
-        });
-    } catch (error) {
-        console.error("Failed to initialize store from IndexedDB", error);
+      initStore: async () => {
+        // La inicialización es manejada automáticamente por el middleware persist.
+        // Mantenemos esta función para compatibilidad y asegurar el flag de inicialización.
         set({ isInitialized: true });
+      }
+    }),
+    {
+      name: 'cfbnd-storage', // Nombre único en localStorage
+      storage: createJSONStorage(() => localStorage),
+      // Solo persistimos los datos de negocio, no el flag de inicialización
+      partialize: (state) => ({
+        clients: state.clients,
+        advisors: state.advisors,
+        entities: state.entities,
+        config: state.config,
+        cotizadorProfiles: state.cotizadorProfiles,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) state.isInitialized = true;
+      }
     }
-  }
-}));
+  )
+);
