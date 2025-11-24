@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../lib/store';
@@ -9,6 +9,7 @@ import { EntityManagerDialog, AdvisorManagerDialog, ClientFormDialog } from '../
 import { Client, Advisor, Entity, ClientWithMultiple } from '../lib/types';
 import { serviceStatuses } from '../lib/constants';
 import { useToast } from '../hooks/use-toast';
+import { debounce } from '../lib/utils'; // Import debounce from utils
 
 const ITEMS_PER_PAGE = 10;
 
@@ -36,8 +37,9 @@ export const ClientsView = () => {
   const [isAdvisorModalOpen, setIsAdvisorModalOpen] = useState(false);
   const [isEntityModalOpen, setIsEntityModalOpen] = useState(false);
 
-  // Filters
+  // Filters State
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(''); // Separate state for effective search
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [advisorFilter, setAdvisorFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
@@ -45,9 +47,24 @@ export const ClientsView = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Debounce search input update
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setSearchTerm(value); // Update input immediately
+      // Debounce the actual filter update
+      const debouncedUpdate = debounce((val: string) => {
+          setDebouncedSearchTerm(val);
+          setCurrentPage(1);
+      }, 300);
+      debouncedUpdate(value);
+  }, []);
+
   const filteredClients = useMemo(() => {
     let result = clients.filter(c => {
-        const matchesSearch = c.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || c.documentId.includes(searchTerm);
+        // Use debounced term for filtering
+        const matchesSearch = !debouncedSearchTerm || 
+            c.fullName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
+            c.documentId.includes(debouncedSearchTerm);
         const matchesStatus = statusFilter === 'all' || c.serviceStatus === statusFilter;
         const matchesAdvisor = advisorFilter === 'all' || c.assignedAdvisor === advisorFilter;
         return matchesSearch && matchesStatus && matchesAdvisor;
@@ -61,7 +78,7 @@ export const ClientsView = () => {
     });
 
     return result;
-  }, [clients, searchTerm, statusFilter, advisorFilter, sortOrder]);
+  }, [clients, debouncedSearchTerm, statusFilter, advisorFilter, sortOrder]);
 
   const totalPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE);
   const paginatedClients = filteredClients.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -73,7 +90,6 @@ export const ClientsView = () => {
   }), [clients]);
 
   // --- Handlers ---
-
   const handleCreate = () => {
       setEditingClient(null);
       setIsClientModalOpen(true);
@@ -84,53 +100,50 @@ export const ClientsView = () => {
       setIsClientModalOpen(true);
   };
 
-  const handleDelete = (clientId: string) => {
-      if (window.confirm('¿Estás seguro de que deseas eliminar este cliente permanentemente? Esta acción no se puede deshacer.')) {
-          // Usamos filter sobre el array actual 'clients' y seteamos el nuevo array directamente
-          const updatedClients = clients.filter(x => x.id !== clientId);
-          setClients(updatedClients);
-          toast({ title: "Cliente eliminado", description: "El registro ha sido borrado exitosamente." });
-      }
-  };
-
+  // Improved Robust Logic from previous step
   const handleSaveClient = (saveData: ClientWithMultiple) => {
     try {
         if (saveData.addMultiple) { 
-            // Lógica de Importación Masiva
             const { updatedClients, updatedAdvisors } = saveData.addMultiple(clients, advisors); 
             setClients(updatedClients); 
-            setAdvisors(updatedAdvisors); 
-            toast({ title: "Importación completada", description: "Se han cargado los clientes masivamente." });
+            setAdvisors(updatedAdvisors);
+            toast({ title: "Importación completada", description: `${updatedClients.length} clientes procesados.` });
         } else { 
-            // Lógica de Guardado Individual (Crear o Actualizar)
-            const incomingClient = saveData.client;
-            
-            // Buscamos si existe usando el array actual del store
-            const existsIndex = clients.findIndex(c => c.id === incomingClient.id);
-            
-            if (existsIndex > -1) {
-                // Actualizar registro existente
-                // Creamos una copia superficial del array para inmutabilidad
-                const updatedClients = [...clients];
-                // Actualizamos el objeto específico
-                updatedClients[existsIndex] = { ...clients[existsIndex], ...incomingClient };
-                
-                // Actualizamos el store con el nuevo array completo
-                setClients(updatedClients);
-                toast({ title: "Cliente Actualizado", description: `Los datos de ${incomingClient.fullName} se han guardado.` });
-            } else {
-                // Crear nuevo registro (al principio de la lista)
-                const updatedClients = [incomingClient, ...clients];
-                setClients(updatedClients);
-                toast({ title: "Cliente Creado", description: `${incomingClient.fullName} ha sido añadido al sistema.` });
-            }
+            setClients(prev => { 
+                const existsIndex = prev.findIndex(c => c.id === saveData.client.id); 
+                if (existsIndex > -1) {
+                    const newClients = [...prev];
+                    newClients[existsIndex] = { ...prev[existsIndex], ...saveData.client };
+                    return newClients;
+                } else {
+                    return [saveData.client, ...prev]; 
+                }
+            });
+            const isEdit = clients.some(c => c.id === saveData.client.id);
+            toast({ 
+                title: isEdit ? "Datos actualizados" : "Cliente registrado", 
+                description: isEdit 
+                    ? `Se guardaron los cambios para ${saveData.client.fullName}` 
+                    : `${saveData.client.fullName} ha sido añadido exitosamente.`
+            });
         }
         setIsClientModalOpen(false); 
         setEditingClient(null);
     } catch (error) {
-        console.error("Error al guardar cliente:", error);
-        toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." });
+        console.error("Error saving client:", error);
+        toast({ variant: "destructive", title: "Error al guardar", description: "Ocurrió un problema guardando los datos." });
     }
+  };
+
+  const handleDelete = (clientId: string) => {
+      if (window.confirm('¿Estás seguro de eliminar este cliente?\n\nEsta acción es irreversible.')) {
+          const clientToDelete = clients.find(c => c.id === clientId);
+          setClients(prev => prev.filter(x => x.id !== clientId));
+          toast({ 
+              title: "Cliente eliminado", 
+              description: `Se ha eliminado a ${clientToDelete?.fullName || 'el cliente'} de la base de datos.` 
+          });
+      }
   };
 
   const handleSaveAdvisors = (newAdvisors: Advisor[]) => {
@@ -148,24 +161,13 @@ export const ClientsView = () => {
         toast({ variant: "destructive", title: "Sin datos", description: "No hay datos para exportar con los filtros actuales." });
         return;
       }
-
       const headers = ["ID", "Nombre", "Documento", "Tipo Doc", "Email", "Telefono", "Estado", "Asesor", "Fecha Ingreso", "Notas"];
       const csvContent = [
           headers.join(','),
           ...filteredClients.map(c => [
-              c.id,
-              `"${c.fullName}"`,
-              c.documentId,
-              c.documentType,
-              c.email || '',
-              c.phone || c.whatsapp || '',
-              c.serviceStatus,
-              c.assignedAdvisor || '',
-              c.entryDate,
-              `"${c.notes || ''}"`
+              c.id, `"${c.fullName}"`, c.documentId, c.documentType, c.email || '', c.phone || c.whatsapp || '', c.serviceStatus, c.assignedAdvisor || '', c.entryDate, `"${c.notes || ''}"`
           ].join(','))
       ].join('\n');
-
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -175,13 +177,10 @@ export const ClientsView = () => {
 
   const clearFilters = () => {
       setSearchTerm('');
+      setDebouncedSearchTerm('');
       setStatusFilter('all');
       setAdvisorFilter('all');
       setCurrentPage(1);
-  };
-
-  const handleGenerateDocuments = (clientId: string) => {
-      navigate('/app/documentos', { state: { clientId } });
   };
 
   return (
@@ -229,7 +228,7 @@ export const ClientsView = () => {
                         placeholder="Buscar por nombre, documento..." 
                         className="pl-9" 
                         value={searchTerm} 
-                        onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} 
+                        onChange={handleSearchChange} 
                     />
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -309,7 +308,7 @@ export const ClientsView = () => {
                                 <TableCell className="text-muted-foreground text-sm">{c.entryDate}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-1 opacity-80 group-hover:opacity-100">
-                                        <Button variant="ghost" size="icon" onClick={() => handleGenerateDocuments(c.id)} title="Generar Documentos">
+                                        <Button variant="ghost" size="icon" onClick={() => navigate('/app/documentos', { state: { clientId: c.id } })} title="Generar Documentos">
                                             <FileText className="h-4 w-4 text-blue-600"/>
                                         </Button>
                                         <Button variant="ghost" size="icon" onClick={() => handleEdit(c)} title="Editar">
@@ -335,7 +334,7 @@ export const ClientsView = () => {
                 </TableBody>
             </Table>
             
-            {/* PAGINATION CONTROLS */}
+            {/* PAGINATION */}
             {totalPages > 1 && (
                 <div className="flex items-center justify-between px-4 py-4 border-t">
                     <div className="text-sm text-muted-foreground">

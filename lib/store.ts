@@ -1,7 +1,25 @@
+
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
+import { get, set, del } from 'idb-keyval';
 import { defaultGlobalConfig } from './constants';
 import type { Client, Advisor, Entity } from './types';
+
+// Adaptador de almacenamiento asíncrono usando IndexedDB
+// Esto permite almacenar mucha más información que localStorage (5MB vs cientos de MB)
+// y no bloquea el UI durante la carga/guardado.
+const idbStorage: StateStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    const value = await get(name);
+    return value || null;
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    await set(name, value);
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await del(name);
+  },
+};
 
 interface AppState {
   clients: Client[];
@@ -22,7 +40,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       clients: [],
       advisors: [{ id: '1', name: "Asesor Principal", commissionType: 'percentage', commissionValue: 10 }],
       entities: [],
@@ -47,15 +65,14 @@ export const useAppStore = create<AppState>()(
       })),
 
       initStore: async () => {
-        // La inicialización es manejada automáticamente por el middleware persist.
-        // Mantenemos esta función para compatibilidad y asegurar el flag de inicialización.
+        // La rehidratación es automática con persist, pero aseguramos que el flag se active
+        // Se puede usar para migraciones de datos si fuera necesario en el futuro
         set({ isInitialized: true });
       }
     }),
     {
-      name: 'cfbnd-storage', // Nombre único en localStorage
-      storage: createJSONStorage(() => localStorage),
-      // Solo persistimos los datos de negocio, no el flag de inicialización
+      name: 'cfbnd-storage-db', // Nuevo nombre para evitar conflictos con la versión anterior basada en localStorage
+      storage: createJSONStorage(() => idbStorage),
       partialize: (state) => ({
         clients: state.clients,
         advisors: state.advisors,
@@ -64,7 +81,9 @@ export const useAppStore = create<AppState>()(
         cotizadorProfiles: state.cotizadorProfiles,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state) state.isInitialized = true;
+        if (state) {
+            state.isInitialized = true;
+        }
       }
     }
   )
