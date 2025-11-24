@@ -1,15 +1,15 @@
-
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../lib/store';
+import { useClientOperations } from '../hooks/useClientOperations';
 import { PageLayout } from '../components/layout/Layout';
 import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Shared';
 import { EntityManagerDialog, AdvisorManagerDialog, ClientFormDialog } from '../components/features/Dialogs';
 import { Client, Advisor, Entity, ClientWithMultiple } from '../lib/types';
 import { serviceStatuses } from '../lib/constants';
 import { useToast } from '../hooks/use-toast';
-import { debounce } from '../lib/utils'; // Import debounce from utils
+import { debounce } from '../lib/utils'; 
 
 const ITEMS_PER_PAGE = 10;
 
@@ -28,8 +28,14 @@ export const ClientsView = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Global Store
-  const { clients, setClients, advisors, setAdvisors, entities, setEntities } = useAppStore();
+  // Store Global (Solo Lectura y Setters simples de config)
+  const { 
+    clients, advisors, entities, 
+    setAdvisors, setEntities 
+  } = useAppStore();
+
+  // Hook Controlador de Operaciones (Lógica de Negocio)
+  const { saveClient, deleteClient, exportClientsToCSV } = useClientOperations();
   
   // Modals
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -39,7 +45,7 @@ export const ClientsView = () => {
 
   // Filters State
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(''); // Separate state for effective search
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [advisorFilter, setAdvisorFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
@@ -47,21 +53,23 @@ export const ClientsView = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Debounce search input update
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
-      setSearchTerm(value); // Update input immediately
-      // Debounce the actual filter update
-      const debouncedUpdate = debounce((val: string) => {
+  // Optimizacion: Debounce search correctamente implementado con useMemo
+  // Esto crea una instancia estable de la función debounced que persiste entre renders
+  const debouncedSetSearchTerm = useMemo(
+      () => debounce((val: string) => {
           setDebouncedSearchTerm(val);
           setCurrentPage(1);
-      }, 300);
-      debouncedUpdate(value);
-  }, []);
+      }, 300),
+      []
+  );
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearchTerm(e.target.value);
+      debouncedSetSearchTerm(e.target.value);
+  };
 
   const filteredClients = useMemo(() => {
     let result = clients.filter(c => {
-        // Use debounced term for filtering
         const matchesSearch = !debouncedSearchTerm || 
             c.fullName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
             c.documentId.includes(debouncedSearchTerm);
@@ -100,49 +108,19 @@ export const ClientsView = () => {
       setIsClientModalOpen(true);
   };
 
-  // Improved Robust Logic from previous step
-  const handleSaveClient = (saveData: ClientWithMultiple) => {
-    try {
-        if (saveData.addMultiple) { 
-            const { updatedClients, updatedAdvisors } = saveData.addMultiple(clients, advisors); 
-            setClients(updatedClients); 
-            setAdvisors(updatedAdvisors);
-            toast({ title: "Importación completada", description: `${updatedClients.length} clientes procesados.` });
-        } else { 
-            setClients(prev => { 
-                const existsIndex = prev.findIndex(c => c.id === saveData.client.id); 
-                if (existsIndex > -1) {
-                    const newClients = [...prev];
-                    newClients[existsIndex] = { ...prev[existsIndex], ...saveData.client };
-                    return newClients;
-                } else {
-                    return [saveData.client, ...prev]; 
-                }
-            });
-            const isEdit = clients.some(c => c.id === saveData.client.id);
-            toast({ 
-                title: isEdit ? "Datos actualizados" : "Cliente registrado", 
-                description: isEdit 
-                    ? `Se guardaron los cambios para ${saveData.client.fullName}` 
-                    : `${saveData.client.fullName} ha sido añadido exitosamente.`
-            });
-        }
+  // Delegación al Hook de Operaciones
+  const handleSaveClientWrapper = (saveData: ClientWithMultiple) => {
+    const success = saveClient(saveData);
+    if (success) {
         setIsClientModalOpen(false); 
         setEditingClient(null);
-    } catch (error) {
-        console.error("Error saving client:", error);
-        toast({ variant: "destructive", title: "Error al guardar", description: "Ocurrió un problema guardando los datos." });
     }
   };
 
-  const handleDelete = (clientId: string) => {
+  const handleDeleteWrapper = (clientId: string) => {
+      // RF-04.2: Confirmación en UI antes de llamar a la lógica destructiva
       if (window.confirm('¿Estás seguro de eliminar este cliente?\n\nEsta acción es irreversible.')) {
-          const clientToDelete = clients.find(c => c.id === clientId);
-          setClients(prev => prev.filter(x => x.id !== clientId));
-          toast({ 
-              title: "Cliente eliminado", 
-              description: `Se ha eliminado a ${clientToDelete?.fullName || 'el cliente'} de la base de datos.` 
-          });
+          deleteClient(clientId);
       }
   };
 
@@ -154,25 +132,6 @@ export const ClientsView = () => {
   const handleSaveEntities = (newEntities: Entity[]) => {
       setEntities(newEntities);
       toast({ title: "Entidades actualizadas", description: "La lista de entidades ha sido guardada." });
-  };
-
-  const handleExportCSV = () => {
-      if (filteredClients.length === 0) {
-        toast({ variant: "destructive", title: "Sin datos", description: "No hay datos para exportar con los filtros actuales." });
-        return;
-      }
-      const headers = ["ID", "Nombre", "Documento", "Tipo Doc", "Email", "Telefono", "Estado", "Asesor", "Fecha Ingreso", "Notas"];
-      const csvContent = [
-          headers.join(','),
-          ...filteredClients.map(c => [
-              c.id, `"${c.fullName}"`, c.documentId, c.documentType, c.email || '', c.phone || c.whatsapp || '', c.serviceStatus, c.assignedAdvisor || '', c.entryDate, `"${c.notes || ''}"`
-          ].join(','))
-      ].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `clientes_cfbnd_${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
   };
 
   const clearFilters = () => {
@@ -192,7 +151,7 @@ export const ClientsView = () => {
             <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setIsAdvisorModalOpen(true)}><UserCog className="mr-2 h-4 w-4"/> Asesores</Button>
                 <Button variant="outline" onClick={() => setIsEntityModalOpen(true)}><Building className="mr-2 h-4 w-4"/> Entidades</Button>
-                <Button variant="outline" onClick={handleExportCSV} title="Descargar lista actual en CSV"><Download className="mr-2 h-4 w-4"/> Exportar CSV</Button>
+                <Button variant="outline" onClick={() => exportClientsToCSV(filteredClients)} title="Descargar lista actual en CSV"><Download className="mr-2 h-4 w-4"/> Exportar CSV</Button>
                 <Button onClick={handleCreate}><PlusCircle className="mr-2 h-4 w-4"/> Nuevo Cliente</Button>
             </div>
         }
@@ -314,7 +273,7 @@ export const ClientsView = () => {
                                         <Button variant="ghost" size="icon" onClick={() => handleEdit(c)} title="Editar">
                                             <Edit className="h-4 w-4 text-amber-600"/>
                                         </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)} title="Eliminar">
+                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteWrapper(c.id)} title="Eliminar">
                                             <Trash2 className="h-4 w-4 text-red-600"/>
                                         </Button>
                                     </div>
@@ -353,7 +312,7 @@ export const ClientsView = () => {
             )}
         </Card>
 
-        <ClientFormDialog isOpen={isClientModalOpen} onOpenChange={setIsClientModalOpen} onSave={handleSaveClient} client={editingClient} advisors={advisors} />
+        <ClientFormDialog isOpen={isClientModalOpen} onOpenChange={setIsClientModalOpen} onSave={handleSaveClientWrapper} client={editingClient} advisors={advisors} />
         <AdvisorManagerDialog isOpen={isAdvisorModalOpen} onOpenChange={setIsAdvisorModalOpen} advisors={advisors} onSave={handleSaveAdvisors} />
         <EntityManagerDialog isOpen={isEntityModalOpen} onOpenChange={setIsEntityModalOpen} onSave={handleSaveEntities} allEntities={entities} />
     </PageLayout>

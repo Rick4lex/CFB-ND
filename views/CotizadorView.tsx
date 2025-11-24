@@ -5,18 +5,16 @@ import {
     Button, Card, CardHeader, CardTitle, CardContent, CardDescription, 
     Input, Label, Switch, Tabs, TabsList, TabsTrigger, 
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
-    Checkbox, RadioGroup, RadioGroupItem, Separator
+    Checkbox, Separator
 } from '../components/ui/Shared';
 import { 
-    User, Building, AlertTriangle, CheckCircle, Wallet, Handshake, Share2, Download, 
-    Loader2, Settings, Briefcase, FileText, Eye, PlusCircle, Trash2, Bookmark, Save, 
-    SquareArrowUp, RefreshCw 
+    Wallet, Handshake, Briefcase, FileText, Eye, PlusCircle, Trash2, Bookmark, Settings, Download, Loader2 
 } from 'lucide-react';
 import { CotizacionSummaryImage, type CotizacionData } from '../components/features/CotizacionSummaryImage';
 import { useToast } from '../hooks/use-toast';
 import { PageLayout } from '../components/layout/Layout';
 import { useAppStore } from '../lib/store';
-import { formatCurrency, parseCurrency, calculateSocialSecurity } from '../lib/utils'; // Imported Logic
+import { formatCurrency, parseCurrency, calculateSocialSecurity } from '../lib/utils';
 
 const initialProcedureCosts = {
     pensionAffiliation: 15000,
@@ -47,7 +45,7 @@ interface AdditionalProcedureItem {
 export function CotizadorView() {
   const imageRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { config, setConfig, cotizadorProfiles, setCotizadorProfiles } = useAppStore();
+  const { config, setConfig } = useAppStore();
   const SMLV = config.financials.smlv;
 
   // UI State
@@ -56,9 +54,8 @@ export function CotizadorView() {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
-  const [newProfileName, setNewProfileName] = useState('');
 
-  // Form State (Grouped if possible, but kept flat for easier binding in this refactor)
+  // Form State
   const [modality, setModality] = useState('independent');
   const [autoCalculateIbc, setAutoCalculateIbc] = useState(true);
   const [monthlyIncome, setMonthlyIncome] = useState(SMLV / 0.4);
@@ -86,7 +83,7 @@ export function CotizadorView() {
   const [additionalProcedureItems, setAdditionalProcedureItems] = useState<AdditionalProcedureItem[]>([]);
   const [newAdditionalItem, setNewAdditionalItem] = useState({ description: '', value: '' });
 
-  // Config
+  // Config Local
   const [procedureCosts, setProcedureCosts] = useState(initialProcedureCosts);
   const [tempCosts, setTempCosts] = useState(initialProcedureCosts);
   const [tempFinancials, setTempFinancials] = useState(config.financials);
@@ -97,15 +94,12 @@ export function CotizadorView() {
   };
 
   // --- Effects ---
-
-  // Auto-calc IBC
   useEffect(() => {
     if (autoCalculateIbc && modality === 'independent') {
       setIbc(Math.max(monthlyIncome * 0.4, SMLV));
     }
   }, [monthlyIncome, autoCalculateIbc, modality, SMLV]);
 
-  // Modality switch reset
   useEffect(() => {
     if (modality === 'dependent') {
       setAutoCalculateIbc(false);
@@ -115,13 +109,12 @@ export function CotizadorView() {
     setCcfRate(0);
   }, [modality]);
 
-  // Main Calculation (Memoized via util)
+  // Main Calculation (Optimized using utils)
   const cotizacionData = useMemo(() => {
       const socialSecResult = calculateSocialSecurity({
           ibc, days, modality, includePension, includeHealth, includeArl, arlRisk, ccfRate, contributionRates
       });
 
-      // Calculate Procedures
       let totalProcedureCost = 0;
       const newProcedureItems: { label: string; value: string }[] = [];
       
@@ -132,6 +125,7 @@ export function CotizadorView() {
           }
       }
 
+      // Add procedure costs based on state
       addCost(charges.pensionAffiliation, procedureCosts.pensionAffiliation, 'Afiliación Pensión');
       addCost(charges.pensionPortal, procedureCosts.pensionPortalCreation, 'Portal Pensión');
       addCost(charges.healthAffiliation, procedureCosts.healthAffiliation, 'Afiliación Salud');
@@ -168,7 +162,6 @@ export function CotizadorView() {
     setIsGenerating(true);
     setIsPreviewModalOpen(true);
     try {
-        // Delay to allow render
         await new Promise(r => setTimeout(r, 100)); 
         const dataUrl = await htmlToImage.toPng(imageRef.current, { quality: 1, pixelRatio: 2, backgroundColor: '#ffffff' });
         setGeneratedImage(dataUrl);
@@ -194,7 +187,6 @@ export function CotizadorView() {
     }
   };
 
-  // --- Render ---
   return (
     <PageLayout title="Cotizador Inteligente" subtitle="Calcula aportes a seguridad social." onBackRoute="/app/dashboard">
         <div className="w-full max-w-7xl mx-auto">

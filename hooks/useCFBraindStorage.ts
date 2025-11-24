@@ -1,11 +1,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// Hook optimizado con estrategia de dos niveles: Memoria (RAM) + Persistencia (LocalStorage)
-// Maneja errores de cuota y sincronización entre pestañas.
+// Hook optimizado con estrategia de dos niveles: Memoria (RAM) + Persistencia (LocalStorage/Async)
+// Garantiza actualizaciones de UI inmediatas (optimistic UI) mientras persiste en segundo plano.
 export function useCFBraindStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  // Nivel 1: Estado en memoria (React State)
-  // Inicialización perezosa para evitar lecturas bloqueantes en cada render
+  
+  // Nivel 1: Estado en memoria (React State) - Lectura inicial síncrona segura
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === "undefined") return initialValue;
     try {
@@ -17,10 +17,10 @@ export function useCFBraindStorage<T>(key: string, initialValue: T): [T, (value:
     }
   });
 
-  // Referencia para evitar dependencias circulares en efectos
+  // Referencia mutable para acceso inmediato en callbacks sin dependencias
   const rawValueRef = useRef<T>(storedValue);
 
-  // Escuchar cambios en otras pestañas
+  // Sincronización entre pestañas (Storage Event)
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === key && e.newValue) {
@@ -43,22 +43,30 @@ export function useCFBraindStorage<T>(key: string, initialValue: T): [T, (value:
       // Permitir que el valor sea una función (estilo useState)
       const valueToStore = value instanceof Function ? value(rawValueRef.current) : value;
       
-      // 1. Actualizar Nivel 1 (Memoria)
+      // 1. Actualizar Nivel 1 (Memoria UI) - Inmediato
       setStoredValue(valueToStore);
       rawValueRef.current = valueToStore;
 
-      // 2. Actualizar Nivel 2 (Persistencia)
+      // 2. Actualizar Nivel 2 (Persistencia) - Asíncrono/No bloqueante conceptualmente
       if (typeof window !== "undefined") {
-        try {
-            window.localStorage.setItem(key, JSON.stringify(valueToStore));
-        } catch (storageError: any) {
-            // Manejo de cuota excedida
-            if (storageError.name === 'QuotaExceededError' || storageError.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                console.error("LocalStorage lleno. Los datos no se persistirán, pero funcionarán en memoria durante esta sesión.");
-                // Opcional: Podríamos intentar limpiar datos antiguos aquí o notificar al usuario
-            } else {
-                console.error("Error guardando en localStorage:", storageError);
+        // Usamos requestIdleCallback si está disponible para no bloquear interacciones críticas
+        const saveToStorage = () => {
+             try {
+                window.localStorage.setItem(key, JSON.stringify(valueToStore));
+                // Disparar evento para otras pestañas manualmente si es necesario (local storage lo hace auto entre pestañas, no misma pestaña)
+            } catch (storageError: any) {
+                if (storageError.name === 'QuotaExceededError' || storageError.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    console.error("LocalStorage lleno. Datos solo en memoria.");
+                } else {
+                    console.error("Error guardando en localStorage:", storageError);
+                }
             }
+        };
+
+        if ('requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(saveToStorage);
+        } else {
+            setTimeout(saveToStorage, 0);
         }
       }
     } catch (error) {
