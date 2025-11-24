@@ -86,37 +86,65 @@ export const ClientsView = () => {
 
   const handleDelete = (clientId: string) => {
       if (window.confirm('¿Estás seguro de que deseas eliminar este cliente permanentemente? Esta acción no se puede deshacer.')) {
-          setClients(prev => prev.filter(x => x.id !== clientId));
+          setClients(prev => {
+              const newClients = prev.filter(x => x.id !== clientId);
+              return newClients;
+          });
           toast({ title: "Cliente eliminado", description: "El registro ha sido borrado exitosamente." });
       }
   };
 
   const handleSaveClient = (saveData: ClientWithMultiple) => {
-    if (saveData.addMultiple) { 
-        // Bulk Import Logic
-        const { updatedClients, updatedAdvisors } = saveData.addMultiple(clients, advisors); 
-        setClients(updatedClients); 
-        setAdvisors(updatedAdvisors); 
-    } else { 
-        // Single Save Logic (Create or Update)
-        setClients(prev => { 
-            const existsIndex = prev.findIndex(c => c.id === saveData.client.id); 
-            if (existsIndex > -1) {
-                // Update: Maintain order
-                const newClients = [...prev];
-                newClients[existsIndex] = saveData.client;
-                return newClients;
-            } else {
-                // Create: Add to top
-                return [saveData.client, ...prev]; 
-            }
-        }); 
+    try {
+        if (saveData.addMultiple) { 
+            // Lógica de Importación Masiva
+            // Usamos los datos actuales del store pasados como argumentos para asegurar integridad
+            const { updatedClients, updatedAdvisors } = saveData.addMultiple(clients, advisors); 
+            setClients(updatedClients); 
+            setAdvisors(updatedAdvisors); 
+            toast({ title: "Importación completada", description: "Se han cargado los clientes masivamente." });
+        } else { 
+            // Lógica de Guardado Individual (Crear o Actualizar)
+            setClients(prev => { 
+                const existsIndex = prev.findIndex(c => c.id === saveData.client.id); 
+                
+                if (existsIndex > -1) {
+                    // Actualizar registro existente
+                    const newClients = [...prev];
+                    newClients[existsIndex] = { ...prev[existsIndex], ...saveData.client };
+                    toast({ title: "Cliente Actualizado", description: `Los datos de ${saveData.client.fullName} se han guardado.` });
+                    return newClients;
+                } else {
+                    // Crear nuevo registro (al principio de la lista)
+                    toast({ title: "Cliente Creado", description: `${saveData.client.fullName} ha sido añadido al sistema.` });
+                    return [saveData.client, ...prev]; 
+                }
+            }); 
+        }
+        setIsClientModalOpen(false); 
+        setEditingClient(null);
+    } catch (error) {
+        console.error("Error al guardar cliente:", error);
+        toast({ variant: "destructive", title: "Error", description: "No se pudieron guardar los cambios." });
     }
-    setIsClientModalOpen(false); 
-    setEditingClient(null);
+  };
+
+  const handleSaveAdvisors = (newAdvisors: Advisor[]) => {
+      setAdvisors(newAdvisors);
+      toast({ title: "Asesores actualizados", description: "La lista de asesores ha sido guardada." });
+  };
+
+  const handleSaveEntities = (newEntities: Entity[]) => {
+      setEntities(newEntities);
+      toast({ title: "Entidades actualizadas", description: "La lista de entidades ha sido guardada." });
   };
 
   const handleExportCSV = () => {
+      if (filteredClients.length === 0) {
+        toast({ variant: "destructive", title: "Sin datos", description: "No hay datos para exportar con los filtros actuales." });
+        return;
+      }
+
       const headers = ["ID", "Nombre", "Documento", "Tipo Doc", "Email", "Telefono", "Estado", "Asesor", "Fecha Ingreso", "Notas"];
       const csvContent = [
           headers.join(','),
@@ -323,8 +351,8 @@ export const ClientsView = () => {
         </Card>
 
         <ClientFormDialog isOpen={isClientModalOpen} onOpenChange={setIsClientModalOpen} onSave={handleSaveClient} client={editingClient} advisors={advisors} />
-        <AdvisorManagerDialog isOpen={isAdvisorModalOpen} onOpenChange={setIsAdvisorModalOpen} advisors={advisors} onSave={setAdvisors} />
-        <EntityManagerDialog isOpen={isEntityModalOpen} onOpenChange={setIsEntityModalOpen} onSave={setEntities} allEntities={entities} />
+        <AdvisorManagerDialog isOpen={isAdvisorModalOpen} onOpenChange={setIsAdvisorModalOpen} advisors={advisors} onSave={handleSaveAdvisors} />
+        <EntityManagerDialog isOpen={isEntityModalOpen} onOpenChange={setIsEntityModalOpen} onSave={handleSaveEntities} allEntities={entities} />
     </PageLayout>
   );
 };

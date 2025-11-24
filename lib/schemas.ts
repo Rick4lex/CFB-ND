@@ -54,7 +54,7 @@ export const entityLinkSchema = z.object({
 
 export const entityContactSchema = z.object({
     id: z.string(),
-    type: z.enum(['phone', 'whatsapp', 'email', 'location'], { required_error: "Tipo requerido." }),
+    type: z.enum(['phone', 'whatsapp', 'email', 'location']),
     department: z.string().min(1, "Departamento requerido."),
     label: z.string().min(1, "Etiqueta requerida."),
     value: z.string().min(1, "Valor requerido."),
@@ -63,7 +63,7 @@ export const entityContactSchema = z.object({
 export const entitySchema = z.object({
     id: z.string(),
     name: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
-    type: z.string({ required_error: "Debe seleccionar un tipo de entidad." }),
+    type: z.string(),
     links: z.array(entityLinkSchema).optional().default([]),
     contacts: z.array(entityContactSchema).optional().default([]),
 });
@@ -77,7 +77,7 @@ export const advisorSchema = z.object({
     name: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
     phone: z.string().optional(),
     email: z.string().email("Email inválido").optional().or(z.literal('')),
-    commissionType: z.enum(['percentage', 'fixed'], { required_error: "Debe seleccionar un tipo de comisión." }),
+    commissionType: z.enum(['percentage', 'fixed']),
     commissionValue: z.coerce.number().min(0, "El valor debe ser positivo."),
     paymentDetails: z.string().optional(),
 });

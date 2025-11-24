@@ -40,7 +40,7 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const form = useForm<{ advisors: Advisor[] }>({
-    resolver: zodResolver(advisorManagerSchema),
+    resolver: zodResolver(advisorManagerSchema) as any,
     defaultValues: { advisors: [] },
   });
   
@@ -209,7 +209,7 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
   const form = useForm<{ entities: Entity[] }>({
-    resolver: zodResolver(entityManagerStateSchema),
+    resolver: zodResolver(entityManagerStateSchema) as any,
     defaultValues: { entities: [] },
   });
 
