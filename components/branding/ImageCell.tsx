@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Edit2, AlertTriangle, Loader2 } from 'lucide-react';
 import { BrandingElement } from '../../lib/db';

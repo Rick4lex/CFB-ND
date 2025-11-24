@@ -1,4 +1,3 @@
-
 import { BrandingElement } from './db';
 
 export const LAYOUTS = [

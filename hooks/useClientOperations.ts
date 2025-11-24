@@ -45,7 +45,7 @@ export const useClientOperations = () => {
         const validationResult = clientSchema.safeParse(clientData);
         
         if (!validationResult.success) {
-            const errorMessage = validationResult.error.errors[0]?.message || "Datos inválidos";
+            const errorMessage = validationResult.error.issues[0]?.message || "Datos inválidos";
             toast({ 
                 variant: "destructive", 
                 title: "Error de validación", 

@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -9,16 +8,6 @@ import {
     Button, Input, Form, FormField, FormItem, FormLabel, FormControl, FormMessage,
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '../ui/Shared';
-
-const imageSchema = z.object({
-    url: z.string().url("Debe ser una URL válida"),
-});
-
-const colorSchema = z.object({
-    color1: z.string().regex(/^#([0-9A-F]{3}){1,2}$/i, "Hexadecimal inválido (ej: #FF0000)"),
-    color2: z.string().regex(/^#([0-9A-F]{3}){1,2}$/i, "Hexadecimal inválido").optional().or(z.literal('')),
-    style: z.enum(['solid', 'diagonal', 'central-circle']).default('solid'),
-});
 
 interface EditModalProps {
     isOpen: boolean;

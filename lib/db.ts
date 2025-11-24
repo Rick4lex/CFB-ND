@@ -17,7 +17,6 @@ export class BrandingDB extends Dexie {
 
   constructor() {
     super('CFBraindDB');
-    // Fix: Explicitly cast 'this' to allow access to Dexie's version method if TS doesn't detect it on subclass
     (this as any).version(1).stores({
       elements: 'id' // Primary key
     });

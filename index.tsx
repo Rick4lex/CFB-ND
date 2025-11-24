@@ -1,9 +1,9 @@
 import './index.css';
 import React, { Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { HashRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
-import { AppHeader, ThemeToggleButton, PageLayout } from './components/layout/Layout';
+import { AppHeader, ThemeToggleButton } from './components/layout/Layout';
 import { TokenView } from './views/TokenView';
 import { Loader2 } from 'lucide-react';
 import { useAppStore } from './lib/store';
@@ -13,6 +13,7 @@ const ServicesView = React.lazy(() => import('./views/ServicesView').then(module
 const ClientsView = React.lazy(() => import('./views/ClientsView').then(module => ({ default: module.ClientsView })));
 const DocumentsView = React.lazy(() => import('./views/DocumentsView').then(module => ({ default: module.DocumentsView })));
 const CotizadorView = React.lazy(() => import('./views/CotizadorView').then(module => ({ default: module.CotizadorView })));
+const ThemeView = React.lazy(() => import('./views/ThemeView').then(module => ({ default: module.ThemeView })));
 
 // --- Components ---
 const LoadingScreen = () => (
@@ -21,7 +22,7 @@ const LoadingScreen = () => (
   </div>
 );
 
-const ProtectedLayout = () => {
+const ProtectedLayout = ({ children }: { children?: React.ReactNode }) => {
   const isAuthenticated = !!localStorage.getItem('cfbnd_token');
 
   if (!isAuthenticated) {
@@ -33,19 +34,13 @@ const ProtectedLayout = () => {
         <AppHeader />
         <main className="flex-grow container mx-auto px-4 py-8 flex flex-col">
             <Suspense fallback={<LoadingScreen />}>
-                <Outlet />
+                {children}
             </Suspense>
         </main>
         <ThemeToggleButton />
     </div>
   );
 };
-
-const ThemeView = () => (
-    <PageLayout title="Branding Kit" onBackRoute="/app/dashboard">
-        <div className="p-10 text-center">Vista de prueba de tema y colores.</div>
-    </PageLayout>
-);
 
 const App = () => {
   const initStore = useAppStore(state => state.initStore);
@@ -67,15 +62,19 @@ const App = () => {
                 <Route path="/" element={<TokenView />} />
 
                 {/* Protected Routes */}
-                <Route path="/app" element={<ProtectedLayout />}>
-                    <Route path="dashboard" element={<ServicesView />} />
-                    <Route path="clientes" element={<ClientsView />} />
-                    <Route path="documentos" element={<DocumentsView />} />
-                    <Route path="cotizador" element={<CotizadorView />} />
-                    <Route path="theme" element={<ThemeView />} />
-                    {/* Default Redirect within app */}
-                    <Route index element={<Navigate to="dashboard" replace />} />
-                </Route>
+                <Route path="/app/*" element={
+                    <ProtectedLayout>
+                        <Routes>
+                            <Route path="dashboard" element={<ServicesView />} />
+                            <Route path="clientes" element={<ClientsView />} />
+                            <Route path="documentos" element={<DocumentsView />} />
+                            <Route path="cotizador" element={<CotizadorView />} />
+                            <Route path="theme" element={<ThemeView />} />
+                            {/* Default Redirect within app */}
+                            <Route path="*" element={<Navigate to="dashboard" replace />} />
+                        </Routes>
+                    </ProtectedLayout>
+                } />
 
                 {/* Catch all */}
                 <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { useLocation } from 'react-router-dom';
@@ -45,8 +44,9 @@ export const DocumentsView = () => {
 
   useEffect(() => {
       // Check for client ID passed via navigation state
-      if (location.state && location.state.clientId) {
-          setSelectedInvoiceClient(location.state.clientId);
+      const state = location.state as { clientId?: string } | null;
+      if (state && state.clientId) {
+          setSelectedInvoiceClient(state.clientId);
       }
   }, [location.state]);
   

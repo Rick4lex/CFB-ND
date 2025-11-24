@@ -68,7 +68,7 @@ export const ThemeView = () => {
   // Mapping function for rendering
   const renderCell = (areaName: string) => {
     const element = elements?.find(e => e.id === areaName);
-    if (!element) return <div style={{ gridArea: areaName }} className="rounded-xl border border-dashed bg-muted/20"></div>;
+    if (!element) return <div key={areaName} style={{ gridArea: areaName }} className="rounded-xl border border-dashed bg-muted/20"></div>;
 
     if (element.type === 'image') {
       return (
