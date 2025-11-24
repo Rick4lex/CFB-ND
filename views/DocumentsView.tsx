@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { useLocation } from 'react-router-dom';
@@ -44,13 +43,11 @@ export const DocumentsView = () => {
   const imageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-      // Check for client ID passed via navigation state
       if (location.state && location.state.clientId) {
           setSelectedInvoiceClient(location.state.clientId);
       }
   }, [location.state]);
   
-  // Reset additional items when client changes
   useEffect(() => {
     setAdditionalInvoiceItems([]);
   }, [selectedInvoiceClient]);
@@ -79,14 +76,10 @@ export const DocumentsView = () => {
   }, [clients, reportAdvisor, reportMonth, reportYear]);
 
   const totalCommission = useMemo(() => {
-    // Logic upgraded to prioritize the snapshot saved in the client record
     return commissionReportData.reduce((total, client) => {
-      // 1. Try to use the frozen snapshot first
       if (client.advisorCommissionAmount !== undefined && client.advisorCommissionAmount !== null) {
           return total + client.advisorCommissionAmount;
       }
-
-      // 2. Fallback: Calculate dynamically for legacy clients (before the update)
       const advisorDetails = advisors.find(a => a.name === reportAdvisor);
       if (!advisorDetails) return total;
 
@@ -105,7 +98,6 @@ export const DocumentsView = () => {
         const commission = affiliationServiceCount * advisorDetails.commissionValue;
         return total + commission;
       }
-      
       return total;
     }, 0);
   }, [commissionReportData, advisors, reportAdvisor]);
@@ -153,7 +145,6 @@ export const DocumentsView = () => {
            handleDownload();
         }
       } catch (e) {
-          console.error("Share failed", e);
           handleDownload();
       }
   };
@@ -182,7 +173,7 @@ export const DocumentsView = () => {
     >
         <div className="absolute -left-[9999px] top-0">
             {clientForInvoice && (
-                <div ref={imageRef} style={{ width: '816px' /* US Letter width in pixels at 96 DPI */ }}>
+                <div ref={imageRef} style={{ width: '816px' }}>
                     <InvoicePreview
                         client={clientForInvoice}
                         additionalItems={additionalInvoiceItems}
@@ -192,107 +183,120 @@ export const DocumentsView = () => {
             )}
         </div>
       
-        <section className="max-w-5xl mx-auto">
-            <Accordion className="w-full space-y-4">
+        <section className="max-w-6xl mx-auto px-1 md:px-0">
+            <Accordion className="w-full space-y-4" defaultValue="invoice-generator">
             <AccordionItem value="invoice-generator">
-                <AccordionTrigger className="bg-card p-4 rounded-lg border hover:bg-accent/50 transition-colors">
-                <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <span className="font-semibold text-lg">Cuenta de Cobro por Cliente</span>
+                <AccordionTrigger className="bg-card p-6 rounded-xl border shadow-sm hover:shadow-md transition-all group">
+                <div className="flex items-center gap-4">
+                    <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors"><FileText className="h-6 w-6 text-primary" /></div>
+                    <div className="text-left">
+                        <span className="font-bold text-lg block">Cuenta de Cobro por Cliente</span>
+                        <span className="text-xs text-muted-foreground font-normal">Genera PDFs o imágenes para enviar por WhatsApp</span>
+                    </div>
                 </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                <div className="p-6 bg-card rounded-lg border space-y-6 mt-2">
-                    <div className='flex flex-col md:flex-row gap-4 items-end'>
-                        <div className='flex-grow w-full'>
-                            <label className="text-sm font-medium mb-1 block">Seleccionar Cliente</label>
-                            <Select value={selectedInvoiceClient} onValueChange={setSelectedInvoiceClient}>
-                                <SelectTrigger><SelectValue placeholder="Busca un cliente..." /></SelectTrigger>
-                                <SelectContent>
-                                    {clients.map(client => (
-                                    <SelectItem key={client.id} value={client.id}>{client.fullName}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                <div className="p-4 md:p-8 bg-card rounded-xl border mt-2 shadow-sm animate-in slide-in-from-top-4">
+                    <div className="max-w-3xl mx-auto space-y-8">
+                        <div className='flex flex-col md:flex-row gap-4 items-end bg-muted/30 p-4 rounded-xl border'>
+                            <div className='flex-grow w-full'>
+                                <label className="text-sm font-bold text-muted-foreground mb-1.5 block uppercase tracking-wide text-xs">Seleccionar Cliente</label>
+                                <Select value={selectedInvoiceClient} onValueChange={setSelectedInvoiceClient}>
+                                    <SelectTrigger className="h-12 text-base"><SelectValue placeholder="Busca un cliente..." /></SelectTrigger>
+                                    <SelectContent>
+                                        {clients.map(client => (
+                                        <SelectItem key={client.id} value={client.id}>{client.fullName}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button className="w-full md:w-auto h-12 px-6 shadow-lg" onClick={handleOpenInvoicePreview} disabled={!clientForInvoice || isGenerating}>
+                                {isGenerating ? <><Loader2 className="mr-2 h-5 w-5 animate-spin"/>Generando...</> : <><Eye className="mr-2 h-5 w-5"/>Previsualizar</>}
+                            </Button>
                         </div>
-                        <Button className="w-full md:w-auto" onClick={handleOpenInvoicePreview} disabled={!clientForInvoice || isGenerating}>
-                            {isGenerating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Generando...</> : <><Eye className="mr-2 h-4 w-4"/>Previsualizar Cuenta</>}
-                        </Button>
-                    </div>
 
-                    {clientForInvoice && (
-                    <>
-                       <div className="rounded-lg border overflow-hidden bg-muted/5">
-                          <div className="scale-[0.8] origin-top transform -mb-[20%]">
-                             <InvoicePreview
-                                client={clientForInvoice}
-                                additionalItems={additionalInvoiceItems}
-                                totalAmount={totalInvoiceAmount}
-                             />
-                          </div>
-                       </div>
-                       
-                        <Card>
-                            <CardHeader><CardTitle className="text-base">Ítems Adicionales</CardTitle></CardHeader>
-                            <CardContent>
-                                    <div className="flex gap-2 mb-4">
-                                    <Input placeholder="Descripción ítem adicional" value={newAdditionalItem.description} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, description: e.target.value}))}/>
-                                    <Input type="number" placeholder="Valor" value={newAdditionalItem.value} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, value: e.target.value}))}/>
-                                    <Button onClick={handleAddAdditionalItem} variant="secondary">Añadir</Button>
-                                </div>
-                                {additionalInvoiceItems.length > 0 && (
-                                    <div className="border rounded-md overflow-hidden">
-                                        <table className="w-full text-sm text-left">
-                                            <thead className="bg-muted text-muted-foreground">
-                                                <tr><th className="p-2">Descripción</th><th className="p-2 text-right">Valor</th></tr>
-                                            </thead>
-                                            <tbody>
-                                                {additionalInvoiceItems.map(item => (
-                                                    <tr key={item.id} className="border-t">
-                                                        <td className="p-2">{item.description}</td>
-                                                        <td className="p-2 text-right">{item.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                        {clientForInvoice && (
+                        <>
+                           <div className="rounded-xl border-4 border-muted overflow-hidden bg-gray-50 shadow-inner">
+                              <div className="scale-[0.6] md:scale-[0.75] origin-top transform -mb-[40%] md:-mb-[25%] opacity-90 hover:opacity-100 transition-opacity">
+                                 <InvoicePreview
+                                    client={clientForInvoice}
+                                    additionalItems={additionalInvoiceItems}
+                                    totalAmount={totalInvoiceAmount}
+                                 />
+                              </div>
+                           </div>
+                           
+                            <Card className="border-dashed border-2 bg-muted/10">
+                                <CardHeader className="pb-2"><CardTitle className="text-sm uppercase tracking-wide text-muted-foreground">Ítems Adicionales (Opcional)</CardTitle></CardHeader>
+                                <CardContent>
+                                        <div className="flex gap-2 mb-4">
+                                        <Input placeholder="Descripción ítem adicional" value={newAdditionalItem.description} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, description: e.target.value}))}/>
+                                        <Input type="number" className="w-32" placeholder="Valor" value={newAdditionalItem.value} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, value: e.target.value}))}/>
+                                        <Button onClick={handleAddAdditionalItem} variant="secondary">Añadir</Button>
                                     </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                       
-                    </>
-                    )}
+                                    {additionalInvoiceItems.length > 0 && (
+                                        <div className="border rounded-lg overflow-hidden">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="bg-muted text-muted-foreground font-medium">
+                                                    <tr><th className="p-3 font-normal">Descripción</th><th className="p-3 text-right font-normal">Valor</th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    {additionalInvoiceItems.map(item => (
+                                                        <tr key={item.id} className="border-t bg-card">
+                                                            <td className="p-3">{item.description}</td>
+                                                            <td className="p-3 text-right font-mono">{item.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </>
+                        )}
+                    </div>
                 </div>
                 </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="commission-generator">
-                <AccordionTrigger className="bg-card p-4 rounded-lg border hover:bg-accent/50 transition-colors">
-                <div className="flex items-center gap-3">
-                    <DollarSign className="h-5 w-5 text-primary" />
-                    <span className="font-semibold text-lg">Reporte de Comisiones por Asesor</span>
+                <AccordionTrigger className="bg-card p-6 rounded-xl border shadow-sm hover:shadow-md transition-all group">
+                <div className="flex items-center gap-4">
+                    <div className="p-2 bg-green-500/10 rounded-lg group-hover:bg-green-500/20 transition-colors"><DollarSign className="h-6 w-6 text-green-600" /></div>
+                    <div className="text-left">
+                        <span className="font-bold text-lg block">Reporte de Comisiones</span>
+                        <span className="text-xs text-muted-foreground font-normal">Calcula pagos mensuales para tus asesores</span>
+                    </div>
                 </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                    <div className="p-6 bg-card rounded-lg border space-y-6 mt-2">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="p-4 md:p-8 bg-card rounded-xl border mt-2 shadow-sm animate-in slide-in-from-top-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                             <Select onValueChange={setReportAdvisor}><SelectTrigger><SelectValue placeholder="Selecciona un asesor..." /></SelectTrigger><SelectContent>{advisors.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}</SelectContent></Select>
                             <Select onValueChange={(v: any) => setReportMonth(Number(v))} defaultValue={String(reportMonth)}><SelectTrigger><SelectValue placeholder="Mes..." /></SelectTrigger><SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={String(i)}>{new Date(0, i).toLocaleString('es-CO', { month: 'long' })}</SelectItem>)}</SelectContent></Select>
                             <Input type="number" value={reportYear} onChange={(e: any) => setReportYear(Number(e.target.value))} placeholder="Año"/>
                             <Select onValueChange={setReportStatus} defaultValue={reportStatus}><SelectTrigger><SelectValue placeholder="Estado..." /></SelectTrigger><SelectContent><SelectItem value="Liquidado">Liquidado</SelectItem><SelectItem value="Pendiente">Pendiente</SelectItem></SelectContent></Select>
                         </div>
-                        <Button className="w-full" onClick={handleGenerateCommissionReport}><Printer className="mr-2 h-4 w-4"/>Imprimir Reporte</Button>
+                        <Button className="w-full h-12 text-lg shadow-sm" variant="outline" onClick={handleGenerateCommissionReport}><Printer className="mr-2 h-5 w-5"/>Imprimir Reporte</Button>
 
                         {commissionReportData.length > 0 && (
-                            <div id="printable-commission">
-                                <Card>
-                                    <CardHeader>
+                            <div id="printable-commission" className="mt-8">
+                                <Card className="border-2">
+                                    <CardHeader className="bg-muted/30 border-b">
                                         <CardTitle>Reporte de Comisión</CardTitle>
-                                        <CardDescription>Asesor: {reportAdvisor} | Periodo: {new Date(reportYear, reportMonth).toLocaleString('es-CO', { month: 'long', year: 'numeric' })} | Estado: {reportStatus}</CardDescription>
+                                        <CardDescription className="flex gap-4 mt-2">
+                                            <span className="font-bold text-foreground">Asesor: {reportAdvisor}</span>
+                                            <span>|</span>
+                                            <span>Periodo: {new Date(reportYear, reportMonth).toLocaleString('es-CO', { month: 'long', year: 'numeric' })}</span>
+                                            <span>|</span>
+                                            <span className="bg-green-100 text-green-800 px-2 rounded-full text-xs py-0.5">{reportStatus}</span>
+                                        </CardDescription>
                                     </CardHeader>
-                                    <CardContent>
+                                    <CardContent className="p-0">
                                         <table className="w-full text-sm">
-                                            <thead><tr className="border-b text-left"><th className="pb-2">Cliente</th><th className="pb-2">Costo Trámite</th><th className="pb-2">Detalle Comisión</th><th className="pb-2 text-right">Valor Comisión</th></tr></thead>
+                                            <thead className="bg-muted/50"><tr className="text-left border-b"><th className="p-4 font-semibold text-muted-foreground">Cliente</th><th className="p-4 font-semibold text-muted-foreground">Costo Trámite</th><th className="p-4 font-semibold text-muted-foreground">Detalle Comisión</th><th className="p-4 text-right font-semibold text-muted-foreground">Valor Comisión</th></tr></thead>
                                             <tbody>
                                                 {commissionReportData.map(client => {
                                                     const servicesCost = client.contractedServices?.reduce((acc, serviceName) => {
@@ -303,7 +307,6 @@ export const DocumentsView = () => {
                                                     let commission = 0;
                                                     let commissionDisplay = "N/A";
 
-                                                    // 1. Check for Snapshot (Preferred)
                                                     if (client.advisorCommissionAmount !== undefined && client.advisorCommissionAmount !== null) {
                                                         commission = client.advisorCommissionAmount;
                                                         if (client.advisorCommissionPercentage) {
@@ -311,9 +314,7 @@ export const DocumentsView = () => {
                                                         } else {
                                                             commissionDisplay = "Valor Guardado";
                                                         }
-                                                    } 
-                                                    // 2. Fallback Calculation
-                                                    else {
+                                                    } else {
                                                         const advisorDetails = advisors.find(a => a.name === client.assignedAdvisor);
                                                         if(advisorDetails){
                                                             if(advisorDetails.commissionType === 'percentage'){
@@ -328,20 +329,20 @@ export const DocumentsView = () => {
                                                     }
 
                                                     return (
-                                                        <tr key={client.id} className="border-b last:border-0">
-                                                            <td className="py-2">{client.fullName}</td>
-                                                            <td className="py-2">{servicesCost.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
-                                                            <td className="py-2 text-xs text-muted-foreground">{commissionDisplay}</td>
-                                                            <td className="py-2 text-right font-medium">{commission.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
+                                                        <tr key={client.id} className="border-b last:border-0 hover:bg-muted/10 transition-colors">
+                                                            <td className="p-4 font-medium">{client.fullName}</td>
+                                                            <td className="p-4 text-muted-foreground">{servicesCost.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
+                                                            <td className="p-4 text-xs text-muted-foreground"><span className="bg-muted px-2 py-1 rounded">{commissionDisplay}</span></td>
+                                                            <td className="p-4 text-right font-bold text-green-600">{commission.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
                                                         </tr>
                                                     )
                                                 })}
                                             </tbody>
                                         </table>
                                     </CardContent>
-                                    <CardFooter className="flex justify-between font-bold text-lg bg-muted/20">
+                                    <CardFooter className="flex justify-between font-bold text-xl bg-muted/20 p-6 border-t">
                                         <p>Total a Pagar:</p>
-                                        <p>{totalCommission.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</p>
+                                        <p className="text-primary">{totalCommission.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</p>
                                     </CardFooter>
                                 </Card>
                             </div>
@@ -373,12 +374,13 @@ export const DocumentsView = () => {
                 <DialogHeader>
                     <DialogTitle>Previsualización de Cuenta de Cobro</DialogTitle>
                 </DialogHeader>
-                <div className="p-4 flex justify-center items-center bg-gray-100 rounded-md my-4">
+                <div className="p-8 flex justify-center items-center bg-gray-100 rounded-xl border my-4 shadow-inner min-h-[400px]">
                     {generatedImage ? (
-                        <img src={generatedImage} alt="Cuenta de Cobro" className="w-full h-auto shadow-lg"/>
+                        <img src={generatedImage} alt="Cuenta de Cobro" className="w-full h-auto shadow-2xl rounded-sm max-w-[500px]"/>
                     ) : (
-                        <div className="h-96 flex items-center justify-center">
-                            <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+                        <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                            <p className="text-muted-foreground">Generando imagen...</p>
                         </div>
                     )}
                 </div>
