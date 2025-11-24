@@ -188,8 +188,8 @@ export function CotizadorView() {
   };
 
   return (
-    <PageLayout title="Cotizador Inteligente" subtitle="Calcula aportes a seguridad social." onBackRoute="/app/dashboard">
-        <div className="w-full max-w-7xl mx-auto">
+    <PageLayout title="Cotizador Inteligente" subtitle="Calcula y genera comprobantes de cotización." onBackRoute="/app/dashboard">
+        <div className="w-full">
             {/* Hidden capture area */}
             <div className="absolute -left-[9999px] top-0">
                 <div ref={imageRef} style={{ width: '400px' }}>
@@ -197,25 +197,25 @@ export function CotizadorView() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-20 md:pb-0">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-24 lg:pb-0">
                 {/* Configuration Panel */}
-                <div className="lg:col-span-1 h-fit sticky top-24 z-0">
-                    <Card>
+                <div className="lg:col-span-5 xl:col-span-4 h-fit lg:sticky lg:top-24 space-y-4">
+                    <Card className="border-primary/20 shadow-md">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                              <div className="space-y-1">
-                                <CardTitle className="text-2xl">Configuración</CardTitle>
-                                <CardDescription>SMLV: {formatCurrency(SMLV)}</CardDescription>
+                                <CardTitle className="text-xl">Configuración</CardTitle>
+                                <CardDescription className="text-xs">SMLV: {formatCurrency(SMLV)}</CardDescription>
                              </div>
                              <div className="flex gap-1">
                                 <Dialog open={isProfileManagerOpen} onOpenChange={setIsProfileManagerOpen}>
-                                    <DialogTrigger asChild><Button variant="ghost" size="icon"><Bookmark className="h-5 w-5"/></Button></DialogTrigger>
+                                    <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Bookmark className="h-4 w-4"/></Button></DialogTrigger>
                                     <DialogContent>
                                         <DialogHeader><DialogTitle>Perfiles</DialogTitle></DialogHeader>
                                         <div className="p-4 bg-muted rounded-md"><p className="text-sm text-center text-muted-foreground">Funcionalidad simplificada para esta vista.</p></div>
                                     </DialogContent>
                                 </Dialog>
                                 <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
-                                    <DialogTrigger asChild><Button variant="ghost" size="icon"><Settings className="h-5 w-5"/></Button></DialogTrigger>
+                                    <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Settings className="h-4 w-4"/></Button></DialogTrigger>
                                     <DialogContent className="max-h-[80vh] overflow-y-auto">
                                         <DialogHeader><DialogTitle>Parámetros Globales</DialogTitle></DialogHeader>
                                         <div className="space-y-4 py-4">
@@ -247,7 +247,7 @@ export function CotizadorView() {
                             </Tabs>
 
                             {modality === 'independent' && (
-                                <div className="space-y-4 rounded-md border bg-background/50 p-3">
+                                <div className="space-y-4 rounded-xl border bg-muted/30 p-4">
                                     <div className="flex items-center justify-between">
                                         <Label htmlFor="autoCalculateIbc">Calcular IBC (40%)</Label>
                                         <Switch id="autoCalculateIbc" checked={autoCalculateIbc} onCheckedChange={setAutoCalculateIbc} />
@@ -264,66 +264,78 @@ export function CotizadorView() {
                             <div className="space-y-2">
                                 <Label>IBC (Base Cotización)</Label>
                                 <Input value={formatCurrency(ibc)} onChange={(e) => setIbc(parseCurrency(e.target.value))} disabled={autoCalculateIbc && modality === 'independent'} />
-                                {ibc < SMLV && <p className="text-xs text-destructive">IBC inferior al SMLV</p>}
+                                {ibc < SMLV && <p className="text-xs text-destructive font-medium">IBC inferior al SMLV</p>}
                             </div>
 
-                            <div className="space-y-2">
-                                <Label>Días: {days}</Label>
+                            <div className="space-y-3">
+                                <div className="flex justify-between">
+                                    <Label>Días cotizados</Label>
+                                    <span className="text-sm font-bold text-primary">{days}</span>
+                                </div>
                                 <input type="range" min="1" max="30" value={days} onChange={e => setDays(Number(e.target.value))} className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary" />
                             </div>
 
                             <Separator />
                             
                             {/* Contributions Toggles */}
-                            <div className="space-y-3">
-                                <h4 className="font-medium text-sm">Aportes</h4>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center"><Label className="flex items-center gap-2"><Wallet className="w-4 h-4"/> Pensión</Label><Switch checked={includePension} onCheckedChange={setIncludePension}/></div>
-                                    {includePension && <div className="pl-6 text-xs flex gap-4">
-                                        <label className="flex items-center gap-1"><Checkbox checked={charges.pensionAffiliation} onCheckedChange={() => toggleCharge('pensionAffiliation')}/> Afiliación</label>
-                                        <label className="flex items-center gap-1"><Checkbox checked={charges.pensionPortal} onCheckedChange={() => toggleCharge('pensionPortal')}/> Portal</label>
-                                    </div>}
+                            <div className="space-y-4">
+                                <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Aportes de Ley</h4>
+                                <div className="space-y-3">
+                                    <div className="bg-card border rounded-lg p-3 space-y-3">
+                                        <div className="flex justify-between items-center"><Label className="flex items-center gap-2 font-semibold"><Wallet className="w-4 h-4 text-blue-500"/> Pensión</Label><Switch checked={includePension} onCheckedChange={setIncludePension}/></div>
+                                        {includePension && <div className="pl-6 text-xs flex gap-4 animate-in slide-in-from-top-2">
+                                            <label className="flex items-center gap-2 cursor-pointer hover:text-primary"><Checkbox checked={charges.pensionAffiliation} onCheckedChange={() => toggleCharge('pensionAffiliation')}/> Afiliación</label>
+                                            <label className="flex items-center gap-2 cursor-pointer hover:text-primary"><Checkbox checked={charges.pensionPortal} onCheckedChange={() => toggleCharge('pensionPortal')}/> Portal</label>
+                                        </div>}
+                                    </div>
 
-                                    <div className="flex justify-between items-center"><Label className="flex items-center gap-2"><Handshake className="w-4 h-4"/> Salud</Label><Switch checked={includeHealth} onCheckedChange={setIncludeHealth}/></div>
-                                    {includeHealth && <div className="pl-6 text-xs flex gap-4">
-                                        <label className="flex items-center gap-1"><Checkbox checked={charges.healthAffiliation} onCheckedChange={() => toggleCharge('healthAffiliation')}/> Afiliación</label>
-                                        <label className="flex items-center gap-1"><Checkbox checked={charges.healthPortal} onCheckedChange={() => toggleCharge('healthPortal')}/> Portal</label>
-                                    </div>}
+                                    <div className="bg-card border rounded-lg p-3 space-y-3">
+                                        <div className="flex justify-between items-center"><Label className="flex items-center gap-2 font-semibold"><Handshake className="w-4 h-4 text-green-500"/> Salud</Label><Switch checked={includeHealth} onCheckedChange={setIncludeHealth}/></div>
+                                        {includeHealth && <div className="pl-6 text-xs flex gap-4 animate-in slide-in-from-top-2">
+                                            <label className="flex items-center gap-2 cursor-pointer hover:text-primary"><Checkbox checked={charges.healthAffiliation} onCheckedChange={() => toggleCharge('healthAffiliation')}/> Afiliación</label>
+                                            <label className="flex items-center gap-2 cursor-pointer hover:text-primary"><Checkbox checked={charges.healthPortal} onCheckedChange={() => toggleCharge('healthPortal')}/> Portal</label>
+                                        </div>}
+                                    </div>
 
-                                    <div className="flex justify-between items-center"><Label className="flex items-center gap-2"><Briefcase className="w-4 h-4"/> ARL</Label><Switch checked={includeArl} onCheckedChange={setIncludeArl}/></div>
-                                    {includeArl && (
-                                        <div className="pl-6 space-y-2">
-                                            <div className="text-xs flex gap-4">
-                                                <label className="flex items-center gap-1"><Checkbox checked={charges.arlAffiliation} onCheckedChange={() => toggleCharge('arlAffiliation')}/> Afiliación</label>
-                                                <label className="flex items-center gap-1"><Checkbox checked={charges.arlPortal} onCheckedChange={() => toggleCharge('arlPortal')}/> Portal</label>
+                                    <div className="bg-card border rounded-lg p-3 space-y-3">
+                                        <div className="flex justify-between items-center"><Label className="flex items-center gap-2 font-semibold"><Briefcase className="w-4 h-4 text-orange-500"/> ARL</Label><Switch checked={includeArl} onCheckedChange={setIncludeArl}/></div>
+                                        {includeArl && (
+                                            <div className="pl-6 space-y-3 animate-in slide-in-from-top-2">
+                                                <div className="text-xs flex gap-4">
+                                                    <label className="flex items-center gap-2 cursor-pointer hover:text-primary"><Checkbox checked={charges.arlAffiliation} onCheckedChange={() => toggleCharge('arlAffiliation')}/> Afiliación</label>
+                                                    <label className="flex items-center gap-2 cursor-pointer hover:text-primary"><Checkbox checked={charges.arlPortal} onCheckedChange={() => toggleCharge('arlPortal')}/> Portal</label>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <div className="flex justify-between text-xs text-muted-foreground"><span>Nivel 1</span><span>Nivel 5</span></div>
+                                                    <input type="range" min="1" max="5" value={arlRisk} onChange={e => setArlRisk(Number(e.target.value))} className="w-full h-1 bg-muted rounded-lg accent-orange-500"/>
+                                                    <p className="text-xs text-right font-medium text-orange-600">Riesgo {arlRisk}</p>
+                                                </div>
                                             </div>
-                                            <input type="range" min="1" max="5" value={arlRisk} onChange={e => setArlRisk(Number(e.target.value))} className="w-full h-1 bg-muted rounded-lg accent-primary"/>
-                                            <p className="text-[10px] text-right">Riesgo {arlRisk}</p>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                             
                             <Separator />
                             
                             {/* Additional Services */}
-                            <div className="space-y-3">
-                                <h4 className="font-medium text-sm">Extras</h4>
+                            <div className="space-y-4">
+                                <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Extras & Administrativos</h4>
                                 <div className="space-y-2">
-                                    <div className="flex justify-between items-center"><Label className="font-normal text-sm">Liq. Planilla</Label><Switch checked={charges.planillaLiquidation} onCheckedChange={() => toggleCharge('planillaLiquidation')}/></div>
-                                    <div className="flex justify-between items-center"><Label className="font-normal text-sm">Corr. Planilla</Label><Switch checked={charges.planillaCorrection} onCheckedChange={() => toggleCharge('planillaCorrection')}/></div>
+                                    <div className="flex justify-between items-center p-2 hover:bg-muted/50 rounded-lg transition-colors"><Label className="font-normal text-sm cursor-pointer">Liquidación Planilla</Label><Switch checked={charges.planillaLiquidation} onCheckedChange={() => toggleCharge('planillaLiquidation')}/></div>
+                                    <div className="flex justify-between items-center p-2 hover:bg-muted/50 rounded-lg transition-colors"><Label className="font-normal text-sm cursor-pointer">Corrección Planilla</Label><Switch checked={charges.planillaCorrection} onCheckedChange={() => toggleCharge('planillaCorrection')}/></div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Input placeholder="Extra..." value={newAdditionalItem.description} onChange={e => setNewAdditionalItem({...newAdditionalItem, description: e.target.value})} className="h-8 text-xs"/>
-                                    <Input placeholder="$" value={newAdditionalItem.value} onChange={e => setNewAdditionalItem({...newAdditionalItem, value: formatCurrency(parseCurrency(e.target.value))})} className="h-8 w-20 text-xs"/>
-                                    <Button size="icon" className="h-8 w-8" onClick={handleAddAdditionalItem}><PlusCircle className="h-4 w-4"/></Button>
+                                    <Input placeholder="Descripción ítem..." value={newAdditionalItem.description} onChange={e => setNewAdditionalItem({...newAdditionalItem, description: e.target.value})} className="h-9 text-xs"/>
+                                    <Input placeholder="$0" value={newAdditionalItem.value} onChange={e => setNewAdditionalItem({...newAdditionalItem, value: formatCurrency(parseCurrency(e.target.value))})} className="h-9 w-24 text-xs"/>
+                                    <Button size="icon" className="h-9 w-9 shrink-0" onClick={handleAddAdditionalItem}><PlusCircle className="h-4 w-4"/></Button>
                                 </div>
                                 {additionalProcedureItems.map(i => (
-                                    <div key={i.id} className="flex justify-between text-xs bg-muted/50 p-1 rounded">
-                                        <span>{i.description}</span>
-                                        <div className="flex items-center gap-2">
+                                    <div key={i.id} className="flex justify-between items-center text-xs bg-muted/50 p-2 rounded-lg border">
+                                        <span className="font-medium">{i.description}</span>
+                                        <div className="flex items-center gap-3">
                                             <span>{formatCurrency(i.value)}</span>
-                                            <Trash2 className="h-3 w-3 cursor-pointer text-destructive" onClick={() => setAdditionalProcedureItems(p => p.filter(x => x.id !== i.id))}/>
+                                            <Trash2 className="h-3.5 w-3.5 cursor-pointer text-destructive hover:text-red-700" onClick={() => setAdditionalProcedureItems(p => p.filter(x => x.id !== i.id))}/>
                                         </div>
                                     </div>
                                 ))}
@@ -333,37 +345,41 @@ export function CotizadorView() {
                 </div>
 
                 {/* Desktop Results (Center/Right) */}
-                <div className="hidden lg:block lg:col-span-2 space-y-6">
-                     <Card className="bg-[#F8EDD2]/30 border-none shadow-none">
-                        <CardContent className="flex justify-center pt-6">
-                            {/* Live Preview Component Scaled */}
-                            <div className="transform scale-110 origin-top">
-                                <CotizacionSummaryImage {...cotizacionData} />
-                            </div>
-                        </CardContent>
-                     </Card>
-                     <div className="flex justify-center gap-4">
+                <div className="hidden lg:flex lg:col-span-7 xl:col-span-8 flex-col items-center justify-start space-y-8 pt-8">
+                     <div className="relative group perspective-1000">
+                        <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full opacity-20 group-hover:opacity-40 transition-opacity duration-700"></div>
+                        <Card className="relative bg-[#F8EDD2]/30 border-0 shadow-2xl ring-1 ring-border/10 overflow-hidden transform transition-transform duration-500 hover:scale-[1.01]">
+                            <CardContent className="flex justify-center pt-8 pb-8 px-8">
+                                <div className="transform scale-[1.05] origin-top">
+                                    <CotizacionSummaryImage {...cotizacionData} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                     </div>
+
+                     <div className="flex justify-center gap-4 w-full max-w-md">
                         <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
                             <DialogTrigger asChild>
-                                <Button size="lg" onClick={handleOpenPreview} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4"/>}
-                                    Descargar Imagen
+                                <Button size="lg" onClick={handleOpenPreview} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-xl shadow-primary/20 h-14 text-lg">
+                                    {isGenerating ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Download className="mr-2 h-5 w-5"/>}
+                                    Descargar Comprobante
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-lg">
-                                <div className="flex justify-center p-4 bg-muted rounded-lg">
-                                    {generatedImage ? <img src={generatedImage} alt="Resumen"/> : <Loader2 className="animate-spin"/>}
+                            <DialogContent className="max-w-lg bg-white/95 backdrop-blur-md">
+                                <DialogHeader><DialogTitle>Vista Previa</DialogTitle></DialogHeader>
+                                <div className="flex justify-center p-6 bg-gray-100/50 rounded-xl border-2 border-dashed border-gray-200">
+                                    {generatedImage ? <img src={generatedImage} alt="Resumen" className="shadow-lg rounded-md"/> : <div className="h-64 w-full flex items-center justify-center"><Loader2 className="animate-spin text-muted-foreground h-8 w-8"/></div>}
                                 </div>
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>Cerrar</Button>
                                     <Button onClick={() => {
                                         if(generatedImage) {
                                             const link = document.createElement('a');
-                                            link.download = 'cotizacion.png';
+                                            link.download = `cotizacion_${new Date().getTime()}.png`;
                                             link.href = generatedImage;
                                             link.click();
                                         }
-                                    }}>Guardar</Button>
+                                    }}>Guardar Imagen</Button>
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
@@ -372,31 +388,34 @@ export function CotizadorView() {
             </div>
             
             {/* Mobile Sticky Footer */}
-            <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 lg:hidden z-50 flex items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <div>
-                    <p className="text-xs text-muted-foreground uppercase">Total Estimado</p>
-                    <p className="text-xl font-bold text-primary">{cotizacionData.totalNet}</p>
+            <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t p-4 lg:hidden z-40 flex items-center justify-between shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] pb-safe-area">
+                <div className="flex flex-col">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Estimado</p>
+                    <p className="text-2xl font-bold text-primary leading-none mt-1">{cotizacionData.totalNet}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                     <Dialog>
-                        <DialogTrigger asChild><Button variant="outline" size="sm"><FileText className="h-4 w-4"/></Button></DialogTrigger>
-                        <DialogContent className="max-h-[80vh] overflow-auto">
-                            <DialogHeader><DialogTitle>Detalle</DialogTitle></DialogHeader>
-                            <div className="space-y-4">
+                        <DialogTrigger asChild><Button variant="secondary" size="icon" className="h-12 w-12 rounded-xl"><FileText className="h-5 w-5"/></Button></DialogTrigger>
+                        <DialogContent className="max-h-[85vh] overflow-auto">
+                            <DialogHeader><DialogTitle>Detalle de Costos</DialogTitle></DialogHeader>
+                            <div className="space-y-6 pt-2">
                                 <div>
-                                    <h4 className="font-bold text-sm">Seguridad Social</h4>
-                                    {cotizacionData.breakdownItems.map(i => <div key={i.label} className="flex justify-between text-sm"><span>{i.label}</span><span>{i.value}</span></div>)}
+                                    <h4 className="font-bold text-sm text-primary mb-2 uppercase tracking-wider">Seguridad Social</h4>
+                                    <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                                        {cotizacionData.breakdownItems.map(i => <div key={i.label} className="flex justify-between text-sm border-b border-border/50 last:border-0 pb-1 last:pb-0"><span>{i.label}</span><span className="font-mono">{i.value}</span></div>)}
+                                    </div>
                                 </div>
-                                <Separator/>
                                 <div>
-                                    <h4 className="font-bold text-sm">Servicios</h4>
-                                    {cotizacionData.procedureItems.map(i => <div key={i.label} className="flex justify-between text-sm"><span>{i.label}</span><span>{i.value}</span></div>)}
+                                    <h4 className="font-bold text-sm text-primary mb-2 uppercase tracking-wider">Servicios & Trámites</h4>
+                                    <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+                                        {cotizacionData.procedureItems.length > 0 ? cotizacionData.procedureItems.map(i => <div key={i.label} className="flex justify-between text-sm border-b border-border/50 last:border-0 pb-1 last:pb-0"><span>{i.label}</span><span className="font-mono">{i.value}</span></div>) : <p className="text-sm text-muted-foreground italic">Ningún servicio adicional seleccionado</p>}
+                                    </div>
                                 </div>
                             </div>
                         </DialogContent>
                     </Dialog>
-                    <Button size="sm" onClick={handleOpenPreview}>
-                        {isGenerating ? <Loader2 className="h-4 w-4 animate-spin"/> : <Eye className="h-4 w-4 mr-2"/>}
+                    <Button size="lg" className="h-12 px-6 rounded-xl shadow-lg shadow-primary/20" onClick={handleOpenPreview}>
+                        {isGenerating ? <Loader2 className="h-5 w-5 animate-spin"/> : <Eye className="h-5 w-5 mr-2"/>}
                         Ver Recibo
                     </Button>
                 </div>

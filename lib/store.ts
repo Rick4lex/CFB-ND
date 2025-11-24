@@ -5,47 +5,19 @@ import { get, set, del } from 'idb-keyval';
 import { defaultGlobalConfig } from './constants';
 import type { Client, Advisor, Entity } from './types';
 
-// --- RNF-01: Arquitectura Local-First Asíncrona con Migración ---
+// --- RNF-01: Arquitectura Local-First Asíncrona ---
 // Adaptador de almacenamiento asíncrono usando IndexedDB (idb-keyval).
-// Incluye lógica de migración automática desde LocalStorage para usuarios existentes.
+// Esto evita el bloqueo del hilo principal (UI Blocking) al serializar grandes volúmenes de datos JSON.
 const idbStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
-    try {
-      // 1. Intentar leer de IndexedDB (Fuente de la verdad asíncrona)
-      const value = await get(name);
-      if (value) return value;
-
-      // 2. Fallback: Intentar leer de LocalStorage (Migración Legacy)
-      // Si el usuario tenía datos en la versión anterior (síncrona), los migramos a IDB.
-      if (typeof window !== 'undefined') {
-        const localValue = window.localStorage.getItem(name);
-        if (localValue) {
-          console.log(`Migrando datos de ${name} desde LocalStorage a IndexedDB...`);
-          await set(name, localValue);
-          // Opcional: Limpiar localStorage después de migrar para liberar espacio
-          // window.localStorage.removeItem(name); 
-          return localValue;
-        }
-      }
-      return null;
-    } catch (error) {
-      console.warn('Error al leer persistencia:', error);
-      return null;
-    }
+    const value = await get(name);
+    return value || null;
   },
   setItem: async (name: string, value: string): Promise<void> => {
-    try {
-      await set(name, value);
-    } catch (error) {
-      console.error('Error escribiendo en IndexedDB:', error);
-    }
+    await set(name, value);
   },
   removeItem: async (name: string): Promise<void> => {
     await del(name);
-    // Asegurar limpieza también en LocalStorage si existía
-    if (typeof window !== 'undefined') {
-       window.localStorage.removeItem(name);
-    }
   },
 };
 
@@ -60,7 +32,7 @@ interface AppState {
   addClient: (client: Client) => void;
   updateClient: (client: Client) => void;
   removeClient: (id: string) => void;
-  setClients: (clients: Client[]) => void;
+  setClients: (clients: Client[]) => void; // Para importaciones masivas
 
   addAdvisor: (advisor: Advisor) => void;
   updateAdvisor: (advisor: Advisor) => void;
@@ -127,13 +99,12 @@ export const useAppStore = create<AppState>()(
       })),
 
       initStore: async () => {
-        // La rehidratación asíncrona puede tomar unos milisegundos.
-        // Zustand persist maneja esto automáticamente, pero aseguramos el flag.
+        // La rehidratación es manejada por persist, pero esto marca el flag para la UI
         set({ isInitialized: true });
       }
     }),
     {
-      name: 'cfbnd-storage-db', // Nombre de la base de datos/key
+      name: 'cfbnd-storage-db', // Base de datos IndexedDB
       storage: createJSONStorage(() => idbStorage),
       partialize: (state) => ({
         clients: state.clients,
@@ -142,11 +113,9 @@ export const useAppStore = create<AppState>()(
         config: state.config,
         cotizadorProfiles: state.cotizadorProfiles,
       }),
-      skipHydration: false, // Asegurar hidratación automática
       onRehydrateStorage: () => (state) => {
         if (state) {
             state.isInitialized = true;
-            console.log('Store rehidratado desde IndexedDB');
         }
       }
     }

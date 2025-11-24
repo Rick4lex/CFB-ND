@@ -1,7 +1,7 @@
 import { useAppStore } from '../lib/store';
 import { useToast } from './use-toast';
 import { clientSchema } from '../lib/schemas';
-import { ClientWithMultiple, Client } from '../lib/types';
+import { ClientWithMultiple } from '../lib/types';
 
 export const useClientOperations = () => {
   const { 
@@ -39,6 +39,9 @@ export const useClientOperations = () => {
         const clientData = saveData.client;
         
         // RF-02.2: Validación de Esquema Zod
+        // Aunque el formulario ya valida, esta es una capa de seguridad en la lógica de negocio.
+        // Nota: Omitimos campos generados como ID para la validación estricta del payload base si fuera necesario,
+        // pero aquí validamos el objeto completo para asegurar integridad.
         const validationResult = clientSchema.safeParse(clientData);
         
         if (!validationResult.success) {
@@ -52,6 +55,7 @@ export const useClientOperations = () => {
         }
 
         // RF-02.1: Validación de Unicidad de Documento
+        // Buscamos si existe otro cliente con el mismo documento pero diferente ID interno
         const duplicate = clients.find(c => c.documentId === clientData.documentId && c.id !== clientData.id);
         if (duplicate) {
             toast({ 
@@ -95,6 +99,7 @@ export const useClientOperations = () => {
 
   /**
    * Elimina un cliente por su ID.
+   * Nota: La confirmación de UI debe hacerse antes de llamar a esta función.
    */
   const deleteClient = (clientId: string) => {
     const clientToDelete = clients.find(c => c.id === clientId);
@@ -109,41 +114,5 @@ export const useClientOperations = () => {
     });
   };
 
-  /**
-   * Genera y descarga el CSV de clientes filtrados.
-   */
-  const exportClientsToCSV = (filteredList: Client[]) => {
-      if (filteredList.length === 0) {
-        toast({ variant: "destructive", title: "Sin datos", description: "No hay datos para exportar con los filtros actuales." });
-        return;
-      }
-      
-      const headers = ["ID", "Nombre", "Documento", "Tipo Doc", "Email", "Telefono", "Estado", "Asesor", "Fecha Ingreso", "Notas"];
-      
-      const csvContent = [
-          headers.join(','),
-          ...filteredList.map(c => [
-              c.id, 
-              `"${c.fullName.replace(/"/g, '""')}"`, // Escapar comillas
-              c.documentId, 
-              c.documentType, 
-              c.email || '', 
-              c.phone || c.whatsapp || '', 
-              c.serviceStatus, 
-              `"${(c.assignedAdvisor || '').replace(/"/g, '""')}"`, 
-              c.entryDate, 
-              `"${(c.notes || '').replace(/"/g, '""')}"`
-          ].join(','))
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `clientes_cfbnd_${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
-      
-      toast({ title: "Exportación exitosa", description: "El archivo CSV se ha descargado." });
-  };
-
-  return { saveClient, deleteClient, exportClientsToCSV };
+  return { saveClient, deleteClient };
 };
