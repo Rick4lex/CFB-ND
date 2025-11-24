@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { 
@@ -9,33 +10,268 @@ import {
 import { 
     User, Building, AlertTriangle, CheckCircle, Wallet, Handshake, Share2, Download, 
     Loader2, Settings, Briefcase, FileText, Eye, PlusCircle, Trash2, Bookmark, Save, 
-    SquareArrowUp, RefreshCw, LayoutTemplate, Receipt
+    SquareArrowUp, RefreshCw 
 } from 'lucide-react';
-import { CotizacionSummaryImage } from '../components/features/CotizacionSummaryImage';
+import { CotizacionSummaryImage, type CotizacionData } from '../components/features/CotizacionSummaryImage';
+import { useToast } from '../hooks/use-toast';
 import { PageLayout } from '../components/layout/Layout';
-import { useCotizador } from '../hooks/useCotizador';
-import { formatCurrency, parseCurrency } from '../lib/utils';
+import { useAppStore } from '../lib/store';
+
+const initialProcedureCosts = {
+    pensionAffiliation: 15000,
+    pensionPortalCreation: 5000,
+    healthAffiliation: 15000,
+    healthPortalCreation: 5000,
+    ccfAffiliation: 15000,
+    ccfPortalCreation: 5000,
+    arlAffiliation: 15000,
+    arlPortalCreation: 5000,
+    planillaLiquidation: 15000,
+    planillaCorrection: 5000,
+};
+
+const contributionRates = {
+    health: { independent: 0.125, dependent: 0.04, employer: 0.085 },
+    pension: { independent: 0.16, dependent: 0.04, employer: 0.12 },
+    arl: [0.00522, 0.01044, 0.02436, 0.0435, 0.0696],
+    ccf: { dependent: 0.04 }
+};
+
+interface AdditionalProcedureItem {
+  id: number;
+  description: string;
+  value: number;
+}
+
+interface SavedCalculationState {
+  modality: string;
+  autoCalculateIbc: boolean;
+  monthlyIncome: number;
+  ibc: number;
+  days: number;
+  includePension: boolean;
+  includeHealth: boolean;
+  includeArl: boolean;
+  arlRisk: number;
+  ccfRate: number;
+  chargePensionAffiliation: boolean;
+  chargePensionPortal: boolean;
+  chargeHealthAffiliation: boolean;
+  chargeHealthPortal: boolean;
+  chargeCcfAffiliation: boolean;
+  chargeCcfPortal: boolean;
+  chargeArlAffiliation: boolean;
+  chargeArlPortal: boolean;
+  chargePlanillaLiquidation: boolean;
+  chargePlanillaCorrection: boolean;
+  adminFee: number;
+  additionalProcedureItems: AdditionalProcedureItem[];
+  procedureCosts: typeof initialProcedureCosts;
+}
+
+interface SavedProfile {
+    id: string;
+    name: string;
+    date: string;
+    state: SavedCalculationState;
+}
+
+const formatCurrency = (amount: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+const parseCurrency = (value: string) => parseFloat(value.replace(/[^0-9]/g, '')) || 0;
+
 
 export function CotizadorView() {
+  // --- STATE MANAGEMENT ---
   const imageRef = useRef<HTMLDivElement>(null);
-  const { state, actions } = useCotizador();
+  const { toast } = useToast();
   
-  // UI Specific State
+  const { config, setConfig, cotizadorProfiles, setCotizadorProfiles } = useAppStore();
+  const SMLV = config.financials.smlv;
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
+  
   const [newProfileName, setNewProfileName] = useState('');
+
+
+  // Form State
+  const [modality, setModality] = useState('independent');
+  const [autoCalculateIbc, setAutoCalculateIbc] = useState(true);
+  const [monthlyIncome, setMonthlyIncome] = useState(SMLV / 0.4);
+  const [ibc, setIbc] = useState(SMLV);
+  const [days, setDays] = useState(30);
+
+  // Contributions State
+  const [includePension, setIncludePension] = useState(true);
+  const [includeHealth, setIncludeHealth] = useState(true);
+  const [includeArl, setIncludeArl] = useState(false);
+  const [arlRisk, setArlRisk] = useState(1);
+  const [ccfRate, setCcfRate] = useState(0); // 0, 0.006, or 0.02 for independent
+
+  // Services State
+  const [chargePensionAffiliation, setChargePensionAffiliation] = useState(false);
+  const [chargePensionPortal, setChargePensionPortal] = useState(false);
+  const [chargeHealthAffiliation, setChargeHealthAffiliation] = useState(false);
+  const [chargeHealthPortal, setChargeHealthPortal] = useState(false);
+  const [chargeCcfAffiliation, setChargeCcfAffiliation] = useState(false);
+  const [chargeCcfPortal, setChargeCcfPortal] = useState(false);
+  const [chargeArlAffiliation, setChargeArlAffiliation] = useState(false);
+  const [chargeArlPortal, setChargeArlPortal] = useState(false);
+  const [chargePlanillaLiquidation, setChargePlanillaLiquidation] = useState(false);
+  const [chargePlanillaCorrection, setChargePlanillaCorrection] = useState(false);
+  const [adminFee, setAdminFee] = useState(20000);
+  
+  // Custom Services State
+  const [additionalProcedureItems, setAdditionalProcedureItems] = useState<AdditionalProcedureItem[]>([]);
   const [newAdditionalItem, setNewAdditionalItem] = useState({ description: '', value: '' });
-  const [resultViewMode, setResultViewMode] = useState('receipt'); // 'receipt' | 'details'
+
+  // Configurable Costs
+  const [procedureCosts, setProcedureCosts] = useState(initialProcedureCosts);
+  // Local temp state for configuration dialog
+  const [tempCosts, setTempCosts] = useState(initialProcedureCosts);
+  const [tempFinancials, setTempFinancials] = useState(config.financials);
 
   useEffect(() => {
       if (isConfigModalOpen) {
-          actions.setTempCosts(state.procedureCosts);
-          actions.setTempFinancials(state.config.financials);
+          setTempCosts(procedureCosts);
+          setTempFinancials(config.financials);
       }
-  }, [isConfigModalOpen, state.procedureCosts, state.config.financials]);
+  }, [isConfigModalOpen, procedureCosts, config.financials]);
+
+
+  // Derived State / Calculations
+  const [ibcError, setIbcError] = useState('');
+  const [cotizacionData, setCotizacionData] = useState<CotizacionData>({
+    totalNet: '$0', resultsIbc: '$0', resultsIbcDays: 'IBC / 30 días', modality: 'Independiente',
+    breakdownItems: [], procedureItems: [], totalSocialSecurity: '$0', totalProcedureCost: '$0',
+  });
+
+  // --- LOGIC & EFFECTS ---
+    
+    // Re-initialize defaults when SMLV changes from config load
+    useEffect(() => {
+        if (autoCalculateIbc && modality === 'independent') {
+             // Re-calc based on possibly new SMLV if monthlyIncome was default
+             // However, to avoid overwriting user input, we only set if it seems like a default state or forced
+        }
+        // Ensure IBC respects SMLV floor
+        if (ibc < SMLV && autoCalculateIbc) {
+             setIbc(SMLV);
+        }
+    }, [SMLV]);
+
+  useEffect(() => {
+    if (autoCalculateIbc && modality === 'independent') {
+      const calculatedIbc = Math.max(monthlyIncome * 0.4, SMLV);
+      setIbc(calculatedIbc);
+    }
+  }, [monthlyIncome, autoCalculateIbc, modality, SMLV]);
+  
+  useEffect(() => {
+    if (modality === 'dependent') {
+      setAutoCalculateIbc(false);
+    } else {
+       setAutoCalculateIbc(true);
+    }
+     setCcfRate(0);
+  }, [modality]);
+
+  useEffect(() => {
+    // Core calculation logic
+    const proRatedIbc = (ibc / 30) * days;
+    const arlRateValue = contributionRates.arl[arlRisk - 1];
+
+    if (ibc < SMLV) {
+        setIbcError(`El IBC no puede ser menor al SMLV (${formatCurrency(SMLV)}).`);
+    } else {
+        setIbcError('');
+    }
+    
+    let totalSocialSecurity = 0;
+    const newBreakdownItems: { label: string; value: string }[] = [];
+
+    if (modality === 'independent') {
+        const health = includeHealth ? proRatedIbc * contributionRates.health.independent : 0;
+        const pension = includePension ? proRatedIbc * contributionRates.pension.independent : 0;
+        const arl = includeArl ? proRatedIbc * arlRateValue : 0;
+        const ccf = ccfRate > 0 ? proRatedIbc * ccfRate : 0;
+        totalSocialSecurity = health + pension + arl + ccf;
+        if (health > 0) newBreakdownItems.push({ label: 'Salud (12.5%)', value: formatCurrency(health) });
+        if (pension > 0) newBreakdownItems.push({ label: 'Pensión (16%)', value: formatCurrency(pension) });
+        if (arl > 0) newBreakdownItems.push({ label: `ARL Riesgo ${arlRisk} (${(arlRateValue * 100).toFixed(3)}%)`, value: formatCurrency(arl) });
+        if (ccf > 0) newBreakdownItems.push({ label: `Caja Comp. (${(ccfRate * 100).toFixed(1)}%)`, value: formatCurrency(ccf) });
+    } else { // Dependent
+        const healthEmployee = includeHealth ? proRatedIbc * contributionRates.health.dependent : 0;
+        const healthEmployer = includeHealth ? proRatedIbc * contributionRates.health.employer : 0;
+        const pensionTotal = includePension ? proRatedIbc * (contributionRates.pension.dependent + contributionRates.pension.employer) : 0;
+        const arl = includeArl ? proRatedIbc * arlRateValue : 0;
+        const ccf = ccfRate > 0 ? proRatedIbc * contributionRates.ccf.dependent : 0;
+        totalSocialSecurity = healthEmployee + healthEmployer + pensionTotal + arl + ccf;
+        if (healthEmployee > 0) newBreakdownItems.push({ label: 'Salud (4% Empleado)', value: formatCurrency(healthEmployee) });
+        if (healthEmployer > 0) newBreakdownItems.push({ label: 'Salud (8.5% Empleador)', value: formatCurrency(healthEmployer) });
+        if (pensionTotal > 0) newBreakdownItems.push({ label: 'Pensión (16% Total)', value: formatCurrency(pensionTotal) });
+        if (arl > 0) newBreakdownItems.push({ label: `ARL Riesgo ${arlRisk} (${(arlRateValue * 100).toFixed(3)}%)`, value: formatCurrency(arl) });
+        if (ccf > 0) newBreakdownItems.push({ label: 'Caja Comp. (4%)', value: formatCurrency(ccf) });
+    }
+    
+    let totalProcedureCost = 0;
+    const newProcedureItems: { label: string; value: string }[] = [];
+    
+    if (chargePensionAffiliation) totalProcedureCost += procedureCosts.pensionAffiliation;
+    if (chargePensionPortal) totalProcedureCost += procedureCosts.pensionPortalCreation;
+    if (chargeHealthAffiliation) totalProcedureCost += procedureCosts.healthAffiliation;
+    if (chargeHealthPortal) totalProcedureCost += procedureCosts.healthPortalCreation;
+    if (chargeCcfAffiliation) totalProcedureCost += procedureCosts.ccfAffiliation;
+    if (chargeCcfPortal) totalProcedureCost += procedureCosts.ccfPortalCreation;
+    if (chargeArlAffiliation) totalProcedureCost += procedureCosts.arlAffiliation;
+    if (chargeArlPortal) totalProcedureCost += procedureCosts.arlPortalCreation;
+    if (chargePlanillaLiquidation) totalProcedureCost += procedureCosts.planillaLiquidation;
+    if (chargePlanillaCorrection) totalProcedureCost += procedureCosts.planillaCorrection;
+
+    if(modality === 'dependent') totalProcedureCost += adminFee;
+    
+    if(chargePensionAffiliation) newProcedureItems.push({ label: 'Afiliación Pensión', value: formatCurrency(procedureCosts.pensionAffiliation) });
+    if(chargePensionPortal) newProcedureItems.push({ label: 'Portal Pensión', value: formatCurrency(procedureCosts.pensionPortalCreation) });
+    if(chargeHealthAffiliation) newProcedureItems.push({ label: 'Afiliación Salud', value: formatCurrency(procedureCosts.healthAffiliation) });
+    if(chargeHealthPortal) newProcedureItems.push({ label: 'Portal Salud', value: formatCurrency(procedureCosts.healthPortalCreation) });
+    if(chargeCcfAffiliation) newProcedureItems.push({ label: 'Afiliación CCF', value: formatCurrency(procedureCosts.ccfAffiliation) });
+    if(chargeCcfPortal) newProcedureItems.push({ label: 'Portal CCF', value: formatCurrency(procedureCosts.ccfPortalCreation) });
+    if(chargeArlAffiliation) newProcedureItems.push({ label: 'Afiliación ARL', value: formatCurrency(procedureCosts.arlAffiliation) });
+    if(chargeArlPortal) newProcedureItems.push({ label: 'Portal ARL', value: formatCurrency(procedureCosts.arlPortalCreation) });
+    if(chargePlanillaLiquidation) newProcedureItems.push({ label: 'Liquidación Planilla', value: formatCurrency(procedureCosts.planillaLiquidation) });
+    if(chargePlanillaCorrection) newProcedureItems.push({ label: 'Corrección Planilla', value: formatCurrency(procedureCosts.planillaCorrection) });
+    if(modality === 'dependent') newProcedureItems.push({ label: 'Administración', value: formatCurrency(adminFee) });
+
+    // Add custom items
+    additionalProcedureItems.forEach(item => {
+        totalProcedureCost += item.value;
+        newProcedureItems.push({ label: item.description, value: formatCurrency(item.value) });
+    });
+
+
+    const totalNet = totalSocialSecurity + totalProcedureCost;
+
+    setCotizacionData({
+        totalNet: formatCurrency(totalNet),
+        resultsIbc: formatCurrency(proRatedIbc),
+        resultsIbcDays: `IBC / ${days} días`,
+        modality: modality === 'independent' ? 'Independiente' : 'Empresa',
+        totalSocialSecurity: formatCurrency(totalSocialSecurity),
+        breakdownItems: newBreakdownItems,
+        totalProcedureCost: formatCurrency(totalProcedureCost),
+        procedureItems: newProcedureItems,
+    });
+  }, [
+    ibc, days, modality, includePension, includeHealth, includeArl, arlRisk, ccfRate,
+    chargePensionAffiliation, chargePensionPortal, chargeHealthAffiliation, chargeHealthPortal,
+    chargeCcfAffiliation, chargeCcfPortal, chargeArlAffiliation, chargeArlPortal,
+    chargePlanillaLiquidation, chargePlanillaCorrection, adminFee, procedureCosts, additionalProcedureItems, SMLV
+  ]);
+
+  // --- HANDLERS ---
 
   const handleOpenPreview = async () => {
     if (!imageRef.current) return;
@@ -45,7 +281,7 @@ export function CotizadorView() {
         const dataUrl = await htmlToImage.toPng(imageRef.current, { quality: 1, pixelRatio: 2, backgroundColor: '#ffffff' });
         setGeneratedImage(dataUrl);
     } catch(error) {
-        console.error("Error generating image:", error);
+        console.error("Error generating image for preview:", error);
         setIsPreviewModalOpen(false);
     } finally {
         setIsGenerating(false);
@@ -58,12 +294,13 @@ export function CotizadorView() {
         const blob = await (await fetch(generatedImage)).blob();
         const file = new File([blob], "resumen-cotizacion-cfbnd.png", { type: "image/png" });
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ title: 'Resumen Cotización', text: 'Resumen de cotización.', files: [file] });
+            await navigator.share({ title: 'Resumen de Cotización', text: 'Resumen de cotización de seguridad social.', files: [file] });
         } else {
-           handleDownload();
+           handleDownload(); // Fallback to download on desktop or if sharing is not supported
         }
-      } catch {
-          handleDownload();
+      } catch (e) {
+          console.error("Share failed", e);
+          handleDownload(); // Fallback on error
       }
   };
 
@@ -75,347 +312,503 @@ export function CotizadorView() {
       link.click();
   };
 
-  const onAddAdditionalItem = () => {
+  const handleConfigSave = () => {
+    setProcedureCosts(tempCosts);
+    setConfig(prev => ({ ...prev, financials: tempFinancials }));
+    toast({ title: "Configuración Actualizada", description: "Se han guardado los costos y parámetros financieros." });
+    setIsConfigModalOpen(false);
+  }
+
+  const handleTempCostChange = (key: keyof typeof tempCosts, value: string) => {
+    setTempCosts(prev => ({ ...prev, [key]: parseCurrency(value) }));
+  }
+
+  const handleAddAdditionalItem = () => {
     const value = parseCurrency(newAdditionalItem.value);
     if (newAdditionalItem.description && value > 0) {
-      actions.setAdditionalProcedureItems(prev => [...prev, { id: Date.now(), description: newAdditionalItem.description, value }]);
+      setAdditionalProcedureItems(prev => [...prev, {
+        id: Date.now(),
+        description: newAdditionalItem.description,
+        value: value,
+      }]);
       setNewAdditionalItem({ description: '', value: '' });
     }
   };
+  
+  const handleRemoveAdditionalItem = (id: number) => {
+    setAdditionalProcedureItems(prev => prev.filter(item => item.id !== id));
+  };
+  
+  // --- PROFILE MANAGEMENT ---
+
+  const getCurrentState = (): SavedCalculationState => ({
+    modality, autoCalculateIbc, monthlyIncome, ibc, days, includePension, includeHealth,
+    includeArl, arlRisk, ccfRate, chargePensionAffiliation, chargePensionPortal, chargeHealthAffiliation,
+    chargeHealthPortal, chargeCcfAffiliation, chargeCcfPortal, chargeArlAffiliation, chargeArlPortal,
+    chargePlanillaLiquidation, chargePlanillaCorrection, adminFee, additionalProcedureItems, procedureCosts
+  });
+
+  const loadState = (state: SavedCalculationState) => {
+    setModality(state.modality);
+    setAutoCalculateIbc(state.autoCalculateIbc);
+    setMonthlyIncome(state.monthlyIncome);
+    setIbc(state.ibc);
+    setDays(state.days);
+    setIncludePension(state.includePension);
+    setIncludeHealth(state.includeHealth);
+    setIncludeArl(state.includeArl);
+    setArlRisk(state.arlRisk);
+    setCcfRate(state.ccfRate);
+    setChargePensionAffiliation(state.chargePensionAffiliation);
+    setChargePensionPortal(state.chargePensionPortal);
+    setChargeHealthAffiliation(state.chargeHealthAffiliation);
+    setChargeHealthPortal(state.chargeHealthPortal);
+    setChargeCcfAffiliation(state.chargeCcfAffiliation);
+    setChargeCcfPortal(state.chargeCcfPortal);
+    setChargeArlAffiliation(state.chargeArlAffiliation);
+    setChargeArlPortal(state.chargeArlPortal);
+    setChargePlanillaLiquidation(state.chargePlanillaLiquidation);
+    setChargePlanillaCorrection(state.chargePlanillaCorrection);
+    setAdminFee(state.adminFee);
+    setAdditionalProcedureItems(state.additionalProcedureItems);
+    setProcedureCosts(state.procedureCosts);
+  };
+
+  const handleSaveProfile = (id?: string) => {
+    if (!newProfileName && !id) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Por favor, dale un nombre a tu perfil.' });
+        return;
+    }
+
+    const stateToSave = getCurrentState();
+    let updatedProfiles: SavedProfile[];
+
+    if (id) { // Overwriting existing profile
+        updatedProfiles = cotizadorProfiles.map(p => 
+            p.id === id ? { ...p, state: stateToSave, date: new Date().toISOString() } : p
+        );
+        toast({ title: 'Perfil Sobrescrito', description: `El perfil "${cotizadorProfiles.find(p=>p.id === id)?.name}" ha sido actualizado.` });
+    } else { // Saving new profile
+        const newProfile: SavedProfile = {
+            id: crypto.randomUUID(),
+            name: newProfileName,
+            date: new Date().toISOString(),
+            state: stateToSave,
+        };
+        updatedProfiles = [...cotizadorProfiles, newProfile];
+        toast({ title: 'Perfil Guardado', description: `La cotización se guardó como "${newProfileName}".` });
+    }
+
+    setCotizadorProfiles(updatedProfiles);
+    setNewProfileName('');
+  };
+  
+  const handleLoadProfile = (id: string) => {
+    const profileToLoad = cotizadorProfiles.find(p => p.id === id);
+    if(profileToLoad) {
+        loadState(profileToLoad.state);
+        toast({ title: 'Perfil Cargado', description: `Se ha cargado la cotización "${profileToLoad.name}".` });
+        setIsProfileManagerOpen(false);
+    }
+  };
+
+  const handleDeleteProfile = (id: string) => {
+    const updatedProfiles = cotizadorProfiles.filter(p => p.id !== id);
+    setCotizadorProfiles(updatedProfiles);
+    toast({ title: 'Perfil Eliminado', variant: 'destructive' });
+  };
+
 
   return (
-    <PageLayout title="Cotizador Inteligente" subtitle="Calcula aportes a seguridad social y costos de trámite." onBackRoute="/app/dashboard">
-        <div className="w-full max-w-[1600px] mx-auto pb-20 lg:pb-0">
-            {/* Hidden Element for High-Res Image Generation */}
+    <PageLayout 
+        title="Cotizador Inteligente" 
+        subtitle="Calcula aportes a seguridad social y costos de trámite."
+        onBackRoute="/app/dashboard"
+    >
+        <div className="w-full max-w-7xl mx-auto">
             <div className="absolute -left-[9999px] top-0">
                 <div ref={imageRef} style={{ width: '400px' }}>
-                    <CotizacionSummaryImage {...state.cotizacionData} />
+                    <CotizacionSummaryImage {...cotizacionData} />
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-                {/* --- LEFT COLUMN: CONFIGURATION --- */}
-                <div className="lg:col-span-4 xl:col-span-3 lg:sticky lg:top-24 space-y-4">
-                    <Card className="shadow-lg border-primary/10">
-                        <CardHeader className="bg-muted/30 pb-4">
-                            <div className="flex justify-between items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* CONFIGURATION PANEL */}
+                <div className="lg:col-span-1 h-fit sticky top-24">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex justify-between items-center">
                                 <div>
-                                    <CardTitle className="text-xl">Configuración</CardTitle>
-                                    <CardDescription className="text-xs mt-1">SMLV: {formatCurrency(state.SMLV)}</CardDescription>
+                                    <CardTitle className="text-2xl">Configura tu Cotización</CardTitle>
+                                    <CardDescription>Ajusta los valores para ver el cálculo.
+                                        <br/>
+                                        <span className="text-xs text-muted-foreground">SMLV {config.financials.year}: {formatCurrency(SMLV)}</span>
+                                    </CardDescription>
                                 </div>
-                                <div className="flex items-center gap-1 -mr-2">
-                                    {/* Profile Manager Dialog */}
-                                    <Dialog open={isProfileManagerOpen} onOpenChange={setIsProfileManagerOpen}>
-                                        <DialogTrigger><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white"><Bookmark className="h-4 w-4" /></Button></DialogTrigger>
+                                <div className="flex items-center">
+                                <Dialog open={isProfileManagerOpen} onOpenChange={setIsProfileManagerOpen}>
+                                        <DialogTrigger>
+                                            <Button variant="ghost" size="icon"><Bookmark className="h-5 w-5" /></Button>
+                                        </DialogTrigger>
                                         <DialogContent className="max-w-xl">
-                                            <DialogHeader><DialogTitle>Perfiles de Cotización</DialogTitle></DialogHeader>
-                                            <div className="space-y-4 pt-2">
-                                                <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-                                                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Guardar actual</Label>
+                                            <DialogHeader>
+                                                <DialogTitle>Gestor de Perfiles de Cotización</DialogTitle>
+                                                <CardDescription>Guarda, carga o elimina tus configuraciones de cotización.</CardDescription>
+                                            </DialogHeader>
+                                            <div className="space-y-4">
+                                                <div className="p-4 border rounded-lg bg-card space-y-2">
+                                                    <Label htmlFor="new-profile-name">Nombre del Nuevo Perfil</Label>
                                                     <div className="flex gap-2">
-                                                        <Input placeholder="Nombre del perfil..." value={newProfileName} onChange={(e) => setNewProfileName(e.target.value)} />
-                                                        <Button onClick={() => { if(actions.handleSaveProfile(newProfileName)) setNewProfileName(''); }}><Save className="mr-2 h-4 w-4"/>Guardar</Button>
+                                                        <Input id="new-profile-name" placeholder="Ej: Cliente X con trámites especiales" value={newProfileName} onChange={(e: any) => setNewProfileName(e.target.value)} />
+                                                        <Button onClick={() => handleSaveProfile()}><Save className="mr-2"/>Guardar</Button>
                                                     </div>
                                                 </div>
+                                                
                                                 <div className="space-y-2">
-                                                    <h4 className="text-sm font-medium">Mis Perfiles</h4>
-                                                    <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                                                        {state.cotizadorProfiles.length === 0 && <p className="text-sm text-muted-foreground text-center py-6 border border-dashed rounded-md">Sin perfiles guardados.</p>}
-                                                        {state.cotizadorProfiles.map(profile => (
-                                                            <div key={profile.id} className="flex justify-between items-center p-3 border rounded-md bg-card hover:bg-muted/30 transition-colors">
-                                                                <div><p className="font-semibold">{profile.name}</p><p className="text-xs text-muted-foreground">{new Date(profile.date).toLocaleDateString()}</p></div>
-                                                                <div className="flex gap-1">
-                                                                    <Button variant="ghost" size="icon" onClick={() => { actions.handleLoadProfile(profile.id); setIsProfileManagerOpen(false); }} title="Cargar"><SquareArrowUp className="h-4 w-4 text-blue-500"/></Button>
-                                                                    <Button variant="ghost" size="icon" onClick={() => actions.handleSaveProfile(profile.name, profile.id)} title="Actualizar"><RefreshCw className="h-4 w-4 text-green-500"/></Button>
-                                                                    <Button variant="ghost" size="icon" onClick={() => actions.handleDeleteProfile(profile.id)} title="Eliminar"><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                                    <h4 className="text-sm font-medium">Perfiles Guardados</h4>
+                                                    {cotizadorProfiles.length > 0 ? (
+                                                        <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+                                                            {cotizadorProfiles.map(profile => (
+                                                                <div key={profile.id} className="flex justify-between items-center p-3 border rounded-md">
+                                                                    <div>
+                                                                        <p className="font-semibold">{profile.name}</p>
+                                                                        <p className="text-xs text-muted-foreground">Guardado el: {new Date(profile.date).toLocaleString()}</p>
+                                                                    </div>
+                                                                    <div className="flex gap-1">
+                                                                        <Button variant="outline" size="icon" onClick={() => handleLoadProfile(profile.id)}><SquareArrowUp className="h-4 w-4"/></Button>
+                                                                        <Button variant="outline" size="icon" onClick={() => handleSaveProfile(profile.id)}><RefreshCw className="h-4 w-4"/></Button>
+                                                                        <Button variant="destructive" size="icon" onClick={() => handleDeleteProfile(profile.id)}><Trash2 className="h-4 w-4"/></Button>
+                                                                    </div>
                                                                 </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-sm text-muted-foreground text-center py-4">No hay perfiles guardados.</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <DialogFooter>
+                                                <Button variant="ghost" onClick={() => setIsProfileManagerOpen(false)}>Cerrar</Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+                                    <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
+                                        <DialogTrigger>
+                                            <Button variant="ghost" size="icon"><Settings className="h-5 w-5" /></Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+                                            <DialogHeader><DialogTitle>Configuración de Parámetros</DialogTitle></DialogHeader>
+                                            <div className="flex-1 overflow-y-auto p-1 space-y-6 min-h-0">
+                                                <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
+                                                    <h4 className="text-sm font-bold text-primary">Parámetros Financieros (Anual)</h4>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-1 col-span-2">
+                                                            <Label htmlFor="year">Año Fiscal</Label>
+                                                            <Input id="year" type="number" value={tempFinancials.year} onChange={(e) => setTempFinancials({...tempFinancials, year: Number(e.target.value)})}/>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <Label htmlFor="smlv">SMLV</Label>
+                                                            <Input id="smlv" type="number" value={tempFinancials.smlv} onChange={(e) => setTempFinancials({...tempFinancials, smlv: Number(e.target.value)})}/>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <Label htmlFor="transportAid">Aux. Transp.</Label>
+                                                            <Input id="transportAid" type="number" value={tempFinancials.transportAid} onChange={(e) => setTempFinancials({...tempFinancials, transportAid: Number(e.target.value)})}/>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="space-y-2">
+                                                    <h4 className="text-sm font-bold">Costos de Trámites</h4>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        {Object.entries(tempCosts).map(([key, value]) => (
+                                                            <div key={key} className="space-y-1">
+                                                                <Label htmlFor={key} className="text-xs capitalize">{key.replace(/([A-Z])/g, ' $1').toLowerCase()}</Label>
+                                                                <Input id={key} value={formatCurrency(value as number)} onChange={(e: any) => handleTempCostChange(key as keyof typeof tempCosts, e.target.value)} />
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
                                             </div>
-                                        </DialogContent>
-                                    </Dialog>
-
-                                    {/* System Config Dialog */}
-                                    <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
-                                        <DialogTrigger><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white"><Settings className="h-4 w-4" /></Button></DialogTrigger>
-                                        <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
-                                            <DialogHeader><DialogTitle>Costos y Parámetros</DialogTitle></DialogHeader>
-                                            <div className="flex-1 overflow-y-auto p-1 space-y-6">
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    {Object.entries(state.tempCosts).map(([key, value]) => (
-                                                        <div key={key} className="space-y-1.5">
-                                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{key.replace(/([A-Z])/g, ' $1').toLowerCase()}</Label>
-                                                            <Input value={formatCurrency(value as number)} onChange={(e) => actions.setTempCosts(prev => ({ ...prev, [key]: parseCurrency(e.target.value) }))} className="h-9 font-mono text-right"/>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <DialogFooter><Button onClick={() => actions.handleConfigSave(() => setIsConfigModalOpen(false))}>Guardar Cambios</Button></DialogFooter>
+                                            <DialogFooter>
+                                                <Button onClick={handleConfigSave}>Guardar Configuración</Button>
+                                            </DialogFooter>
                                         </DialogContent>
                                     </Dialog>
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent className="space-y-6 pt-6">
-                            <Tabs value={state.modality} onValueChange={actions.setModality}>
-                                <TabsList className="grid w-full grid-cols-2 mb-4">
+                        <CardContent className="space-y-6">
+                            <Tabs value={modality} onValueChange={setModality} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2">
                                     <TabsTrigger value="independent"><User className="mr-2 h-4 w-4"/>Independiente</TabsTrigger>
                                     <TabsTrigger value="dependent"><Building className="mr-2 h-4 w-4"/>Empresa</TabsTrigger>
                                 </TabsList>
                             </Tabs>
 
-                            {state.modality === 'independent' && (
-                                <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
-                                    <div className="flex items-center justify-between"><Label>Calcular IBC (40%)</Label><Switch checked={state.autoCalculateIbc} onCheckedChange={actions.setAutoCalculateIbc} /></div>
-                                    {state.autoCalculateIbc && <div className="space-y-2 animate-in slide-in-from-top-2"><Label>Ingresos Mensuales</Label><Input value={formatCurrency(state.monthlyIncome)} onChange={(e) => actions.setMonthlyIncome(parseCurrency(e.target.value))} className="font-bold text-lg"/></div>}
+                            {modality === 'independent' && (
+                                <div className="space-y-4 rounded-md border bg-background/50 p-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="autoCalculateIbc">Calcular IBC (40%)</Label>
+                                        <Switch id="autoCalculateIbc" checked={autoCalculateIbc} onCheckedChange={setAutoCalculateIbc} />
+                                    </div>
+                                    {autoCalculateIbc && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="monthlyIncome">Ingresos Mensuales</Label>
+                                            <Input id="monthlyIncome" value={formatCurrency(monthlyIncome)} onChange={(e: any) => setMonthlyIncome(parseCurrency(e.target.value))} onBlur={(e: any) => e.target.value = formatCurrency(monthlyIncome)} />
+                                        </div>
+                                    )}
                                 </div>
                             )}
                             
                             <div className="space-y-2">
-                                <Label>Salario o Ingreso Base (IBC)</Label>
-                                <Input value={formatCurrency(state.ibc)} onChange={(e) => actions.setIbc(parseCurrency(e.target.value))} disabled={state.autoCalculateIbc && state.modality === 'independent'} className="font-bold text-lg"/>
-                                {state.ibcError && <p className="text-xs text-destructive font-medium">{state.ibcError}</p>}
+                                <Label htmlFor="ibc">Salario o Ingreso Base (IBC)</Label>
+                                <Input id="ibc" value={formatCurrency(ibc)} onChange={(e: any) => setIbc(parseCurrency(e.target.value))} onBlur={(e: any) => e.target.value = formatCurrency(ibc)} disabled={autoCalculateIbc && modality === 'independent'} />
+                                <p className="text-sm text-destructive">{ibcError}</p>
                             </div>
                             
-                            <div className="space-y-3 pt-2">
-                                <div className="flex justify-between"><Label>Días Laborados</Label><span className="text-sm font-bold bg-muted px-2 rounded">{state.days}</span></div>
-                                <input type="range" min="1" max="30" value={state.days} onChange={e => actions.setDays(parseInt(e.target.value))} className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary" />
+                            <div className="space-y-2">
+                                <Label htmlFor="days">Días a Cotizar ({days})</Label>
+                                <input type="range" id="days" min="1" max="30" value={days} onChange={e => setDays(parseInt(e.target.value))} className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary" />
                             </div>
-                        </CardContent>
-                    </Card>
+                            
+                            <hr className="border-border"/>
 
-                    <Card>
-                        <CardHeader className="py-4"><CardTitle className="text-sm uppercase tracking-wider text-muted-foreground">Adicionales</CardTitle></CardHeader>
-                        <CardContent className="space-y-4 pb-4">
-                             <ServiceToggle label="Liquidación Planilla" checked={state.chargePlanillaLiquidation} onChange={actions.setChargePlanillaLiquidation} />
-                             <ServiceToggle label="Corrección Planilla" checked={state.chargePlanillaCorrection} onChange={actions.setChargePlanillaCorrection} />
-                             {state.modality === 'dependent' && <div className="space-y-2 rounded-md border p-3"><Label>Administración</Label><Input value={formatCurrency(state.adminFee)} onChange={(e) => actions.setAdminFee(parseCurrency(e.target.value))} /></div>}
-                             
-                             <div className="space-y-3 rounded-md border border-dashed p-3">
-                                 <h5 className="font-medium text-xs text-muted-foreground uppercase">Personalizados</h5>
-                                 <div className="flex gap-2">
-                                     <Input placeholder="Descripción" className="text-xs h-8" value={newAdditionalItem.description} onChange={(e) => setNewAdditionalItem(prev => ({...prev, description: e.target.value}))}/>
-                                     <Input className="w-20 text-xs h-8" placeholder="$" value={newAdditionalItem.value} onChange={(e) => setNewAdditionalItem(prev => ({...prev, value: formatCurrency(parseCurrency(e.target.value))}))}/>
-                                     <Button size="icon" className="h-8 w-8" onClick={onAddAdditionalItem}><PlusCircle className="h-4 w-4"/></Button>
-                                 </div>
-                                 {state.additionalProcedureItems.length > 0 && (
-                                     <ul className="space-y-2 mt-2">
-                                         {state.additionalProcedureItems.map(item => (
-                                             <li key={item.id} className="flex justify-between items-center text-xs p-2 bg-muted/50 rounded-md">
-                                                 <span>{item.description}</span>
-                                                 <div className="flex items-center gap-2 font-mono"><span>{formatCurrency(item.value)}</span><Button variant="ghost" size="icon" className="h-5 w-5 text-destructive hover:bg-destructive/10" onClick={() => actions.setAdditionalProcedureItems(prev => prev.filter(i => i.id !== item.id))}><Trash2 className="h-3 w-3"/></Button></div>
-                                             </li>
-                                         ))}
-                                     </ul>
-                                 )}
-                             </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="h-full border-t-4 border-t-green-500 shadow-sm">
-                        <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-green-500"/> Aportes Seguridad Social</CardTitle></CardHeader>
-                        <CardContent className="space-y-6 pt-4">
                             <div className="space-y-4">
-                                <ContributionSection label="Pensión" active={state.includePension} onToggle={actions.setIncludePension}>
-                                    <SubOption label="Cobrar Afiliación" checked={state.chargePensionAffiliation} onChange={actions.setChargePensionAffiliation} />
-                                    <SubOption label="Cobrar Portal" checked={state.chargePensionPortal} onChange={actions.setChargePensionPortal} />
-                                </ContributionSection>
-
-                                <ContributionSection label="Salud (EPS)" active={state.includeHealth} onToggle={actions.setIncludeHealth}>
-                                    <SubOption label="Cobrar Afiliación" checked={state.chargeHealthAffiliation} onChange={actions.setChargeHealthAffiliation} />
-                                    <SubOption label="Cobrar Portal" checked={state.chargeHealthPortal} onChange={actions.setChargeHealthPortal} />
-                                </ContributionSection>
-
-                                <div className="flex flex-col space-y-3 rounded-lg border bg-muted/10 p-3 transition-all hover:bg-muted/20">
+                                <h4 className="font-medium text-foreground">Aportes a Seguridad Social</h4>
+                                
+                                <div className="flex flex-col space-y-3 rounded-md border p-3">
                                     <div className="flex items-center justify-between">
-                                        <Label className="flex items-center gap-2 font-semibold">Caja Comp.</Label>
-                                        {state.modality === 'independent' ? (
-                                            <RadioGroup onValueChange={(v) => actions.setCcfRate(parseFloat(v))} value={String(state.ccfRate)} className="flex items-center gap-3">
-                                                <div className="flex items-center space-x-1 cursor-pointer"><RadioGroupItem value="0" id="ccf-0"/><Label htmlFor="ccf-0" className="cursor-pointer text-xs">No</Label></div>
-                                                <div className="flex items-center space-x-1 cursor-pointer"><RadioGroupItem value="0.006" id="ccf-06"/><Label htmlFor="ccf-06" className="cursor-pointer text-xs">0.6%</Label></div>
-                                                <div className="flex items-center space-x-1 cursor-pointer"><RadioGroupItem value="0.02" id="ccf-2"/><Label htmlFor="ccf-2" className="cursor-pointer text-xs">2%</Label></div>
-                                            </RadioGroup>
-                                        ) : <Switch checked={state.ccfRate > 0} onCheckedChange={(v) => actions.setCcfRate(v ? 0.04 : 0)}/>}
+                                        <Label htmlFor="includePension" className="flex items-center gap-2"><Wallet className="h-4 w-4" />Pensión</Label>
+                                        <Switch id="includePension" checked={includePension} onCheckedChange={setIncludePension} />
                                     </div>
-                                    {state.ccfRate > 0 && <div className="pl-4 border-l-2 border-primary/20 space-y-2 text-xs"><SubOption label="Afiliación" checked={state.chargeCcfAffiliation} onChange={actions.setChargeCcfAffiliation}/><SubOption label="Portal" checked={state.chargeCcfPortal} onChange={actions.setChargeCcfPortal}/></div>}
+                                    {includePension && (
+                                        <div className="pl-6 space-y-2 text-xs">
+                                            <div className="flex items-center gap-2"><Checkbox id="chargePensionAffiliation" checked={chargePensionAffiliation} onCheckedChange={(v: any) => setChargePensionAffiliation(!!v)}/><Label htmlFor="chargePensionAffiliation" className="font-normal">Cobrar Afiliación</Label></div>
+                                            <div className="flex items-center gap-2"><Checkbox id="chargePensionPortal" checked={chargePensionPortal} onCheckedChange={(v: any) => setChargePensionPortal(!!v)}/><Label htmlFor="chargePensionPortal" className="font-normal">Cobrar Crear Portal</Label></div>
+                                        </div>
+                                    )}
                                 </div>
+                                <div className="flex flex-col space-y-3 rounded-md border p-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="includeHealth" className="flex items-center gap-2"><Handshake className="h-4 w-4" />Salud (EPS)</Label>
+                                        <Switch id="includeHealth" checked={includeHealth} onCheckedChange={setIncludeHealth} />
+                                    </div>
+                                    {includeHealth && (
+                                        <div className="pl-6 space-y-2 text-xs">
+                                            <div className="flex items-center gap-2"><Checkbox id="chargeHealthAffiliation" checked={chargeHealthAffiliation} onCheckedChange={(v: any) => setChargeHealthAffiliation(!!v)}/><Label htmlFor="chargeHealthAffiliation" className="font-normal">Cobrar Afiliación</Label></div>
+                                            <div className="flex items-center gap-2"><Checkbox id="chargeHealthPortal" checked={chargeHealthPortal} onCheckedChange={(v: any) => setChargeHealthPortal(!!v)}/><Label htmlFor="chargeHealthPortal" className="font-normal">Cobrar Crear Portal</Label></div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex flex-col space-y-3 rounded-md border p-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="flex items-center gap-2"><Briefcase className="h-4 w-4" />Caja de Comp.</Label>
+                                        {modality === 'independent' ? (
+                                            <RadioGroup onValueChange={(v: any) => setCcfRate(parseFloat(v))} value={String(ccfRate)} className="flex items-center gap-2">
+                                                <div className="flex items-center space-x-1"><RadioGroupItem value="0" id="ccf-0"/><Label htmlFor="ccf-0" className="text-xs font-normal">No</Label></div>
+                                                <div className="flex items-center space-x-1"><RadioGroupItem value="0.006" id="ccf-06"/><Label htmlFor="ccf-06" className="text-xs font-normal">0.6%</Label></div>
+                                                <div className="flex items-center space-x-1"><RadioGroupItem value="0.02" id="ccf-2"/><Label htmlFor="ccf-2" className="text-xs font-normal">2%</Label></div>
+                                            </RadioGroup>
+                                        ) : (
+                                            <Switch checked={ccfRate > 0} onCheckedChange={(v: any) => setCcfRate(v ? 0.04 : 0)}/>
+                                        )}
+                                    </div>
+                                    {(ccfRate > 0) && (
+                                        <div className="pl-6 space-y-2 text-xs">
+                                            <div className="flex items-center gap-2"><Checkbox id="chargeCcfAffiliation" checked={chargeCcfAffiliation} onCheckedChange={(v: any) => setChargeCcfAffiliation(!!v)}/><Label htmlFor="chargeCcfAffiliation" className="font-normal">Cobrar Afiliación</Label></div>
+                                            <div className="flex items-center gap-2"><Checkbox id="chargeCcfPortal" checked={chargeCcfPortal} onCheckedChange={(v: any) => setChargeCcfPortal(!!v)}/><Label htmlFor="chargeCcfPortal" className="font-normal">Cobrar Crear Portal</Label></div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex flex-col space-y-3 rounded-md border p-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="includeArl" className="flex items-center gap-2"><Briefcase className="h-4 w-4" />ARL</Label>
+                                        <Switch id="includeArl" checked={includeArl} onCheckedChange={setIncludeArl} />
+                                    </div>
+                                    {includeArl && (
+                                        <>
+                                            <div className="space-y-2 pt-2">
+                                                <Label htmlFor="arlRisk">Nivel de Riesgo ARL ({arlRisk})</Label>
+                                                <input type="range" id="arlRisk" min="1" max="5" value={arlRisk} onChange={e => setArlRisk(parseInt(e.target.value))} className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"/>
+                                            </div>
+                                            <div className="pl-6 space-y-2 text-xs">
+                                                <div className="flex items-center gap-2"><Checkbox id="chargeArlAffiliation" checked={chargeArlAffiliation} onCheckedChange={(v: any) => setChargeArlAffiliation(!!v)}/><Label htmlFor="chargeArlAffiliation" className="font-normal">Cobrar Afiliación</Label></div>
+                                                <div className="flex items-center gap-2"><Checkbox id="chargeArlPortal" checked={chargeArlPortal} onCheckedChange={(v: any) => setChargeArlPortal(!!v)}/><Label htmlFor="chargeArlPortal" className="font-normal">Cobrar Crear Portal</Label></div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
 
-                                <ContributionSection label="ARL" active={state.includeArl} onToggle={actions.setIncludeArl}>
-                                    <div className="space-y-2 pt-2 px-1"><div className="flex justify-between text-xs"><Label>Riesgo</Label><span className="font-bold">{state.arlRisk}</span></div><input type="range" min="1" max="5" value={state.arlRisk} onChange={e => actions.setArlRisk(parseInt(e.target.value))} className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"/></div>
-                                    <SubOption label="Cobrar Afiliación" checked={state.chargeArlAffiliation} onChange={actions.setChargeArlAffiliation} />
-                                    <SubOption label="Cobrar Portal" checked={state.chargeArlPortal} onChange={actions.setChargeArlPortal} />
-                                </ContributionSection>
+                            <hr className="border-border"/>
+
+                            <div className="space-y-4">
+                                <h4 className="font-medium text-foreground">Servicios Adicionales</h4>
+                                <div className="flex items-center justify-between rounded-md border p-3">
+                                    <Label htmlFor="chargePlanillaLiquidation" className="flex items-center gap-2 font-normal"><FileText className="h-4 w-4"/>Liquidación Planilla</Label>
+                                    <Switch id="chargePlanillaLiquidation" checked={chargePlanillaLiquidation} onCheckedChange={setChargePlanillaLiquidation}/>
+                                </div>
+                                <div className="flex items-center justify-between rounded-md border p-3">
+                                    <Label htmlFor="chargePlanillaCorrection" className="flex items-center gap-2 font-normal"><FileText className="h-4 w-4"/>Corrección Planilla</Label>
+                                    <Switch id="chargePlanillaCorrection" checked={chargePlanillaCorrection} onCheckedChange={setChargePlanillaCorrection}/>
+                                </div>
+                                {modality === 'dependent' && (
+                                    <div className="space-y-2 rounded-md border p-3">
+                                        <Label htmlFor="adminFee" className="flex items-center gap-2 font-normal"><Briefcase className="h-4 w-4"/>Costo Administración</Label>
+                                        <Input id="adminFee" value={formatCurrency(adminFee)} onChange={(e: any) => setAdminFee(parseCurrency(e.target.value))} onBlur={(e: any) => e.target.value = formatCurrency(adminFee)} />
+                                    </div>
+                                )}
+                                <div className="space-y-3 rounded-md border p-3">
+                                    <h5 className="font-medium text-sm">Trámites Personalizados</h5>
+                                    <div className="flex items-end gap-2">
+                                        <div className="flex-grow space-y-1">
+                                            <Label htmlFor="custom-desc" className="text-xs">Descripción del trámite</Label>
+                                            <Input id="custom-desc" placeholder="Ej: Vuelo internacional" value={newAdditionalItem.description} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, description: e.target.value}))}/>
+                                        </div>
+                                        <div className="w-28 space-y-1">
+                                            <Label htmlFor="custom-value" className="text-xs">Valor</Label>
+                                            <Input id="custom-value" type="text" placeholder="50000" value={newAdditionalItem.value} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, value: formatCurrency(parseCurrency(e.target.value))}))}/>
+                                        </div>
+                                        <Button size="icon" onClick={handleAddAdditionalItem}><PlusCircle className="h-4 w-4"/></Button>
+                                    </div>
+                                    {additionalProcedureItems.length > 0 && (
+                                        <>
+                                            <Separator className="my-2"/>
+                                            <ul className="space-y-2">
+                                                {additionalProcedureItems.map(item => (
+                                                    <li key={item.id} className="flex justify-between items-center text-sm p-1 bg-muted/50 rounded-md">
+                                                        <span>{item.description}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span>{formatCurrency(item.value)}</span>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveAdditionalItem(item.id)}>
+                                                                <Trash2 className="h-4 w-4"/>
+                                                            </Button>
+                                                        </div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </>
+                                    )}
+                                </div>
                             </div>
-                            <Separator />
-                            <div className="flex justify-between items-end">
-                                <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Subtotal Aportes</p>
-                                <p className="text-2xl font-bold text-foreground">{state.cotizacionData.totalSocialSecurity}</p>
-                            </div>
+
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* --- RIGHT COLUMN: RESULTS --- */}
-                <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <Card className="md:col-span-2 bg-gradient-to-br from-card to-secondary/30 border-primary/20 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-10"><Receipt className="w-40 h-40"/></div>
-                            <CardHeader><CardTitle className="text-lg text-muted-foreground uppercase tracking-widest text-sm z-10">Resumen Total</CardTitle></CardHeader>
-                            <CardContent className="flex flex-col md:flex-row justify-between items-center gap-6 z-10 relative">
-                                <div className="text-center md:text-left">
-                                    <p className="text-sm text-muted-foreground mb-1">Valor Final Cliente</p>
-                                    <p className="text-5xl md:text-7xl font-bold text-primary tracking-tighter drop-shadow-sm">{state.cotizacionData.totalNet}</p>
-                                </div>
-                                <div className="flex flex-col items-center md:items-end gap-1 bg-white/50 p-4 rounded-xl border border-white/20 shadow-sm backdrop-blur-sm">
-                                    <p className="text-xs text-muted-foreground uppercase font-bold">Base Cotización</p>
-                                    <p className="text-2xl md:text-3xl font-bold text-foreground">{state.cotizacionData.resultsIbc}</p>
-                                    <p className="text-sm font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">{state.cotizacionData.resultsIbcDays}</p>
-                                </div>
-                            </CardContent>
-                            <div className="px-6 pb-6 z-10 relative">
-                                <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
-                                    <DialogTrigger className="w-full">
-                                        <Button onClick={handleOpenPreview} disabled={isGenerating} className="w-full h-12 text-lg shadow-md" size="lg">
-                                            {isGenerating ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" />Generando...</> : <><Eye className="mr-2 h-5 w-5" />Previsualizar Imagen</>}
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="max-w-lg">
-                                        <DialogHeader><DialogTitle>Previsualización</DialogTitle></DialogHeader>
-                                        <div className="p-4 flex justify-center items-center bg-gray-100 rounded-lg border my-4 shadow-inner min-h-[300px]">
-                                            {generatedImage ? <img src={generatedImage} alt="Resumen" className="w-full h-auto rounded shadow-lg"/> : <div className="flex items-center justify-center text-muted-foreground"><Loader2 className="h-8 w-8 animate-spin mr-2"/> Generando...</div>}
-                                        </div>
-                                        <DialogFooter className="sm:justify-between gap-2"><Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>Cerrar</Button><div className="flex gap-2"><Button onClick={handleShare} disabled={!generatedImage}><Share2 className="mr-2 h-4 w-4" /> Compartir</Button><Button onClick={handleDownload} disabled={!generatedImage}><Download className="mr-2 h-4 w-4" /> Descargar</Button></div></DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
+                {/* RESULTS PANEL */}
+                <div className="lg:col-span-2 space-y-8">
+                    
+                    <div role="alert" className="w-full rounded-lg border p-4 text-foreground border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-900/10 flex items-start gap-4">
+                        <AlertTriangle className="h-5 w-5 flex-shrink-0 text-yellow-600" />
+                        <div className="flex-grow">
+                            <h5 className="mb-1 font-medium leading-none tracking-tight">Aviso Importante</h5>
+                            <div className="text-sm text-muted-foreground">
+                                <ul className="list-disc list-inside space-y-1">
+                                    <li>Los cálculos son una aproximación y no reflejan el valor real a pagar.</li>
+                                    <li>El valor total no incluye la posible mora que el operador de pago (PILA) pueda generar.</li>
+                                </ul>
                             </div>
+                        </div>
+                    </div>
+
+                    <div className="text-center">
+                        <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
+                            <DialogTrigger>
+                                <Button onClick={handleOpenPreview} disabled={isGenerating}>
+                                    {isGenerating ? (
+                                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generando...</>
+                                    ) : (
+                                        <><Eye className="mr-2 h-4 w-4" />Previsualizar Resumen</>
+                                    )}
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-lg">
+                                <DialogHeader>
+                                    <DialogTitle>Previsualización del Resumen</DialogTitle>
+                                </DialogHeader>
+                                <div className="p-4 flex justify-center items-center bg-gray-100 rounded-md">
+                                    {generatedImage ? (
+                                        <img src={generatedImage} alt="Resumen de Cotización" style={{maxWidth: '100%', height: 'auto'}}/>
+                                    ) : (
+                                        <div className="h-64 flex items-center justify-center">
+                                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                        </div>
+                                    )}
+                                </div>
+                                <DialogFooter className="sm:justify-between gap-2">
+                                    <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>Cerrar</Button>
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleShare} disabled={!generatedImage}>
+                                            <Share2 className="mr-2 h-4 w-4" /> Compartir
+                                        </Button>
+                                        <Button onClick={handleDownload} disabled={!generatedImage}>
+                                            <Download className="mr-2 h-4 w-4" /> Descargar
+                                        </Button>
+                                    </div>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+                    
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-xl">Resumen de Cotización</CardTitle>
+                            <CardDescription>Cálculos para <span className="font-bold text-primary">{cotizacionData.modality}</span>.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
+                            <div className="md:col-span-2">
+                                <p className="text-muted-foreground">Valor Final Cliente</p>
+                                <p className="text-6xl font-bold text-primary">{cotizacionData.totalNet}</p>
+                            </div>
+                            <div className="md:col-span-1 text-center md:text-right">
+                                <p className="text-3xl font-bold">{cotizacionData.resultsIbc}</p>
+                                <p className="text-lg font-bold text-blue-600">{cotizacionData.resultsIbcDays}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                        <Card className="h-full flex flex-col">
+                            <CardHeader className="text-center"><CardTitle className="text-lg uppercase">Aportes a Seg. Social</CardTitle></CardHeader>
+                            <CardContent className="flex-1 flex flex-col items-center justify-center">
+                                <p className="text-sm font-semibold tracking-widest text-muted-foreground uppercase">Subtotal</p>
+                                <p className="text-5xl font-bold text-primary">{cotizacionData.totalSocialSecurity}</p>
+                            </CardContent>
+                            <CardContent>
+                                <hr className="mb-4 border-border" />
+                                <ul className="space-y-3 w-full">
+                                    {cotizacionData.breakdownItems.length > 0 ? cotizacionData.breakdownItems.map(item => (
+                                        <li key={item.label} className="flex justify-between items-center text-sm">
+                                            <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-500" /><span className="text-muted-foreground">{item.label}</span></div>
+                                            <span className="font-medium">{item.value}</span>
+                                        </li>
+                                    )) : <p className="text-sm text-muted-foreground text-center py-4">No hay aportes seleccionados.</p>}
+                                </ul>
+                            </CardContent>
+                        </Card>
+                        <Card className="h-full flex flex-col">
+                            <CardHeader className="text-center"><CardTitle className="text-lg uppercase">Trámites y Servicios</CardTitle></CardHeader>
+                            <CardContent className="flex-1 flex flex-col items-center justify-center">
+                                <p className="text-sm font-semibold tracking-widest text-muted-foreground uppercase">Subtotal</p>
+                                <p className="text-5xl font-bold text-primary">{cotizacionData.totalProcedureCost}</p>
+                            </CardContent>
+                            <CardContent>
+                                <hr className="mb-4 border-border" />
+                                <ul className="space-y-3 w-full">
+                                {cotizacionData.procedureItems.length > 0 ? cotizacionData.procedureItems.map(item => (
+                                        <li key={item.label} className="flex justify-between items-center text-sm">
+                                            <div className="flex items-center gap-2"><span className="text-muted-foreground">{item.label}</span></div>
+                                            <span className="font-medium">{item.value}</span>
+                                        </li>
+                                    )) : <p className="text-sm text-muted-foreground text-center py-4">No hay trámites adicionales.</p>}
+                                </ul>
+                            </CardContent>
                         </Card>
                     </div>
-
-                    <div className="w-full">
-                        <Tabs value={resultViewMode} onValueChange={setResultViewMode} className="w-full">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-bold">Detalles de la Cotización</h3>
-                                <TabsList>
-                                    <TabsTrigger value="receipt"><Receipt className="mr-2 h-4 w-4"/>Recibo</TabsTrigger>
-                                    <TabsTrigger value="details"><LayoutTemplate className="mr-2 h-4 w-4"/>Detalle</TabsTrigger>
-                                </TabsList>
-                            </div>
-                            
-                            <TabsContent value="receipt" className="animate-in fade-in zoom-in-95 duration-300">
-                                <div className="w-full flex justify-center bg-muted/20 border rounded-xl p-8 shadow-inner overflow-hidden">
-                                     <div className="transform scale-[0.85] sm:scale-100 origin-top shadow-2xl rounded-lg">
-                                        <CotizacionSummaryImage {...state.cotizacionData} />
-                                     </div>
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="details" className="animate-in fade-in slide-in-from-right-4 duration-300">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <Card className="h-full border-t-4 border-t-green-500 shadow-sm hover:shadow-md transition-all">
-                                        <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5 text-green-500"/> Aportes</CardTitle></CardHeader>
-                                        <CardContent className="pt-4">
-                                            <ul className="space-y-3">
-                                                {state.cotizacionData.breakdownItems.map((item: any) => (
-                                                    <li key={item.label} className="flex justify-between items-center text-sm group">
-                                                        <div className="flex items-center gap-2"><CheckCircle className="h-3.5 w-3.5 text-green-500"/><span className="text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</span></div>
-                                                        <span className="font-medium font-mono">{item.value}</span>
-                                                    </li>
-                                                ))}
-                                                {state.cotizacionData.breakdownItems.length === 0 && <li className="text-muted-foreground italic text-sm text-center py-4">Sin aportes seleccionados</li>}
-                                            </ul>
-                                        </CardContent>
-                                    </Card>
-
-                                    <Card className="h-full border-t-4 border-t-primary shadow-sm hover:shadow-md transition-all">
-                                        <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary"/> Trámites</CardTitle></CardHeader>
-                                        <CardContent className="pt-4 flex flex-col h-full">
-                                            <ul className="space-y-3 flex-1">
-                                                {state.cotizacionData.procedureItems.map((item: any) => (
-                                                    <li key={item.label} className="flex justify-between items-center text-sm group">
-                                                        <div className="flex items-center gap-2"><div className="w-3.5 h-3.5 rounded-full border border-primary/40 flex items-center justify-center"><div className="w-1.5 h-1.5 bg-primary rounded-full"></div></div><span className="text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</span></div>
-                                                        <span className="font-medium font-mono">{item.value}</span>
-                                                    </li>
-                                                ))}
-                                                {state.cotizacionData.procedureItems.length === 0 && <li className="text-muted-foreground italic text-sm text-center py-4">Sin trámites seleccionados</li>}
-                                            </ul>
-                                            <Separator className="mt-6 mb-4"/>
-                                            <div className="flex justify-between items-end">
-                                                <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Total Trámites</p>
-                                                <p className="text-2xl font-bold text-foreground">{state.cotizacionData.totalProcedureCost}</p>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            </TabsContent>
-                        </Tabs>
-                    </div>
-
-                    <div className="w-full rounded-lg border p-4 border-yellow-500/30 bg-yellow-50/50 dark:bg-yellow-900/10 flex items-start gap-4">
-                        <AlertTriangle className="h-5 w-5 flex-shrink-0 text-yellow-600 mt-0.5" />
-                        <div className="text-xs text-muted-foreground"><p className="font-bold text-foreground text-sm mb-1">Aviso Legal</p>Los cálculos presentados son una estimación basada en los parámetros seleccionados. No incluyen intereses de mora generados por los operadores PILA ni ajustes retroactivos.</div>
-                    </div>
                 </div>
-            </div>
-            
-            {/* STICKY FOOTER FOR MOBILE */}
-            <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-lg border-t p-4 z-50 flex items-center justify-between shadow-2xl">
-                 <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground uppercase font-bold">Total a Pagar</span>
-                    <span className="text-2xl font-bold text-primary leading-none">{state.cotizacionData.totalNet}</span>
-                 </div>
-                 <Button onClick={handleOpenPreview} disabled={isGenerating} size="sm" className="h-10 px-6 shadow-md">
-                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin"/> : <Eye className="h-4 w-4 mr-2"/>}
-                    Previsualizar
-                 </Button>
             </div>
         </div>
     </PageLayout>
   );
 }
-
-// Subcomponents
-const TabsContent = ({ value, children, className }: any) => {
-    // Simple TabsContent wrapper to work with the Shared Tabs component which might be expecting standard radix/headless structure
-    // But since Shared.tsx implements a custom Tabs, we need to conditionally render based on context or prop.
-    // The Shared.tsx Tabs implementation uses a data-attribute on the parent and onClick.
-    // However, it doesn't export TabsContent natively connected to context in the provided file.
-    // It exports Tabs (container), TabsList, TabsTrigger.
-    // So we need to handle content visibility manually or rely on CSS if the shared component supported it.
-    // Checking Shared.tsx: The Tabs component is just a wrapper with onClick. It DOES NOT manage active state for content rendering.
-    // It seems I need to manage state manually in the parent (CotizadorView) as I did with `resultViewMode`.
-    // So here I just render if the parent state matches.
-    // Since I cannot pass the state easily without context, I will just assume the parent controls rendering via conditional logic 
-    // OR I will fix this component to render only if `value` matches `resultViewMode` (which I need to pass or control).
-    
-    // Actually, looking at the code above in CotizadorView, I used <Tabs value={resultViewMode} ...>
-    // But the `Shared.tsx` Tabs implementation is very simple/naive:
-    /*
-    export const Tabs = ({ value, onValueChange, children, className }: any) => {
-        return <div className={`w-full ${className}`} data-value={value} onClick={(e: any) => { 
-            const trigger = e.target.closest('[data-value]');
-            if(trigger && onValueChange && !trigger.disabled) onValueChange(trigger.dataset.value) 
-        }}>{children}</div>
-    }
-    */
-   // It doesn't use Context to share state with Content. 
-   // So, I must change how I use Tabs in CotizadorView to manually conditionally render the content.
-   
-   return <div className={className} style={{ display: 'none' }} data-content-for={value}>{children}</div>
-};
-// FIX: I will replace the TabsContent usage in the main component with standard React conditional rendering 
-// because the Shared Tabs component is not a full Context-based compound component.
-
-const ContributionSection = ({ label, active, onToggle, children }: any) => (
-    <div className={`flex flex-col space-y-3 rounded-lg border p-3 transition-all duration-200 ${active ? 'bg-primary/5 border-primary/20 shadow-sm' : 'bg-muted/10 opacity-80 hover:opacity-100'}`}>
-        <div className="flex items-center justify-between"><Label className="flex items-center gap-2 font-semibold cursor-pointer" onClick={() => onToggle(!active)}>{label}</Label><Switch checked={active} onCheckedChange={onToggle} /></div>
-        {active && <div className="pl-4 border-l-2 border-primary/20 space-y-2 text-xs pt-1 animate-in slide-in-from-top-1">{children}</div>}
-    </div>
-);
-const SubOption = ({ label, checked, onChange }: any) => (
-    <div className="flex items-center gap-2 hover:bg-white/50 p-1 rounded cursor-pointer" onClick={() => onChange(!checked)}><Checkbox checked={checked} onCheckedChange={(v: any) => onChange(!!v)}/><Label className="font-normal cursor-pointer">{label}</Label></div>
-);
-const ServiceToggle = ({ label, checked, onChange }: any) => (
-    <div className="flex items-center justify-between rounded-md border p-3 bg-card hover:bg-muted/20 transition-colors"><Label className="flex items-center gap-2 font-normal cursor-pointer" onClick={() => onChange(!checked)}>{label}</Label><Switch checked={checked} onCheckedChange={onChange}/></div>
-);
