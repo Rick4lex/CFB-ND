@@ -25,7 +25,7 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'ui-vendor': ['lucide-react', 'clsx', 'tailwind-merge'],
-          'data-vendor': ['zustand', 'idb-keyval', 'zod', 'react-hook-form'],
+          'data-vendor': ['zustand', 'zod', 'react-hook-form'],
           'utils': ['date-fns', 'html-to-image', 'papaparse']
         }
       }

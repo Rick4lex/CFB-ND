@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { LayoutTemplate, Grid, LayoutGrid, Shuffle, RefreshCw } from 'lucide-react';
 import { PageLayout } from '../components/layout/Layout';
-import { db, BrandingElement } from '../lib/db';
+import { BrandingElement } from '../lib/db';
+import { useAppStore } from '../lib/store';
 import { LAYOUTS, INITIAL_ELEMENTS } from '../lib/branding-constants';
 import { ImageCell } from '../components/branding/ImageCell';
 import { ColorCell } from '../components/branding/ColorCell';
@@ -13,43 +14,35 @@ import { useToast } from '../hooks/use-toast';
 export const ThemeView = () => {
   const { toast } = useToast();
   
+  // Store
+  const { brandingElements, setBrandingElements, updateBrandingElement } = useAppStore();
+  
   // State
   const [activeLayoutId, setActiveLayoutId] = useState(LAYOUTS[0].id);
   const [editingElement, setEditingElement] = useState<BrandingElement | null>(null);
   const [roundColors, setRoundColors] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
 
-  // Dexie Query (Reactivity)
-  const elements = useLiveQuery(() => db.elements.toArray());
-
-  // Seed DB if empty
+  // Seed Data if empty
   useEffect(() => {
-    const seed = async () => {
-      const count = await db.elements.count();
-      if (count === 0 && !isSeeding) {
-        setIsSeeding(true);
-        await db.elements.bulkAdd(INITIAL_ELEMENTS);
-        setIsSeeding(false);
-      }
-    };
-    seed();
-  }, []);
+    if (brandingElements.length === 0) {
+        setBrandingElements(INITIAL_ELEMENTS);
+    }
+  }, [brandingElements.length, setBrandingElements]);
 
   // Handlers
   const handleSaveElement = async (id: string, data: any) => {
     try {
-      await db.elements.update(id, { data });
+      updateBrandingElement(id, data);
       toast({ title: 'Actualizado', description: 'Los cambios se han guardado localmente.' });
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar en la base de datos.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo guardar el cambio.' });
     }
   };
 
   const handleReset = async () => {
     if (confirm('¿Restablecer todo el moodboard a los valores iniciales?')) {
-      await db.elements.clear();
-      await db.elements.bulkAdd(INITIAL_ELEMENTS);
+      setBrandingElements(INITIAL_ELEMENTS);
       toast({ title: 'Restablecido', description: 'Moodboard reiniciado.' });
     }
   };
@@ -67,7 +60,7 @@ export const ThemeView = () => {
 
   // Mapping function for rendering
   const renderCell = (areaName: string) => {
-    const element = elements?.find(e => e.id === areaName);
+    const element = brandingElements.find(e => e.id === areaName);
     if (!element) return <div key={areaName} style={{ gridArea: areaName }} className="rounded-xl border border-dashed bg-muted/20"></div>;
 
     if (element.type === 'image') {
@@ -102,8 +95,7 @@ export const ThemeView = () => {
     return Array.from(areas);
   }, [activeLayout]);
 
-
-  if (!elements) return <div className="flex h-96 items-center justify-center"><RefreshCw className="animate-spin" /></div>;
+  if (!brandingElements) return <div className="flex h-96 items-center justify-center"><RefreshCw className="animate-spin" /></div>;
 
   return (
     <PageLayout title="Moodboard Interactivo" subtitle="Define y visualiza la identidad de tu marca." onBackRoute="/app/dashboard">
@@ -163,11 +155,11 @@ export const ThemeView = () => {
              {/* Mobile Stacked View (Fallback) */}
              <div className="flex flex-col gap-4 md:hidden">
                 {/* Manual order for mobile specifically if grid isn't supported or to force hierarchy */}
-                {elements.filter(e => e.type === 'image').map(e => (
+                {brandingElements.filter(e => e.type === 'image').map(e => (
                     <div key={e.id} className="aspect-video w-full">{renderCell(e.id)}</div>
                 ))}
                 <div className="grid grid-cols-3 gap-2">
-                    {elements.filter(e => e.type === 'color').map(e => (
+                    {brandingElements.filter(e => e.type === 'color').map(e => (
                         <div key={e.id} className="aspect-square">{renderCell(e.id)}</div>
                     ))}
                 </div>

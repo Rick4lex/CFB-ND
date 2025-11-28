@@ -1,3 +1,4 @@
+
 import { useAppStore } from '../lib/store';
 import { useToast } from './use-toast';
 import { clientSchema } from '../lib/schemas';
@@ -18,14 +19,17 @@ export const useClientOperations = () => {
 
   /**
    * Gestiona el guardado de clientes (Creación, Edición o Carga Masiva).
-   * Realiza validaciones de esquema (Zod) y reglas de negocio (Duplicados).
+   * Persiste automáticamente en localStorage a través del store.
    * @returns true si la operación fue exitosa, false si falló.
    */
   const saveClient = (saveData: ClientWithMultiple): boolean => {
+    console.log("3. [Hook] Iniciando operación saveClient. Datos:", saveData);
     try {
         // CASO 1: Importación Masiva (CSV)
         if (saveData.addMultiple) { 
+            console.log("3.1 [Hook] Modo Importación Masiva detectado.");
             const { updatedClients, updatedAdvisors } = saveData.addMultiple(clients, advisors); 
+            // setClients sobrescribe el array, persistencia automática
             setClients(updatedClients);
             setAdvisors(updatedAdvisors);
             toast({ 
@@ -37,15 +41,14 @@ export const useClientOperations = () => {
         
         // CASO 2: Cliente Individual (Crear/Editar)
         const clientData = saveData.client;
+        console.log("4. [Hook] Procesando cliente individual:", clientData);
         
-        // RF-02.2: Validación de Esquema Zod
-        // Aunque el formulario ya valida, esta es una capa de seguridad en la lógica de negocio.
-        // Nota: Omitimos campos generados como ID para la validación estricta del payload base si fuera necesario,
-        // pero aquí validamos el objeto completo para asegurar integridad.
+        // Validación de Esquema
         const validationResult = clientSchema.safeParse(clientData);
         
         if (!validationResult.success) {
             const errorMessage = validationResult.error.issues[0]?.message || "Datos inválidos";
+            console.error("5. [Hook] Error de validación Zod:", validationResult.error);
             toast({ 
                 variant: "destructive", 
                 title: "Error de validación", 
@@ -53,11 +56,13 @@ export const useClientOperations = () => {
             });
             return false;
         }
+        console.log("5. [Hook] Validación Zod exitosa.");
 
-        // RF-02.1: Validación de Unicidad de Documento
-        // Buscamos si existe otro cliente con el mismo documento pero diferente ID interno
+        // Validación de Unicidad de Documento
+        // Verificamos si existe OTRO cliente con el mismo documentId pero diferente ID interno
         const duplicate = clients.find(c => c.documentId === clientData.documentId && c.id !== clientData.id);
         if (duplicate) {
+            console.warn(`6. [Hook] Bloqueo por duplicado. ID entrante: ${clientData.id}, ID existente: ${duplicate.id}`);
             toast({ 
                 variant: "destructive", 
                 title: "Documento Duplicado", 
@@ -66,18 +71,20 @@ export const useClientOperations = () => {
             return false;
         }
 
-        // Determinar si es Crear o Actualizar
         const exists = clients.some(c => c.id === clientData.id);
+        console.log(`6. [Hook] Verificación de existencia para ID ${clientData.id}: ${exists}`);
         
         if (exists) {
-            // RF-01.2: Acción Semántica Update
+            // Actualización (UPDATE)
+            console.log("7. [Hook] Ejecutando updateClient en Store...");
             updateClient(clientData);
             toast({ 
                 title: "Datos actualizados", 
                 description: `Se guardaron los cambios para ${clientData.fullName}` 
             });
         } else {
-            // RF-01.1: Acción Semántica Add
+            // Creación (CREATE)
+            console.log("7. [Hook] Ejecutando addClient en Store...");
             addClient(clientData);
             toast({ 
                 title: "Cliente registrado", 
@@ -87,7 +94,7 @@ export const useClientOperations = () => {
 
         return true;
     } catch (error) {
-        console.error("Error en operación de cliente:", error);
+        console.error("Error CRÍTICO en operación de cliente:", error);
         toast({ 
             variant: "destructive", 
             title: "Error del sistema", 
@@ -98,14 +105,12 @@ export const useClientOperations = () => {
   };
 
   /**
-   * Elimina un cliente por su ID.
-   * Nota: La confirmación de UI debe hacerse antes de llamar a esta función.
+   * Elimina un cliente por su ID (DELETE).
    */
   const deleteClient = (clientId: string) => {
     const clientToDelete = clients.find(c => c.id === clientId);
     if (!clientToDelete) return;
 
-    // RF-01.3: Acción Semántica Remove
     removeClient(clientId);
     
     toast({ 

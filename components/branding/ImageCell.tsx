@@ -9,7 +9,7 @@ interface ImageCellProps {
   style?: React.CSSProperties;
 }
 
-export const ImageCell = ({ element, onClick, className, style }: ImageCellProps) => {
+export const ImageCell: React.FC<ImageCellProps> = ({ element, onClick, className, style }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 

@@ -10,7 +10,7 @@ interface ColorCellProps {
   shape?: 'square' | 'circle';
 }
 
-export const ColorCell = ({ element, onClick, className, style, shape = 'square' }: ColorCellProps) => {
+export const ColorCell: React.FC<ColorCellProps> = ({ element, onClick, className, style, shape = 'square' }) => {
   const { color1, color2, style: patternStyle } = element.data;
 
   const getBackgroundStyle = () => {

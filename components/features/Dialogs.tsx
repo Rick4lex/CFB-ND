@@ -710,24 +710,39 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
 
 
   const onSubmit = (data: ClientFormData) => {
+    console.log("1. [Dialog] onSubmit disparado desde React Hook Form");
+    console.log("   Datos recibidos del formulario:", data);
+
     const advisor = advisors.find(a => a.name === data.assignedAdvisor);
     
-    // FIX: Logic to strictly preserve ID during edit
-    const recordId = client?.id ? client.id : data.documentId;
+    // FIX: Logic to strictly preserve ID during edit, generate UUID for new clients
+    const recordId = client?.id ? client.id : crypto.randomUUID();
+    console.log(`2. [Dialog] ID de registro calculado: ${recordId} (Es edición: ${!!client?.id})`);
     
     const finalClient: Client = {
       ...data,
       id: recordId,
-      documentId: client?.id ? client.documentId : data.documentId, 
+      documentId: data.documentId, // Ensure documentId comes from form data
       advisorCommissionPercentage: advisor?.commissionType === 'percentage' ? advisor.commissionValue : 0,
       // Freeze the commission amount at the time of sale/edit
       advisorCommissionAmount: advisorCommissionValue
     };
     
+    console.log("   Llamando a onSave con objeto:", finalClient);
     onSave({client: finalClient});
+    
     toast({
       title: client ? "Cliente actualizado" : "Cliente creado",
       description: `Se han guardado los datos de ${finalClient.fullName}. Comisión congelada: ${advisorCommissionValue}`,
+    });
+  };
+  
+  const onInvalid = (errors: any) => {
+    console.warn("2.1 [Dialog] onInvalid disparado - Errores de validación:", errors);
+    toast({
+        variant: "destructive",
+        title: "Campos inválidos",
+        description: "Revisa los campos en rojo. Abre la consola para más detalles."
     });
   };
   
@@ -755,7 +770,10 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
             </div>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={(e) => {
+             console.log("0. [Dialog] Evento submit nativo capturado en <form>");
+             form.handleSubmit(onSubmit, onInvalid)(e);
+          }}>
             <ScrollArea className="h-[70vh] p-1">
               <div className="p-4 space-y-4">
                 {/* Top Section: Key Info for Quick Access */}
@@ -799,6 +817,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                         <FormControl>
                             <Input 
                                 {...field} 
+                                // Bloqueamos edición de documento si es edición para evitar inconsistencias
                                 disabled={!!client} 
                                 className={!!client ? "bg-muted text-muted-foreground opacity-100 cursor-not-allowed" : ""} 
                                 placeholder="Ej: 12345678" 

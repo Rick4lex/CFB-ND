@@ -1,4 +1,5 @@
-import Dexie, { Table } from 'dexie';
+
+// Archivo de definición de tipos para Branding
 
 export interface BrandingElement {
   id: string; // Identificador único (ej: 'logo', 'color1')
@@ -11,16 +12,3 @@ export interface BrandingElement {
     style?: 'solid' | 'central-circle' | 'diagonal'; // Patrón de color
   };
 }
-
-export class BrandingDB extends Dexie {
-  elements!: Table<BrandingElement>;
-
-  constructor() {
-    super('CFBraindDB');
-    (this as any).version(1).stores({
-      elements: 'id' // Primary key
-    });
-  }
-}
-
-export const db = new BrandingDB();
