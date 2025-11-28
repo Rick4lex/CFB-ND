@@ -50,9 +50,7 @@ export function CotizadorView() {
 
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
 
   // Form State
@@ -157,16 +155,29 @@ export function CotizadorView() {
   }, [ibc, days, modality, includePension, includeHealth, includeArl, arlRisk, ccfRate, charges, adminFee, procedureCosts, additionalProcedureItems]);
 
   // --- Handlers ---
-  const handleOpenPreview = async () => {
+  const handleDirectDownload = async () => {
     if (!imageRef.current) return;
     setIsGenerating(true);
-    setIsPreviewModalOpen(true);
     try {
+        // Wait a bit for React renders/styles
         await new Promise(r => setTimeout(r, 100)); 
-        const dataUrl = await htmlToImage.toPng(imageRef.current, { quality: 1, pixelRatio: 2, backgroundColor: '#ffffff' });
-        setGeneratedImage(dataUrl);
+        
+        const dataUrl = await htmlToImage.toPng(imageRef.current, { 
+            quality: 1, 
+            pixelRatio: 2, 
+            backgroundColor: '#ffffff' 
+        });
+        
+        const link = document.createElement('a');
+        link.download = `cotizacion_${new Date().getTime()}.png`;
+        link.href = dataUrl;
+        link.click();
+        
+        toast({ title: "Comprobante Descargado", description: "La imagen se ha guardado en tu dispositivo." });
+
     } catch(error) {
         console.error("Error generating image:", error);
+        toast({ variant: "destructive", title: "Error", description: "No se pudo generar la imagen." });
     } finally {
         setIsGenerating(false);
     }
@@ -358,31 +369,10 @@ export function CotizadorView() {
                      </div>
 
                      <div className="flex justify-center gap-4 w-full max-w-md">
-                        <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
-                            <DialogTrigger asChild>
-                                <Button size="lg" onClick={handleOpenPreview} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-xl shadow-primary/20 h-14 text-lg">
-                                    {isGenerating ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Download className="mr-2 h-5 w-5"/>}
-                                    Descargar Comprobante
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-lg bg-white/95 backdrop-blur-md">
-                                <DialogHeader><DialogTitle>Vista Previa</DialogTitle></DialogHeader>
-                                <div className="flex justify-center p-6 bg-gray-100/50 rounded-xl border-2 border-dashed border-gray-200">
-                                    {generatedImage ? <img src={generatedImage} alt="Resumen" className="shadow-lg rounded-md"/> : <div className="h-64 w-full flex items-center justify-center"><Loader2 className="animate-spin text-muted-foreground h-8 w-8"/></div>}
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>Cerrar</Button>
-                                    <Button onClick={() => {
-                                        if(generatedImage) {
-                                            const link = document.createElement('a');
-                                            link.download = `cotizacion_${new Date().getTime()}.png`;
-                                            link.href = generatedImage;
-                                            link.click();
-                                        }
-                                    }}>Guardar Imagen</Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
+                        <Button size="lg" onClick={handleDirectDownload} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-xl shadow-primary/20 h-14 text-lg">
+                            {isGenerating ? <Loader2 className="mr-2 h-5 w-5 animate-spin"/> : <Download className="mr-2 h-5 w-5"/>}
+                            Descargar Comprobante
+                        </Button>
                      </div>
                 </div>
             </div>
@@ -414,9 +404,9 @@ export function CotizadorView() {
                             </div>
                         </DialogContent>
                     </Dialog>
-                    <Button size="lg" className="h-12 px-6 rounded-xl shadow-lg shadow-primary/20" onClick={handleOpenPreview}>
-                        {isGenerating ? <Loader2 className="h-5 w-5 animate-spin"/> : <Eye className="h-5 w-5 mr-2"/>}
-                        Ver Recibo
+                    <Button size="lg" className="h-12 px-6 rounded-xl shadow-lg shadow-primary/20" onClick={handleDirectDownload}>
+                        {isGenerating ? <Loader2 className="h-5 w-5 animate-spin"/> : <Download className="h-5 w-5 mr-2"/>}
+                        Descargar
                     </Button>
                 </div>
             </div>
