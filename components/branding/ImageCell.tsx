@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import { useState, useEffect, type CSSProperties, type FC } from 'react';
 import { Edit2, AlertTriangle, Loader2 } from 'lucide-react';
 import { BrandingElement } from '../../lib/db';
 
@@ -6,15 +7,15 @@ interface ImageCellProps {
   element: BrandingElement;
   onClick: () => void;
   className?: string;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 }
 
-export const ImageCell: React.FC<ImageCellProps> = ({ element, onClick, className, style }) => {
+export const ImageCell: FC<ImageCellProps> = ({ element, onClick, className, style }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   // Reset states when URL changes
-  React.useEffect(() => {
+  useEffect(() => {
     setLoading(true);
     setError(false);
   }, [element.data.url]);

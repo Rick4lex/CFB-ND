@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export const TokenView = () => {
@@ -6,7 +7,7 @@ export const TokenView = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => { 
+  const handleSubmit = (e: FormEvent) => { 
       e.preventDefault(); 
       if (token.trim().length > 0) { 
           localStorage.setItem("cfbnd_token", token); 

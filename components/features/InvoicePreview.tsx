@@ -1,5 +1,4 @@
 
-import React from 'react';
 import type { Client } from '../../lib/types';
 import { useAppStore } from '../../lib/store';
 import { format } from 'date-fns';
@@ -120,7 +119,7 @@ export function InvoicePreview({ client, additionalItems, totalAmount }: Invoice
                         </div>
                          <div className="flex items-center justify-center gap-2 print:flex print:items-center mt-auto pt-4">
                             <img src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1748304382/codefaker-04_pjvwsp.png" alt="CFBND Logo" width={32} height={32} crossOrigin="anonymous" />
-                            <span className="font-bold text-xl text-[#E08C79] print:text-lg">CFBND</span>
+                            <span className="font-bold text-xl text-[#E08C79]">CFBND</span>
                         </div>
                     </div>
                 </div>

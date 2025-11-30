@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { 
     Button, Card, CardHeader, CardTitle, CardContent, CardDescription, 

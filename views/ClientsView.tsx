@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
+
+import { useState, useMemo, useCallback, type ChangeEvent } from 'react';
 import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../lib/store';
@@ -51,7 +52,7 @@ export const ClientsView = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Debounce search
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setSearchTerm(value);
       const debouncedUpdate = debounce((val: string) => {

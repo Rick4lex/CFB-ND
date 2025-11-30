@@ -1,4 +1,5 @@
-import React from 'react';
+
+import { type FC, type CSSProperties } from 'react';
 import { Edit2 } from 'lucide-react';
 import { BrandingElement } from '../../lib/db';
 
@@ -6,11 +7,11 @@ interface ColorCellProps {
   element: BrandingElement;
   onClick: () => void;
   className?: string;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
   shape?: 'square' | 'circle';
 }
 
-export const ColorCell: React.FC<ColorCellProps> = ({ element, onClick, className, style, shape = 'square' }) => {
+export const ColorCell: FC<ColorCellProps> = ({ element, onClick, className, style, shape = 'square' }) => {
   const { color1, color2, style: patternStyle } = element.data;
 
   const getBackgroundStyle = () => {

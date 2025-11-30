@@ -1,10 +1,31 @@
 
-import React, { useState, createContext, useContext } from 'react';
+import { 
+  useState, 
+  createContext, 
+  useContext, 
+  useRef, 
+  forwardRef, 
+  useId, 
+  useEffect, 
+  Children, 
+  isValidElement, 
+  cloneElement,
+  type InputHTMLAttributes,
+  type ButtonHTMLAttributes,
+  type TextareaHTMLAttributes,
+  type LabelHTMLAttributes,
+  type HTMLAttributes,
+  type TableHTMLAttributes,
+  type ThHTMLAttributes,
+  type TdHTMLAttributes,
+  type HTMLTableCaptionElement,
+  type ReactElement
+} from 'react';
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Controller, FormProvider, useFormContext, useController } from 'react-hook-form';
 
 // --- Base Components ---
-export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => {
     return (
       <input
@@ -17,7 +38,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
 )
 Input.displayName = "Input"
 
-export const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link', size?: 'default' | 'sm' | 'lg' | 'icon' }>(
+export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link', size?: 'default' | 'sm' | 'lg' | 'icon' }>(
   ({ className, variant = 'default', size = 'default', ...props }, ref) => {
     const variants = {
         default: "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5",
@@ -44,7 +65,7 @@ export const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttrib
 )
 Button.displayName = "Button"
 
-export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
     ({ className, ...props }, ref) => {
       return (
         <textarea
@@ -83,50 +104,50 @@ export const ScrollArea = ({ children, className }: any) => (
     </div>
 );
 
-export const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLLabelElement>>(({ className, ...props }, ref) => (
+export const Label = forwardRef<HTMLLabelElement, LabelHTMLAttributes<HTMLLabelElement>>(({ className, ...props }, ref) => (
   <label ref={ref} className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`} {...props} />
 ));
 Label.displayName = "Label";
 
 // --- Table ---
-export const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(({ className, ...props }, ref) => (
+export const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(({ className, ...props }, ref) => (
   <div className="relative w-full overflow-auto rounded-lg border shadow-sm">
     <table ref={ref} className={`w-full caption-bottom text-sm ${className}`} {...props} />
   </div>
 ))
 Table.displayName = "Table"
 
-export const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(({ className, ...props }, ref) => (
+export const TableHeader = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(({ className, ...props }, ref) => (
   <thead ref={ref} className={`[&_tr]:border-b bg-muted/50 ${className}`} {...props} />
 ))
 TableHeader.displayName = "TableHeader"
 
-export const TableBody = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(({ className, ...props }, ref) => (
+export const TableBody = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(({ className, ...props }, ref) => (
   <tbody ref={ref} className={`[&_tr:last-child]:border-0 ${className}`} {...props} />
 ))
 TableBody.displayName = "TableBody"
 
-export const TableFooter = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(({ className, ...props }, ref) => (
+export const TableFooter = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(({ className, ...props }, ref) => (
   <tfoot ref={ref} className={`border-t bg-muted/50 font-medium [&>tr]:last:border-b-0 ${className}`} {...props} />
 ))
 TableFooter.displayName = "TableFooter"
 
-export const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(({ className, ...props }, ref) => (
+export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElement>>(({ className, ...props }, ref) => (
   <tr ref={ref} className={`border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted ${className}`} {...props} />
 ))
 TableRow.displayName = "TableRow"
 
-export const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(({ className, ...props }, ref) => (
+export const TableHead = forwardRef<HTMLTableCellElement, ThHTMLAttributes<HTMLTableCellElement>>(({ className, ...props }, ref) => (
   <th ref={ref} className={`h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 ${className}`} {...props} />
 ))
 TableHead.displayName = "TableHead"
 
-export const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(({ className, ...props }, ref) => (
+export const TableCell = forwardRef<HTMLTableCellElement, TdHTMLAttributes<HTMLTableCellElement>>(({ className, ...props }, ref) => (
   <td ref={ref} className={`p-4 align-middle [&:has([role=checkbox])]:pr-0 ${className}`} {...props} />
 ))
 TableCell.displayName = "TableCell"
 
-export const TableCaption = React.forwardRef<HTMLTableCaptionElement, React.HTMLAttributes<HTMLTableCaptionElement>>(({ className, ...props }, ref) => (
+export const TableCaption = forwardRef<HTMLTableCaptionElement, HTMLAttributes<HTMLTableCaptionElement>>(({ className, ...props }, ref) => (
   <caption ref={ref} className={`mt-4 text-sm text-muted-foreground ${className}`} {...props} />
 ))
 TableCaption.displayName = "TableCaption"
@@ -145,8 +166,8 @@ export const Dialog = ({ open, onOpenChange, children }: any) => {
     let trigger = null;
     let content = null;
 
-    React.Children.forEach(children, (child) => {
-        if (React.isValidElement(child)) {
+    Children.forEach(children, (child) => {
+        if (isValidElement(child)) {
              if ((child.type as any).displayName === 'DialogTrigger') {
                 trigger = child;
              } else if ((child.type as any).displayName === 'DialogContent') {
@@ -159,7 +180,7 @@ export const Dialog = ({ open, onOpenChange, children }: any) => {
 
     return (
         <>
-            {trigger && React.cloneElement(trigger as React.ReactElement<any>, { onClick: () => onOpenChange(true) })}
+            {trigger && cloneElement(trigger as ReactElement<any>, { onClick: () => onOpenChange(true) })}
             {open && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-300" onClick={() => onOpenChange(false)}></div>
@@ -192,7 +213,7 @@ export const Form = ({ children, ...props }: any) => <FormProvider {...props}><f
 const FormItemContext = createContext<{ id: string } | null>(null);
 
 export const FormItem = ({ children, className }: any) => {
-    const id = React.useId();
+    const id = useId();
     return <FormItemContext.Provider value={{ id }}><div className={`space-y-2 mb-4 ${className}`}>{children}</div></FormItemContext.Provider>
 };
 
@@ -203,7 +224,7 @@ export const FormLabel = ({ children, className }: any) => {
 
 export const FormControl = ({ children }: any) => {
     const context = useContext(FormItemContext);
-    return React.cloneElement(children, { id: context?.id });
+    return cloneElement(children, { id: context?.id });
 };
 
 export const FormMessage = ({ className }: any) => {
@@ -239,13 +260,13 @@ const SelectContext = createContext<any>(null);
 export const Select = ({ onValueChange, defaultValue, value, children }: any) => {
     const [open, setOpen] = useState(false);
     const [internalValue, setInternalValue] = useState(defaultValue || value);
-    const containerRef = React.useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
     
-    React.useEffect(() => {
+    useEffect(() => {
         if (value !== undefined) setInternalValue(value);
     }, [value]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setOpen(false);
@@ -337,7 +358,7 @@ export const AccordionContent = ({ children }: any) => {
 };
 
 // --- Checkbox ---
-export const Checkbox = React.forwardRef<HTMLInputElement, any>(({ className, checked, onCheckedChange, ...props }, ref) => (
+export const Checkbox = forwardRef<HTMLInputElement, any>(({ className, checked, onCheckedChange, ...props }, ref) => (
     <div className="relative flex items-center">
         <input 
             type="checkbox" 
@@ -355,7 +376,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, any>(({ className, ch
 Checkbox.displayName = "Checkbox";
 
 // --- Switch ---
-export const Switch = React.forwardRef<HTMLButtonElement, any>(({ className, checked, onCheckedChange, ...props }, ref) => (
+export const Switch = forwardRef<HTMLButtonElement, any>(({ className, checked, onCheckedChange, ...props }, ref) => (
   <button
     type="button"
     role="switch"
@@ -375,9 +396,9 @@ const DropdownMenuContext = createContext<any>(null);
 
 export const DropdownMenu = ({ children }: any) => {
     const [open, setOpen] = useState(false);
-    const containerRef = React.useRef<HTMLDivElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setOpen(false);

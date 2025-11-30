@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { useAppStore } from '../../lib/store';
 import { 
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -19,7 +19,7 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
     const [tempServices, setTempServices] = useState(config.servicesCatalog);
 
     // Sync local state when modal opens or config changes externally
-    React.useEffect(() => {
+    useEffect(() => {
         if(isOpen) {
             setTempServices(config.servicesCatalog);
         }
@@ -70,7 +70,7 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
         toast({ title: "Copia de Seguridad Generada", description: "El archivo JSON se ha descargado correctamente." });
     };
 
-    const handleRestore = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleRestore = (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, type ChangeEvent } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Papa from 'papaparse';
@@ -595,7 +595,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
     toast({ title: "Plantilla descargada", description: "Completa el archivo plantilla_clientes.csv para importar tus clientes."});
   };
   
-  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileImport = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 

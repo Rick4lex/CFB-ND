@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { LayoutTemplate, Grid, LayoutGrid, Shuffle, RefreshCw } from 'lucide-react';
 import { PageLayout } from '../components/layout/Layout';
 import { BrandingElement } from '../lib/db';
@@ -87,7 +87,7 @@ export const ThemeView = () => {
   };
 
   // Collect unique area names from the layout string to render grid items
-  const areaNames = React.useMemo(() => {
+  const areaNames = useMemo(() => {
     const areas = new Set<string>();
     activeLayout.areas.forEach(row => {
       row.split(' ').forEach(area => areas.add(area));

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import { useState, type ReactNode } from 'react';
 import { LogOut, ArrowLeft, Sun, Moon, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
@@ -49,8 +50,8 @@ interface PageLayoutProps {
     subtitle?: string;
     onBack?: () => void; // Legacy support or custom action
     onBackRoute?: string; // Router support
-    actions?: React.ReactNode;
-    children?: React.ReactNode;
+    actions?: ReactNode;
+    children?: ReactNode;
 }
 
 export const PageLayout = ({ title, subtitle, onBack, onBackRoute, actions, children }: PageLayoutProps) => {

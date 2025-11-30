@@ -1,5 +1,6 @@
+
 import './index.css';
-import React, { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, lazy, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
@@ -9,11 +10,11 @@ import { Loader2 } from 'lucide-react';
 import { useAppStore } from './lib/store';
 
 // --- Lazy Load Views ---
-const ServicesView = React.lazy(() => import('./views/ServicesView').then(module => ({ default: module.ServicesView })));
-const ClientsView = React.lazy(() => import('./views/ClientsView').then(module => ({ default: module.ClientsView })));
-const DocumentsView = React.lazy(() => import('./views/DocumentsView').then(module => ({ default: module.DocumentsView })));
-const CotizadorView = React.lazy(() => import('./views/CotizadorView').then(module => ({ default: module.CotizadorView })));
-const ThemeView = React.lazy(() => import('./views/ThemeView').then(module => ({ default: module.ThemeView })));
+const ServicesView = lazy(() => import('./views/ServicesView').then(module => ({ default: module.ServicesView })));
+const ClientsView = lazy(() => import('./views/ClientsView').then(module => ({ default: module.ClientsView })));
+const DocumentsView = lazy(() => import('./views/DocumentsView').then(module => ({ default: module.DocumentsView })));
+const CotizadorView = lazy(() => import('./views/CotizadorView').then(module => ({ default: module.CotizadorView })));
+const ThemeView = lazy(() => import('./views/ThemeView').then(module => ({ default: module.ThemeView })));
 
 // --- Components ---
 const LoadingScreen = () => (
@@ -22,7 +23,7 @@ const LoadingScreen = () => (
   </div>
 );
 
-const ProtectedLayout = ({ children }: { children?: React.ReactNode }) => {
+const ProtectedLayout = ({ children }: { children?: ReactNode }) => {
   const isAuthenticated = !!localStorage.getItem('cfbnd_token');
 
   if (!isAuthenticated) {
