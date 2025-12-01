@@ -31,9 +31,13 @@ export const TokenView = () => {
           </div>
           <form className="space-y-6" onSubmit={handleSubmit}>
              <div className="relative group">
+                <label htmlFor="token" className="sr-only">Token de acceso</label>
                 <input 
+                    id="token"
+                    name="token"
                     type="password" 
                     required 
+                    autoComplete="current-password"
                     className="block w-full px-4 py-4 rounded-2xl border-2 border-border/50 bg-background/50 placeholder:text-muted-foreground/50 text-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-center tracking-[0.5em] text-2xl font-bold" 
                     placeholder="••••" 
                     value={token} 

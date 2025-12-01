@@ -237,8 +237,8 @@ export const DocumentsView = () => {
                             <CardHeader><CardTitle className="text-base">Ítems Adicionales</CardTitle></CardHeader>
                             <CardContent>
                                     <div className="flex gap-2 mb-4">
-                                    <Input placeholder="Descripción ítem adicional" value={newAdditionalItem.description} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, description: e.target.value}))}/>
-                                    <Input type="number" placeholder="Valor" value={newAdditionalItem.value} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, value: e.target.value}))}/>
+                                    <Input aria-label="Descripción ítem adicional" placeholder="Descripción ítem adicional" value={newAdditionalItem.description} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, description: e.target.value}))}/>
+                                    <Input aria-label="Valor ítem adicional" type="number" placeholder="Valor" value={newAdditionalItem.value} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, value: e.target.value}))}/>
                                     <Button onClick={handleAddAdditionalItem} variant="secondary">Añadir</Button>
                                 </div>
                                 {additionalInvoiceItems.length > 0 && (
@@ -279,7 +279,7 @@ export const DocumentsView = () => {
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <Select onValueChange={setReportAdvisor}><SelectTrigger><SelectValue placeholder="Selecciona un asesor..." /></SelectTrigger><SelectContent>{advisors.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}</SelectContent></Select>
                             <Select onValueChange={(v: any) => setReportMonth(Number(v))} defaultValue={String(reportMonth)}><SelectTrigger><SelectValue placeholder="Mes..." /></SelectTrigger><SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={String(i)}>{new Date(0, i).toLocaleString('es-CO', { month: 'long' })}</SelectItem>)}</SelectContent></Select>
-                            <Input type="number" value={reportYear} onChange={(e: any) => setReportYear(Number(e.target.value))} placeholder="Año"/>
+                            <Input aria-label="Año del reporte" type="number" value={reportYear} onChange={(e: any) => setReportYear(Number(e.target.value))} placeholder="Año"/>
                             <Select onValueChange={setReportStatus} defaultValue={reportStatus}><SelectTrigger><SelectValue placeholder="Estado..." /></SelectTrigger><SelectContent><SelectItem value="Liquidado">Liquidado</SelectItem><SelectItem value="Pendiente">Pendiente</SelectItem></SelectContent></Select>
                         </div>
                         <Button className="w-full" onClick={handleGenerateCommissionReport}><Printer className="mr-2 h-4 w-4"/>Imprimir Reporte</Button>

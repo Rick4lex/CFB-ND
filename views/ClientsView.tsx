@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useCallback, type ChangeEvent } from 'react';
 import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -195,6 +194,9 @@ export const ClientsView = () => {
                 <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input 
+                        id="search-clients"
+                        name="search"
+                        autoComplete="off"
                         placeholder="Buscar por nombre o documento..." 
                         className="pl-10 bg-background/50" 
                         value={searchTerm} 

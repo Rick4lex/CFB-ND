@@ -265,25 +265,25 @@ export function CotizadorView() {
                                     </div>
                                     {autoCalculateIbc && (
                                         <div className="space-y-2">
-                                            <Label>Ingresos Mensuales</Label>
-                                            <Input value={formatCurrency(monthlyIncome)} onChange={(e) => setMonthlyIncome(parseCurrency(e.target.value))} />
+                                            <Label htmlFor="income">Ingresos Mensuales</Label>
+                                            <Input id="income" name="income" autoComplete="off" value={formatCurrency(monthlyIncome)} onChange={(e) => setMonthlyIncome(parseCurrency(e.target.value))} />
                                         </div>
                                     )}
                                 </div>
                             )}
 
                             <div className="space-y-2">
-                                <Label>IBC (Base Cotización)</Label>
-                                <Input value={formatCurrency(ibc)} onChange={(e) => setIbc(parseCurrency(e.target.value))} disabled={autoCalculateIbc && modality === 'independent'} />
+                                <Label htmlFor="ibc">IBC (Base Cotización)</Label>
+                                <Input id="ibc" name="ibc" autoComplete="off" value={formatCurrency(ibc)} onChange={(e) => setIbc(parseCurrency(e.target.value))} disabled={autoCalculateIbc && modality === 'independent'} />
                                 {ibc < SMLV && <p className="text-xs text-destructive font-medium">IBC inferior al SMLV</p>}
                             </div>
 
                             <div className="space-y-3">
                                 <div className="flex justify-between">
-                                    <Label>Días cotizados</Label>
+                                    <Label htmlFor="days-range">Días cotizados</Label>
                                     <span className="text-sm font-bold text-primary">{days}</span>
                                 </div>
-                                <input type="range" min="1" max="30" value={days} onChange={e => setDays(Number(e.target.value))} className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary" />
+                                <input id="days-range" name="days" type="range" min="1" max="30" value={days} onChange={e => setDays(Number(e.target.value))} className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary" />
                             </div>
 
                             <Separator />
@@ -337,8 +337,8 @@ export function CotizadorView() {
                                     <div className="flex justify-between items-center p-2 hover:bg-muted/50 rounded-lg transition-colors"><Label className="font-normal text-sm cursor-pointer">Corrección Planilla</Label><Switch checked={charges.planillaCorrection} onCheckedChange={() => toggleCharge('planillaCorrection')}/></div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Input placeholder="Descripción ítem..." value={newAdditionalItem.description} onChange={e => setNewAdditionalItem({...newAdditionalItem, description: e.target.value})} className="h-9 text-xs"/>
-                                    <Input placeholder="$0" value={newAdditionalItem.value} onChange={e => setNewAdditionalItem({...newAdditionalItem, value: formatCurrency(parseCurrency(e.target.value))})} className="h-9 w-24 text-xs"/>
+                                    <Input aria-label="Descripción ítem adicional" placeholder="Descripción ítem..." value={newAdditionalItem.description} onChange={e => setNewAdditionalItem({...newAdditionalItem, description: e.target.value})} className="h-9 text-xs"/>
+                                    <Input aria-label="Valor ítem adicional" placeholder="$0" value={newAdditionalItem.value} onChange={e => setNewAdditionalItem({...newAdditionalItem, value: formatCurrency(parseCurrency(e.target.value))})} className="h-9 w-24 text-xs"/>
                                     <Button size="icon" className="h-9 w-9 shrink-0" onClick={handleAddAdditionalItem}><PlusCircle className="h-4 w-4"/></Button>
                                 </div>
                                 {additionalProcedureItems.map(i => (

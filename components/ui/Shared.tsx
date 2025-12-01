@@ -15,14 +15,13 @@ import {
   type TextareaHTMLAttributes,
   type LabelHTMLAttributes,
   type HTMLAttributes,
-  type TableHTMLAttributes,
   type ThHTMLAttributes,
   type TdHTMLAttributes,
   type HTMLTableCaptionElement,
   type ReactElement
 } from 'react';
-import { X, ChevronDown, ChevronUp } from 'lucide-react';
-import { Controller, FormProvider, useFormContext, useController } from 'react-hook-form';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 
 // --- Base Components ---
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
@@ -257,7 +256,7 @@ export const FormField = ({ control, name, render }: any) => {
 // --- Select ---
 const SelectContext = createContext<any>(null);
 
-export const Select = ({ onValueChange, defaultValue, value, children }: any) => {
+export const Select = ({ onValueChange, defaultValue, value, children, id }: any) => {
     const [open, setOpen] = useState(false);
     const [internalValue, setInternalValue] = useState(defaultValue || value);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -267,7 +266,7 @@ export const Select = ({ onValueChange, defaultValue, value, children }: any) =>
     }, [value]);
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
+        const handleClickOutside = (event: any) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setOpen(false);
             }
@@ -283,16 +282,18 @@ export const Select = ({ onValueChange, defaultValue, value, children }: any) =>
     };
 
     return (
-        <SelectContext.Provider value={{ open, setOpen, value: internalValue, handleSelect }}>
+        <SelectContext.Provider value={{ open, setOpen, value: internalValue, handleSelect, id }}>
             <div className="relative" ref={containerRef}>{children}</div>
         </SelectContext.Provider>
     );
 };
 
-export const SelectTrigger = ({ children, className }: any) => {
-    const { open, setOpen } = useContext(SelectContext);
+export const SelectTrigger = ({ children, className, id }: any) => {
+    const { open, setOpen, id: contextId } = useContext(SelectContext);
+    // Prefer prop ID (from FormControl) if available to link label correctly
+    const finalId = id || contextId;
     return (
-        <button type="button" onClick={() => setOpen(!open)} className={`flex h-11 w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all ${className}`}>
+        <button type="button" id={finalId} onClick={() => setOpen(!open)} className={`flex h-11 w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all ${className}`}>
             {children}
             <ChevronDown className={`h-4 w-4 opacity-50 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
@@ -399,7 +400,7 @@ export const DropdownMenu = ({ children }: any) => {
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
+        const handleClickOutside = (event: any) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
                 setOpen(false);
             }

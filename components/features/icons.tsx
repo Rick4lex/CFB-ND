@@ -1,6 +1,4 @@
 
-import React from "react";
-
 export const FacebookIcon = () => (
     <img src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1732319894/facebook_w83mhe.png" alt="Facebook" width={60} height={24} className="h-10 w-auto" crossOrigin="anonymous" />
 );
