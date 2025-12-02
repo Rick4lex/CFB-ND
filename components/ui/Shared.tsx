@@ -18,7 +18,8 @@ import {
   type ThHTMLAttributes,
   type TdHTMLAttributes,
   type HTMLTableCaptionElement,
-  type ReactElement
+  type ReactElement,
+  type ReactNode
 } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
@@ -366,7 +367,7 @@ export const Checkbox = forwardRef<HTMLInputElement, any>(({ className, checked,
             checked={checked} 
             ref={ref} 
             onChange={(e) => onCheckedChange && onCheckedChange(e.target.checked)}
-            className={`peer h-5 w-5 shrink-0 rounded-md border-2 border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none checked:bg-primary checked:text-primary-foreground transition-all cursor-pointer ${className}`}
+            className={`peer h-5 w-5 shrink-0 rounded-md border-2 border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 appearance-none checked:bg-primary checked:text-primary-foreground transition-all cursor-pointer ${className}`}
             {...props} 
         />
          <svg className="absolute w-3.5 h-3.5 text-white pointer-events-none opacity-0 peer-checked:opacity-100 left-[3px] top-[3px] transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
@@ -384,7 +385,7 @@ export const Switch = forwardRef<HTMLButtonElement, any>(({ className, checked, 
     aria-checked={checked}
     onClick={() => onCheckedChange(!checked)}
     ref={ref}
-    className={`peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input ${checked ? 'bg-primary' : 'bg-input'} ${className}`}
+    className={`peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input ${checked ? 'bg-primary' : 'bg-input'} ${className}`}
     {...props}
   >
     <span className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0 ${checked ? 'translate-x-5' : 'translate-x-0'}`} />

@@ -42,32 +42,41 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
     };
 
     const handleBackup = () => {
-        // Fetch current data directly from localStorage as fallback or construct from store
-        // Since we moved to IndexedDB, reading from localStorage might be stale if we strictly use IDB.
-        // However, the previous logic read from localStorage.
-        // We should backup from the current store state to be consistent.
-        
-        // Note: This backup logic currently exports persistence keys. 
-        // If we want to be thorough, we should use the state from the store.
-        
+        // OPTIMIZACIÓN: Leer directamente del estado de Zustand (Memoria)
+        // Esto evita leer datos obsoletos o corruptos del localStorage si la persistencia asíncrona no ha terminado.
         const state = useAppStore.getState();
         
         const data = {
-            clients: JSON.stringify(state.clients),
-            advisors: JSON.stringify(state.advisors),
-            entities: JSON.stringify(state.entities),
-            sys_config: JSON.stringify(state.config),
-            cotizadorProfiles: JSON.stringify(state.cotizadorProfiles),
-            theme: localStorage.getItem('cfbnd-theme'),
-            timestamp: new Date().toISOString()
+            metadata: {
+                version: "2.0",
+                exportedAt: new Date().toISOString(),
+                app: "CFBND"
+            },
+            data: {
+                clients: state.clients,
+                advisors: state.advisors,
+                entities: state.entities,
+                config: state.config,
+                cotizadorProfiles: state.cotizadorProfiles,
+                brandingElements: state.brandingElements
+            },
+            theme: localStorage.getItem('cfbnd-theme') || 'light'
         };
-        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `backup_cfbnd_${new Date().toISOString().split('T')[0]}.json`;
-        link.click();
-        toast({ title: "Copia de Seguridad Generada", description: "El archivo JSON se ha descargado correctamente." });
+
+        try {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `backup_cfbnd_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            toast({ title: "Copia de Seguridad Generada", description: "El archivo JSON se ha descargado correctamente." });
+        } catch (e) {
+            console.error("Error generando backup:", e);
+            toast({ variant: "destructive", title: "Error", description: "No se pudo generar el archivo de respaldo." });
+        }
     };
 
     const handleRestore = (event: ChangeEvent<HTMLInputElement>) => {
@@ -78,28 +87,37 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
         reader.onload = async (e) => {
             try {
                 const content = e.target?.result as string;
-                const data = JSON.parse(content);
+                const parsed = JSON.parse(content);
                 
-                if (window.confirm("¿Estás seguro? Esto sobrescribirá todos los datos actuales con los de la copia de seguridad.")) {
-                    // We need to update the store AND persist to IDB.
-                    // The simplest way is to update the store state, which triggers persistence.
-                    const { setClients, setAdvisors, setEntities, setConfig, setCotizadorProfiles } = useAppStore.getState();
+                // Soporte para estructura antigua (flat) y nueva (nested under 'data')
+                const incomingData = parsed.data || parsed;
+                
+                // Validación básica de integridad
+                if (!Array.isArray(incomingData.clients) || !Array.isArray(incomingData.advisors)) {
+                    throw new Error("Formato de archivo inválido o corrupto.");
+                }
 
-                    if (data.clients) setClients(JSON.parse(data.clients));
-                    if (data.advisors) setAdvisors(JSON.parse(data.advisors));
-                    if (data.entities) setEntities(JSON.parse(data.entities));
-                    if (data.sys_config) setConfig(JSON.parse(data.sys_config));
-                    if (data.cotizadorProfiles) setCotizadorProfiles(JSON.parse(data.cotizadorProfiles));
+                if (window.confirm("ADVERTENCIA CRÍTICA:\n\nEsta acción eliminará TODOS los datos actuales y los reemplazará con los del archivo de respaldo.\n\n¿Estás seguro de continuar?")) {
+                    const { setClients, setAdvisors, setEntities, setConfig, setCotizadorProfiles, setBrandingElements } = useAppStore.getState();
+
+                    // Actualización Atómica del Estado
+                    if (incomingData.clients) setClients(incomingData.clients);
+                    if (incomingData.advisors) setAdvisors(incomingData.advisors);
+                    if (incomingData.entities) setEntities(incomingData.entities);
+                    if (incomingData.config || incomingData.sys_config) setConfig(incomingData.config || incomingData.sys_config);
+                    if (incomingData.cotizadorProfiles) setCotizadorProfiles(incomingData.cotizadorProfiles);
+                    if (incomingData.brandingElements) setBrandingElements(incomingData.brandingElements);
                     
-                    if (data.theme) localStorage.setItem('cfbnd-theme', data.theme);
+                    if (parsed.theme) localStorage.setItem('cfbnd-theme', parsed.theme);
                     
-                    toast({ title: "Restauración Exitosa", description: "Los datos han sido actualizados." });
-                    // Reload not strictly necessary with React state, but good for a fresh start feeling
-                    setTimeout(() => window.location.reload(), 1000);
+                    toast({ title: "Restauración Exitosa", description: "La base de datos ha sido actualizada." });
+                    
+                    // Pequeño delay para asegurar que Zustand persista antes de recargar
+                    setTimeout(() => window.location.reload(), 500);
                 }
             } catch (error) {
                 console.error(error);
-                toast({ variant: "destructive", title: "Error de Restauración", description: "El archivo no tiene un formato válido." });
+                toast({ variant: "destructive", title: "Error de Restauración", description: "El archivo está corrupto o no es compatible." });
             }
         };
         reader.readAsText(file);

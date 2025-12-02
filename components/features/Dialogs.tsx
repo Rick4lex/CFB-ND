@@ -63,6 +63,11 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
     toast({ title: 'Asesores actualizados', description: 'La lista de asesores ha sido guardada.' });
     onOpenChange(false);
   };
+
+  const onInvalid = (errors: any) => {
+    console.error("Errores validación Asesores:", errors);
+    toast({ variant: "destructive", title: "Error al guardar", description: "Revisa los campos requeridos (Nombre, etc)." });
+  };
   
   const handleAddNew = () => {
     const newId = crypto.randomUUID();
@@ -88,7 +93,7 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4">
             <ScrollArea className="h-[60vh] p-1 pr-4">
               <div className="space-y-4">
                 {fields.map((field, index) => {
@@ -232,6 +237,11 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
     toast({ title: 'Entidades actualizadas', description: 'La lista de entidades ha sido guardada.' });
     onOpenChange(false);
   };
+
+  const onInvalid = (errors: any) => {
+    console.error("Errores validación Entidades:", errors);
+    toast({ variant: "destructive", title: "Datos inválidos", description: "Verifica que todas las entidades tengan nombre y tipo." });
+  };
   
   const handleAddNew = () => {
     const newId = crypto.randomUUID();
@@ -273,7 +283,7 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
             </Tabs>
         </div>
         <Form {...form}>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4">
             <ScrollArea className="h-[60vh] p-1 pr-4">
               {viewMode === 'cards' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -770,10 +780,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
             </div>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={(e) => {
-             console.log("0. [Dialog] Evento submit nativo capturado en <form>");
-             form.handleSubmit(onSubmit, onInvalid)(e);
-          }}>
+          <form onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
             <ScrollArea className="h-[70vh] p-1">
               <div className="p-4 space-y-4">
                 {/* Top Section: Key Info for Quick Access */}
@@ -817,8 +824,8 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                         <FormControl>
                             <Input 
                                 {...field} 
-                                // Bloqueamos edición de documento si es edición para evitar inconsistencias
-                                disabled={!!client} 
+                                // Cambio CRITICO: readOnly en lugar de disabled para que react-hook-form envíe el valor
+                                readOnly={!!client} 
                                 className={!!client ? "bg-muted text-muted-foreground opacity-100 cursor-not-allowed" : ""} 
                                 placeholder="Ej: 12345678" 
                             />

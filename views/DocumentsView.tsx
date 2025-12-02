@@ -24,7 +24,7 @@ interface AdditionalItem {
 export const DocumentsView = () => {
   const location = useLocation();
   const { toast } = useToast();
-  const { clients, advisors } = useAppStore();
+  const { clients, advisors, config } = useAppStore(); // Access config for service names
   
   // Invoice state
   const [selectedInvoiceClient, setSelectedInvoiceClient] = useState<string>('');
@@ -61,17 +61,20 @@ export const DocumentsView = () => {
   }, [selectedInvoiceClient, clients]);
 
   const totalInvoiceAmount = useMemo(() => {
-    const servicesCost = clientForInvoice?.contractedServices?.reduce((acc, serviceName) => {
-      const service = proceduralServices.find(s => s.name === serviceName);
+    // Robust service lookup using ID or Name
+    const servicesCost = clientForInvoice?.contractedServices?.reduce((acc, serviceIdentifier) => {
+      const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
       return acc + (service?.price || 0);
     }, 0) || 0;
+    
     const additionalCost = additionalInvoiceItems.reduce((acc, item) => acc + item.value, 0);
     return servicesCost + additionalCost;
-  }, [clientForInvoice, additionalInvoiceItems]);
+  }, [clientForInvoice, additionalInvoiceItems, config.servicesCatalog]);
 
   const commissionReportData = useMemo(() => {
     if (!reportAdvisor) return [];
     return clients.filter(client => {
+      if (!client.entryDate) return false;
       const entryDate = new Date(client.entryDate);
       return client.assignedAdvisor === reportAdvisor &&
              entryDate.getMonth() === reportMonth &&
@@ -80,36 +83,39 @@ export const DocumentsView = () => {
   }, [clients, reportAdvisor, reportMonth, reportYear]);
 
   const totalCommission = useMemo(() => {
-    // Logic upgraded to prioritize the snapshot saved in the client record
     return commissionReportData.reduce((total, client) => {
-      // 1. Try to use the frozen snapshot first
-      if (client.advisorCommissionAmount !== undefined && client.advisorCommissionAmount !== null) {
+      // 1. Snapshot Priority (Historical Accuracy)
+      if (typeof client.advisorCommissionAmount === 'number') {
           return total + client.advisorCommissionAmount;
       }
 
-      // 2. Fallback: Calculate dynamically for legacy clients (before the update)
+      // 2. Dynamic Fallback (Legacy Data)
       const advisorDetails = advisors.find(a => a.name === reportAdvisor);
       if (!advisorDetails) return total;
 
-      const servicesCost = client.contractedServices?.reduce((acc, serviceName) => {
-        const service = proceduralServices.find(s => s.name === serviceName);
+      const servicesCost = client.contractedServices?.reduce((acc, serviceIdentifier) => {
+        const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
         return acc + (service?.price || 0);
       }, 0) || 0;
       
       if (advisorDetails.commissionType === 'percentage') {
-        const commission = servicesCost * (advisorDetails.commissionValue / 100);
+        const commission = servicesCost * ((advisorDetails.commissionValue || 0) / 100);
         return total + commission;
       }
       
       if (advisorDetails.commissionType === 'fixed') {
-        const affiliationServiceCount = client.contractedServices?.filter(s => s.toLowerCase().includes('afiliación') || s.toLowerCase().includes('liquidación')).length || 0;
-        const commission = affiliationServiceCount * advisorDetails.commissionValue;
+        const affiliationServiceCount = client.contractedServices?.filter(s => {
+             const name = config.servicesCatalog.find(cat => cat.id === s)?.name || s;
+             return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
+        }).length || 0;
+        
+        const commission = affiliationServiceCount * (advisorDetails.commissionValue || 0);
         return total + commission;
       }
       
       return total;
     }, 0);
-  }, [commissionReportData, advisors, reportAdvisor]);
+  }, [commissionReportData, advisors, reportAdvisor, config.servicesCatalog]);
 
 
   const handleAddAdditionalItem = () => {
@@ -296,21 +302,21 @@ export const DocumentsView = () => {
                                             <thead><tr className="border-b text-left"><th className="pb-2">Cliente</th><th className="pb-2">Costo Trámite</th><th className="pb-2">Detalle Comisión</th><th className="pb-2 text-right">Valor Comisión</th></tr></thead>
                                             <tbody>
                                                 {commissionReportData.map(client => {
-                                                    const servicesCost = client.contractedServices?.reduce((acc, serviceName) => {
-                                                    const service = proceduralServices.find(s => s.name === serviceName);
-                                                    return acc + (service?.price || 0);
+                                                    const servicesCost = client.contractedServices?.reduce((acc, serviceIdentifier) => {
+                                                        const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
+                                                        return acc + (service?.price || 0);
                                                     }, 0) || 0;
                                                     
                                                     let commission = 0;
                                                     let commissionDisplay = "N/A";
 
                                                     // 1. Check for Snapshot (Preferred)
-                                                    if (client.advisorCommissionAmount !== undefined && client.advisorCommissionAmount !== null) {
+                                                    if (typeof client.advisorCommissionAmount === 'number') {
                                                         commission = client.advisorCommissionAmount;
                                                         if (client.advisorCommissionPercentage) {
-                                                            commissionDisplay = `${client.advisorCommissionPercentage}% (Guardado)`;
+                                                            commissionDisplay = `${client.advisorCommissionPercentage}% (Histórico)`;
                                                         } else {
-                                                            commissionDisplay = "Valor Guardado";
+                                                            commissionDisplay = "Valor Fijo (Histórico)";
                                                         }
                                                     } 
                                                     // 2. Fallback Calculation
@@ -318,12 +324,15 @@ export const DocumentsView = () => {
                                                         const advisorDetails = advisors.find(a => a.name === client.assignedAdvisor);
                                                         if(advisorDetails){
                                                             if(advisorDetails.commissionType === 'percentage'){
-                                                                commission = servicesCost * (advisorDetails.commissionValue / 100);
-                                                                commissionDisplay = `${advisorDetails.commissionValue}% (Dinámico)`;
+                                                                commission = servicesCost * ((advisorDetails.commissionValue || 0) / 100);
+                                                                commissionDisplay = `${advisorDetails.commissionValue}% (Estimado)`;
                                                             } else {
-                                                                const affiliationServiceCount = client.contractedServices?.filter(s => s.toLowerCase().includes('afiliación') || s.toLowerCase().includes('liquidación')).length || 0;
-                                                                commission = affiliationServiceCount * advisorDetails.commissionValue;
-                                                                commissionDisplay = `${affiliationServiceCount} serv. x ${advisorDetails.commissionValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}`;
+                                                                const affiliationServiceCount = client.contractedServices?.filter(s => {
+                                                                    const name = config.servicesCatalog.find(cat => cat.id === s)?.name || s;
+                                                                    return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
+                                                                }).length || 0;
+                                                                commission = affiliationServiceCount * (advisorDetails.commissionValue || 0);
+                                                                commissionDisplay = `${affiliationServiceCount} x ${advisorDetails.commissionValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}`;
                                                             }
                                                         }
                                                     }
