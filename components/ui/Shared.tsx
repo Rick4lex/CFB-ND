@@ -168,7 +168,7 @@ export const DialogTrigger = ({ children, ...props }: any) => {
 DialogTrigger.displayName = 'DialogTrigger';
 
 export const DialogContent = ({ className, children }: any) => (
-    <div className={`relative z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg md:w-full max-h-[90vh] overflow-y-auto ${className}`} onClick={(e) => e.stopPropagation()}>
+    <div className={`relative z-[1001] grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg md:w-full max-h-[90vh] overflow-y-auto ${className}`} onClick={(e) => e.stopPropagation()}>
         {children}
     </div>
 );
@@ -214,7 +214,7 @@ export const Dialog = ({ open, onOpenChange, children }: any) => {
         <>
             {trigger && cloneElement(trigger as ReactElement<any>, { onClick: () => onOpenChange(true) })}
             {open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-300" onClick={() => onOpenChange(false)} />
                     {content}
                 </div>
@@ -238,7 +238,7 @@ export const SheetContent = ({ className, children, side = "right" }: any) => {
     };
 
     return (
-        <div className={`fixed z-50 gap-4 bg-background p-6 shadow-2xl transition ease-in-out ${sides[side]} ${className}`} onClick={(e) => e.stopPropagation()}>
+        <div className={`fixed z-[1001] gap-4 bg-background p-6 shadow-2xl transition ease-in-out ${sides[side]} ${className}`} onClick={(e) => e.stopPropagation()}>
             {children}
         </div>
     );
@@ -280,7 +280,7 @@ export const Sheet = ({ open, onOpenChange, children }: any) => {
         <>
             {trigger && cloneElement(trigger as ReactElement<any>, { onClick: () => onOpenChange(true) })}
             {open && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-end">
+                <div className="fixed inset-0 z-[1000] flex items-center justify-end">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-300" onClick={() => onOpenChange(false)} />
                     {content}
                 </div>

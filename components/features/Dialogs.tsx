@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useMemo, type ChangeEvent, type MouseEvent } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,7 +9,8 @@ import {
     Input, ScrollArea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
     Textarea, Tabs, TabsList, TabsTrigger, Separator, Badge,
     Accordion, AccordionContent, AccordionItem, AccordionTrigger,
-    Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
+    Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+    Table, TableHeader, TableRow, TableHead, TableBody, TableCell
 } from '@/components/ui/Shared';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -57,7 +59,6 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
     }
   }, [initialAdvisors, isOpen, reset]);
 
-  // Changed to direct save to bypass strict form validation blocking
   const handleDirectSave = () => {
     const data = getValues();
     onSave(data.advisors);
@@ -89,7 +90,6 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          {/* Removed onSubmit from form tag to prevent default validation behavior */}
           <div className="space-y-4">
             <ScrollArea className="h-[60vh] p-1 pr-4">
               <div className="space-y-4">
@@ -229,7 +229,6 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
     }
   }, [allEntities, isOpen, reset]);
 
-  // Direct save implementation
   const handleDirectSave = () => {
     const data = getValues();
     onSave(data.entities);
@@ -258,27 +257,39 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Gestionar Entidades</DialogTitle>
           <DialogDescription>
             Añade, edita o elimina las entidades. Los enlaces y contactos que configures estarán disponibles para acceso rápido.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex justify-between items-center">
-            <Button type="button" variant="outline" onClick={handleAddNew}>
+        <div className="flex justify-between items-center gap-4 py-2">
+            <Button type="button" variant="outline" onClick={handleAddNew} className="h-9">
                 <PlusCircle className="mr-2 h-4 w-4" /> Añadir Nueva Entidad
             </Button>
-            <Tabs value={viewMode} onValueChange={(value: any) => setViewMode(value as 'cards' | 'list')}>
-                <TabsList>
-                    <TabsTrigger value="cards"><LayoutGrid className="mr-2 h-4 w-4" /> Tarjetas</TabsTrigger>
-                    <TabsTrigger value="list" disabled><List className="mr-2 h-4 w-4" /> Lista</TabsTrigger>
-                </TabsList>
-            </Tabs>
+            <div className="flex bg-muted p-1 rounded-lg">
+                <Button 
+                    variant={viewMode === 'cards' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    className="h-8 rounded-md"
+                    onClick={() => setViewMode('cards')}
+                >
+                    <LayoutGrid className="h-4 w-4 mr-2" /> Tarjetas
+                </Button>
+                <Button 
+                    variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
+                    size="sm" 
+                    className="h-8 rounded-md"
+                    onClick={() => setViewMode('list')}
+                >
+                    <List className="h-4 w-4 mr-2" /> Lista
+                </Button>
+            </div>
         </div>
         <Form {...form}>
           <div className="space-y-4">
-            <ScrollArea className="h-[60vh] p-1 pr-4">
+            <ScrollArea className="h-[55vh] p-1 pr-4">
               {viewMode === 'cards' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {fields.map((field, index) => {
@@ -297,7 +308,54 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
                   })}
                 </div>
               ) : (
-                <div className="text-center py-10 text-muted-foreground">La vista de lista está en construcción.</div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Entidad</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead className="hidden md:table-cell">Recursos</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {fields.map((field, index) => {
+                            const isEditing = editingId === field.id;
+                            const entity = getValues(`entities.${index}`);
+                            
+                            if (isEditing) {
+                                return (
+                                    <TableRow key={field.id}>
+                                        <TableCell colSpan={4}>
+                                            <div className="p-4 bg-muted/20 rounded-lg">
+                                                <EditEntityForm index={index} control={control} setEditingId={setEditingId} />
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            }
+
+                            return (
+                                <TableRow key={field.id}>
+                                    <TableCell className="font-medium">{entity.name || 'Sin nombre'}</TableCell>
+                                    <TableCell><Badge variant="secondary">{entity.type || 'N/A'}</Badge></TableCell>
+                                    <TableCell className="hidden md:table-cell">
+                                        <div className="flex gap-2 text-muted-foreground text-xs">
+                                            <span>{entity.links?.length || 0} enlaces</span>
+                                            <span>•</span>
+                                            <span>{entity.contacts?.length || 0} contactos</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingId(field.id)}><Edit className="h-4 w-4"/></Button>
+                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4"/></Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
               )}
             </ScrollArea>
             
@@ -379,7 +437,7 @@ function EditEntityForm({ index, control, setEditingId }: { index: number, contr
     });
 
     return (
-        <>
+        <div className="space-y-4">
            <div className="grid grid-cols-2 gap-4">
                 <FormField name={`entities.${index}.name`} control={control} render={({ field }: any) => (
                     <FormItem><FormLabel>Nombre Entidad</FormLabel><FormControl><Input {...field} placeholder="Ej: Porvenir" /></FormControl><FormMessage /></FormItem>
@@ -413,7 +471,7 @@ function EditEntityForm({ index, control, setEditingId }: { index: number, contr
                                 <FormItem><FormLabel className="text-xs">URL Completa</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
-                        <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => removeLink(linkIndex)}><Trash2 className="w-4 h-4"/></Button>
+                        <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive h-10 w-10 mb-0" onClick={() => removeLink(linkIndex)}><Trash2 className="w-4 h-4"/></Button>
                     </div>
                 ))}
                 <Button type="button" variant="outline" size="sm" onClick={() => appendLink({ id: crypto.randomUUID(), name: '', url: '' })}>
@@ -446,7 +504,7 @@ function EditEntityForm({ index, control, setEditingId }: { index: number, contr
                         <FormField name={`entities.${index}.contacts.${contactIndex}.value`} control={control} render={({ field }: any) => (
                             <FormItem><FormLabel className="text-xs">Valor</FormLabel><FormControl><Input {...field} placeholder="01 8000 ..."/></FormControl><FormMessage /></FormItem>
                         )} />
-                         <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => removeContact(contactIndex)}><Trash2 className="w-4 h-4"/></Button>
+                         <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive h-10 w-10 mb-0" onClick={() => removeContact(contactIndex)}><Trash2 className="w-4 h-4"/></Button>
                     </div>
                 ))}
                  <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ id: crypto.randomUUID(), type: 'phone', department: 'General', label: '', value: '' })}>
@@ -457,7 +515,7 @@ function EditEntityForm({ index, control, setEditingId }: { index: number, contr
           <div className="absolute top-2 right-2 flex gap-2">
              <Button type="button" size="icon" onClick={() => setEditingId(null)}><Save className="w-4 h-4"/></Button>
           </div>
-        </>
+        </div>
     );
 }
 
@@ -487,7 +545,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
   const { config } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Filter active services for the UI, but keep logic to handle potentially inactive ones if already selected
   const allServices = useMemo(() => config.servicesCatalog.filter(s => s.active || client?.contractedServices?.includes(s.id)), [config.servicesCatalog, client]);
 
   const form = useForm<ClientFormData>({
@@ -514,7 +571,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
 
   const totalProcedureCost = useMemo(() => {
     return (contractedServices || []).reduce((total: number, serviceIdentifier: string) => {
-      // Find service by ID or Name (legacy support)
       const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
       return total + (service?.price || 0);
     }, 0);
@@ -537,7 +593,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
     
     if (advisor.commissionType === 'fixed') {
       const affiliationServiceCount = (contractedServices || []).filter((s: string) => {
-           // Resolve name if ID is stored
            const resolvedName = config.servicesCatalog.find(cat => cat.id === s)?.name || s;
            return resolvedName.toLowerCase().includes('afiliación') || resolvedName.toLowerCase().includes('liquidación');
       }).length;
@@ -614,7 +669,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
             }
 
             if (clientsData.length === 1) {
-                // Populate form for a single client
                 const singleClient = clientsData[0];
                 const transformedClient = {
                     ...form.getValues(),
@@ -635,10 +689,8 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                 form.reset(transformedClient);
                 toast({ title: "Cliente cargado", description: "Los datos del cliente se han cargado en el formulario." });
             } else {
-                // Bulk add multiple clients
                 const addMultipleFn = (allClients: Client[], allAdvisors: Advisor[]) => {
                     const existingClientIds = new Set(allClients.map(cl => cl.id));
-                    // Create a map of normalized names to original Advisor objects to avoid duplicates
                     const existingAdvisorMap = new Map();
                     allAdvisors.forEach(a => existingAdvisorMap.set(normalizeString(a.name), a));
 
@@ -653,18 +705,16 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                             if (advisorName) {
                                 const normalizedInput = normalizeString(advisorName);
                                 if (existingAdvisorMap.has(normalizedInput)) {
-                                    // Use the existing advisor name (case-sensitive from DB)
                                     advisorName = existingAdvisorMap.get(normalizedInput).name;
                                 } else {
-                                    // Create new advisor
                                     const newAdvisor: Advisor = {
                                         id: crypto.randomUUID(),
-                                        name: c.assignedAdvisor, // Use original input name
+                                        name: c.assignedAdvisor,
                                         commissionType: 'percentage',
                                         commissionValue: 10,
                                     };
                                     newAdvisors.push(newAdvisor);
-                                    existingAdvisorMap.set(normalizedInput, newAdvisor); // Add to local map for subsequent rows
+                                    existingAdvisorMap.set(normalizedInput, newAdvisor);
                                 }
                             }
 
@@ -690,7 +740,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                         })
                         .filter((c): c is Client => c !== null && !existingClientIds.has(c.id));
                     
-                    const updatedClients = [...clientsToAdd, ...allClients]; // Prepended new clients
+                    const updatedClients = [...clientsToAdd, ...allClients];
                     const updatedAdvisors = [...allAdvisors, ...newAdvisors];
                     
                     return { updatedClients, updatedAdvisors };
@@ -708,19 +758,14 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
         }
     });
 
-    // Reset file input
     if (event.target) event.target.value = '';
   };
 
 
-  // DIRECT SUBMIT HANDLER - Bypassing React Hook Form handleSubmit to avoid validation blockers
   const handleDirectSubmit = (e: MouseEvent) => {
     e.preventDefault(); 
     const data = form.getValues();
     
-    console.log("1. [Dialog] Guardado directo iniciado");
-
-    // Validacion manual basica (opcional, pero recomendada)
     if (!data.fullName || !data.documentId) {
         toast({ variant: "destructive", title: "Datos incompletos", description: "Nombre y Documento son requeridos." });
         return;
@@ -728,13 +773,11 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
 
     const advisor = advisors.find(a => a.name === data.assignedAdvisor);
     
-    // Logic to strictly preserve ID during edit, generate UUID for new clients
     const recordId = client?.id ? client.id : crypto.randomUUID();
     
     const finalClient: Client = {
       ...data,
       id: recordId,
-      // Aseguramos que el ID de documento se tome de los valores actuales o del cliente original si estaba deshabilitado
       documentId: data.documentId || client?.documentId || '', 
       advisorCommissionPercentage: advisor?.commissionType === 'percentage' ? advisor.commissionValue : 0,
       advisorCommissionAmount: advisorCommissionValue
@@ -774,11 +817,9 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
             </div>
         </DialogHeader>
         <Form {...form}>
-          {/* Form tag kept for layout but onSubmit removed */}
           <div>
             <ScrollArea className="h-[70vh] p-1">
               <div className="p-4 space-y-4">
-                {/* Top Section: Key Info for Quick Access */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg bg-muted/30 shadow-sm">
                     <FormField name="serviceStatus" control={form.control} render={({ field }: any) => (
                         <FormItem>
@@ -819,7 +860,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                         <FormControl>
                             <Input 
                                 {...field} 
-                                // Keep readOnly visual indication but logic handles value retrieval
                                 readOnly={!!client} 
                                 className={!!client ? "bg-muted text-muted-foreground opacity-100 cursor-not-allowed" : ""} 
                                 placeholder="Ej: 12345678" 
@@ -837,7 +877,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
 
                 <Accordion className="w-full" defaultValue="item-1">
                   
-                  {/* Section 1: Contact Data */}
                   <AccordionItem value="item-1">
                     <AccordionTrigger className="font-bold text-base">Datos de Contacto Adicionales</AccordionTrigger>
                     <AccordionContent>
@@ -865,7 +904,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                     </AccordionContent>
                   </AccordionItem>
 
-                  {/* Section 2: Services Data (Checkbox Matrix) */}
                   <AccordionItem value="item-2">
                     <AccordionTrigger className="font-bold text-base text-amber-600">Servicios Contratados</AccordionTrigger>
                     <AccordionContent>
@@ -884,15 +922,12 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                                       <FormItem className="flex flex-row items-center space-x-2 space-y-0">
                                         <FormControl>
                                           <Checkbox
-                                            // Backward compatibility: Check if ID is present OR if legacy Name is present
                                             checked={field.value?.includes(service.id) || field.value?.includes(service.name)}
                                             onCheckedChange={(checked: boolean) => {
                                                 let newValue = field.value || [];
                                                 if (checked) {
-                                                    // On Check: Add ID
                                                     newValue = [...newValue, service.id];
                                                 } else {
-                                                    // On Uncheck: Remove ID AND Name (to clean up legacy data)
                                                     newValue = newValue.filter((val: string) => val !== service.id && val !== service.name);
                                                 }
                                                 field.onChange(newValue);
@@ -911,7 +946,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                     </AccordionContent>
                   </AccordionItem>
                   
-                  {/* Section 3: Beneficiaries */}
                   <AccordionItem value="item-3">
                     <AccordionTrigger className="font-medium">Beneficiarios</AccordionTrigger>
                     <AccordionContent>
@@ -936,7 +970,6 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                     </AccordionContent>
                   </AccordionItem>
 
-                   {/* Section 4: Costs */}
                   <AccordionItem value="item-4">
                     <AccordionTrigger className="font-medium">Costos y Comisiones</AccordionTrigger>
                     <AccordionContent>
