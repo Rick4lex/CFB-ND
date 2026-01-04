@@ -246,7 +246,7 @@ export function CotizadorView() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-24 lg:pb-0">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-28 lg:pb-0">
                 <div className="lg:col-span-5 xl:col-span-4 h-fit lg:sticky lg:top-24 space-y-4">
                     <Card className="border-primary/20 shadow-md">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -448,7 +448,7 @@ export function CotizadorView() {
                 </div>
             </div>
             
-            <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t p-4 lg:hidden z-40 flex items-center justify-between shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] pb-safe-area">
+            <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t p-4 lg:hidden z-40 flex items-center justify-between shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] pb-safe">
                 <div className="flex flex-col">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Estimado</p>
                     <p className="text-2xl font-bold text-primary leading-none mt-1">{cotizacionData.totalNet}</p>

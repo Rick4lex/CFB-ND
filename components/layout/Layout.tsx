@@ -24,12 +24,14 @@ export const AppHeader = () => {
                         <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Plataforma</span>
                     </div>
                 </div>
-                <nav className="flex items-center gap-4">
+                <nav className="flex items-center gap-2 md:gap-4">
                     <button 
                         onClick={() => navigate('/app/config')}
-                        className="text-sm font-medium hover:text-primary transition-colors hidden md:flex items-center gap-2 hover:bg-secondary/50 px-3 py-2 rounded-lg"
+                        className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2 hover:bg-secondary/50 px-3 py-2 rounded-lg"
+                        title="Configuración"
                     >
-                        <Settings className="w-4 h-4" /> Configuración
+                        <Settings className="w-5 h-5 md:w-4 md:h-4" /> 
+                        <span className="hidden md:inline">Configuración</span>
                     </button>
                     <div className="h-6 w-px bg-border hidden md:block"></div>
                     <button onClick={handleLogout} className="text-destructive hover:bg-destructive/10 p-2 rounded-full transition-colors active:scale-90" title="Cerrar Sesión">
@@ -65,7 +67,7 @@ export const PageLayout = ({ title, subtitle, onBack, onBackRoute, actions, chil
     };
 
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-safe">
             <div className="flex flex-col gap-6 mb-8">
                 {(onBack || onBackRoute) && (
                     <button onClick={handleBack} className="group flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors w-fit">

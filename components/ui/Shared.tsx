@@ -29,7 +29,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   ({ className, ...props }, ref) => {
     return (
       <input
-        className={`flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 ${className}`}
+        className={`flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 ${className}`}
         ref={ref}
         {...props}
       />
@@ -41,7 +41,7 @@ Input.displayName = "Input"
 export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link', size?: 'default' | 'sm' | 'lg' | 'icon' }>(
   ({ className, variant = 'default', size = 'default', ...props }, ref) => {
     const variants = {
-        default: "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5",
+        default: "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0",
         destructive: "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
         outline: "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
         secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
@@ -69,7 +69,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
     ({ className, ...props }, ref) => {
       return (
         <textarea
-          className={`flex min-h-[80px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all ${className}`}
+          className={`flex min-h-[80px] w-full rounded-lg border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all ${className}`}
           ref={ref}
           {...props}
         />
@@ -99,7 +99,7 @@ export const Badge = ({ children, variant = 'default', className }: any) => {
 export const Separator = ({ className }: any) => <div className={`shrink-0 bg-border h-[1px] w-full my-4 ${className}`} />;
 
 export const ScrollArea = ({ children, className }: any) => (
-    <div className={`overflow-y-auto ${className}`}>
+    <div className={`overflow-y-auto ${className} scrollbar-thin`}>
         {children}
     </div>
 );
@@ -111,7 +111,7 @@ Label.displayName = "Label";
 
 // --- Table ---
 export const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto rounded-lg border shadow-sm">
+  <div className="relative w-full overflow-auto rounded-lg border shadow-sm scrollbar-thin">
     <table ref={ref} className={`w-full caption-bottom text-sm ${className}`} {...props} />
   </div>
 ))
@@ -138,7 +138,7 @@ export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTable
 TableRow.displayName = "TableRow"
 
 export const TableHead = forwardRef<HTMLTableCellElement, ThHTMLAttributes<HTMLTableCellElement>>(({ className, ...props }, ref) => (
-  <th ref={ref} className={`h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 ${className}`} {...props} />
+  <th ref={ref} className={`h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 whitespace-nowrap ${className}`} {...props} />
 ))
 TableHead.displayName = "TableHead"
 
@@ -168,7 +168,7 @@ export const DialogTrigger = ({ children, ...props }: any) => {
 DialogTrigger.displayName = 'DialogTrigger';
 
 export const DialogContent = ({ className, children }: any) => (
-    <div className={`relative z-[1001] grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg md:w-full max-h-[90vh] overflow-y-auto ${className}`} onClick={(e) => e.stopPropagation()}>
+    <div className={`relative z-[1001] grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg md:w-full max-h-[90vh] overflow-y-auto scrollbar-thin ${className}`} onClick={(e) => e.stopPropagation()}>
         {children}
     </div>
 );
@@ -323,7 +323,7 @@ export const SelectTrigger = ({ className, children, id }: any) => {
             type="button"
             id={id}
             onClick={() => setOpen(!open)}
-            className={`flex h-11 w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+            className={`flex h-11 w-full items-center justify-between rounded-lg border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
         >
             {children}
             <ChevronDown className="h-4 w-4 opacity-50" />
@@ -335,8 +335,8 @@ export const SelectContent = ({ children, className }: any) => {
     const { open } = useContext(SelectContext);
     if (!open) return null;
     return (
-        <div className={`absolute z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 mt-1 w-full ${className}`}>
-            <div className="p-1 max-h-[200px] overflow-y-auto">{children}</div>
+        <div className={`absolute z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 mt-1 w-full max-h-[200px] overflow-y-auto scrollbar-thin ${className}`}>
+            <div className="p-1">{children}</div>
         </div>
     );
 };
@@ -359,7 +359,7 @@ export const SelectItem = ({ value, children, className }: any) => {
 
 export const SelectValue = ({ placeholder }: any) => {
     const { selectedValue } = useContext(SelectContext);
-    return <span>{selectedValue || placeholder}</span>;
+    return <span className="truncate">{selectedValue || placeholder}</span>;
 };
 
 // --- Tabs ---

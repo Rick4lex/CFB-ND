@@ -211,7 +211,7 @@ export const ClientsView = () => {
                         onChange={handleSearchChange} 
                     />
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2">
                     <Select value={statusFilter} onValueChange={(v: string) => { setStatusFilter(v); setCurrentPage(1); }}>
                         <SelectTrigger className="w-full sm:w-[180px]">
                             <div className="flex items-center gap-2">
@@ -236,7 +236,7 @@ export const ClientsView = () => {
                     </Select>
 
                     <Select value={sortOrder} onValueChange={(v: any) => setSortOrder(v)}>
-                        <SelectTrigger className="w-full sm:w-[160px]">
+                        <SelectTrigger className="w-full sm:w-[160px] col-span-2 sm:col-span-1">
                             <SelectValue placeholder="Orden" />
                         </SelectTrigger>
                          <SelectContent>
@@ -247,7 +247,7 @@ export const ClientsView = () => {
                     </Select>
                     
                     {(searchTerm || statusFilter !== 'all' || advisorFilter !== 'all') && (
-                        <Button variant="ghost" onClick={clearFilters} size="icon" title="Limpiar filtros" className="shrink-0">
+                        <Button variant="ghost" onClick={clearFilters} size="icon" title="Limpiar filtros" className="shrink-0 col-span-2 sm:col-span-1 w-full sm:w-10">
                             <X className="h-4 w-4"/>
                         </Button>
                     )}
@@ -257,10 +257,10 @@ export const ClientsView = () => {
 
         {/* DATA TABLE */}
         <Card className="overflow-hidden border shadow-sm">
-            <Table>
+            <Table className="min-w-[800px] md:min-w-full">
                 <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
-                        <TableHead className="w-[300px]">Cliente</TableHead>
+                        <TableHead className="w-[250px]">Cliente</TableHead>
                         <TableHead>Documento</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead className="hidden md:table-cell">Asesor</TableHead>
@@ -279,7 +279,7 @@ export const ClientsView = () => {
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="outline" className="font-mono text-xs bg-background/50 backdrop-blur-sm">{c.documentType} {c.documentId}</Badge>
+                                    <Badge variant="outline" className="font-mono text-xs bg-background/50 backdrop-blur-sm whitespace-nowrap">{c.documentType} {c.documentId}</Badge>
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant={getStatusBadgeVariant(c.serviceStatus)}>{c.serviceStatus}</Badge>
@@ -321,10 +321,10 @@ export const ClientsView = () => {
             {/* PAGINATION */}
             {totalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-4 border-t gap-4">
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground text-center sm:text-left">
                         Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredClients.length)} de {filteredClients.length} clientes
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-center sm:justify-end">
                         <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
                             <ChevronLeft className="h-4 w-4 mr-1"/> Anterior
                         </Button>
