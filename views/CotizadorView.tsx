@@ -298,6 +298,9 @@ export function CotizadorView() {
                                                 )}
                                             </ScrollArea>
                                         </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsProfileManagerOpen(false)}>Cerrar</Button>
+                                        </DialogFooter>
                                     </DialogContent>
                                 </Dialog>
                                 <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
@@ -319,7 +322,10 @@ export function CotizadorView() {
                                                 ))}
                                             </div>
                                         </div>
-                                        <DialogFooter><Button onClick={handleConfigSave}>Guardar</Button></DialogFooter>
+                                        <DialogFooter>
+                                            <Button variant="ghost" onClick={() => setIsConfigModalOpen(false)}>Cancelar</Button>
+                                            <Button onClick={handleConfigSave}>Guardar</Button>
+                                        </DialogFooter>
                                     </DialogContent>
                                 </Dialog>
                              </div>
@@ -473,6 +479,9 @@ export function CotizadorView() {
                                     </div>
                                 </div>
                             </div>
+                            <DialogFooter className="mt-4">
+                                <Button className="w-full" variant="outline" onClick={() => setIsDetailsModalOpen(false)}>Cerrar</Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
                     <Button size="lg" className="h-12 px-6 rounded-xl shadow-lg shadow-primary/20" onClick={handleDirectDownload}>
