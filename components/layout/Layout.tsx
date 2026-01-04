@@ -1,12 +1,10 @@
 
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { LogOut, ArrowLeft, Sun, Moon, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { GlobalConfigSidebar } from '../features/GlobalConfigDialog';
 
 export const AppHeader = () => {
-    const [isConfigOpen, setIsConfigOpen] = useState(false);
     const navigate = useNavigate();
 
     const handleLogout = () => {
@@ -22,13 +20,13 @@ export const AppHeader = () => {
                 <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/app/dashboard')}>
                     <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-primary-foreground font-bold font-belanosima text-xl shadow-md group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">CF</div>
                     <div className="hidden sm:flex flex-col">
-                    <span className="font-bold text-xl font-belanosima leading-none tracking-tight">CFBND</span>
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Plataforma</span>
+                        <span className="font-bold text-xl font-belanosima leading-none tracking-tight">CFBND</span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Plataforma</span>
                     </div>
                 </div>
                 <nav className="flex items-center gap-4">
                     <button 
-                        onClick={() => setIsConfigOpen(true)}
+                        onClick={() => navigate('/app/config')}
                         className="text-sm font-medium hover:text-primary transition-colors hidden md:flex items-center gap-2 hover:bg-secondary/50 px-3 py-2 rounded-lg"
                     >
                         <Settings className="w-4 h-4" /> Configuración
@@ -40,7 +38,6 @@ export const AppHeader = () => {
                     <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-secondary to-primary flex items-center justify-center text-secondary-foreground text-xs font-bold ring-2 ring-background shadow-md">AD</div>
                 </nav>
             </div>
-            <GlobalConfigSidebar isOpen={isConfigOpen} onOpenChange={setIsConfigOpen} />
         </header>
     );
 };

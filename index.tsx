@@ -15,6 +15,7 @@ const ClientsView = lazy(() => import('./views/ClientsView').then(module => ({ d
 const DocumentsView = lazy(() => import('./views/DocumentsView').then(module => ({ default: module.DocumentsView })));
 const CotizadorView = lazy(() => import('./views/CotizadorView').then(module => ({ default: module.CotizadorView })));
 const ThemeView = lazy(() => import('./views/ThemeView').then(module => ({ default: module.ThemeView })));
+const ConfigView = lazy(() => import('./views/ConfigView').then(module => ({ default: module.ConfigView })));
 
 // --- Components ---
 const LoadingScreen = () => (
@@ -71,6 +72,7 @@ const App = () => {
                             <Route path="documentos" element={<DocumentsView />} />
                             <Route path="cotizador" element={<CotizadorView />} />
                             <Route path="theme" element={<ThemeView />} />
+                            <Route path="config" element={<ConfigView />} />
                             {/* Default Redirect within app */}
                             <Route path="*" element={<Navigate to="dashboard" replace />} />
                         </Routes>
