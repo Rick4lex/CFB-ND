@@ -2,23 +2,22 @@
 import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { useAppStore } from '../../lib/store';
 import { 
-    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+    Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
     Tabs, TabsList, TabsTrigger, Button, Input, Switch, ScrollArea, 
-    Table, TableHeader, TableRow, TableHead, TableBody, TableCell
+    Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Separator
 } from '../ui/Shared';
-import { Save, Download, Upload, PlusCircle, Trash2 } from 'lucide-react';
+import { Save, Download, Upload, PlusCircle, Trash2, X, Settings2, Database, LifeBuoy } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 
-export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (open: boolean) => void }) {
+export function GlobalConfigSidebar({ isOpen, onOpenChange }: { isOpen: boolean; onOpenChange: (open: boolean) => void }) {
     const { config, setConfig } = useAppStore();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState('services');
 
-    // Local state for edits before saving
+    // Local state for edits
     const [tempServices, setTempServices] = useState(config.servicesCatalog);
 
-    // Sync local state when modal opens or config changes externally
     useEffect(() => {
         if(isOpen) {
             setTempServices(config.servicesCatalog);
@@ -27,7 +26,7 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
 
     const handleSaveServices = () => {
         setConfig(prev => ({ ...prev, servicesCatalog: tempServices }));
-        toast({ title: "Catálogo de Servicios Actualizado", description: "Los cambios en precios y nombres se han guardado." });
+        toast({ title: "Catálogo de Servicios Actualizado", description: "Los cambios se han guardado exitosamente." });
     };
 
     const handleServiceChange = (index: number, field: string, value: any) => {
@@ -42,13 +41,10 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
     };
 
     const handleBackup = () => {
-        // OPTIMIZACIÓN: Leer directamente del estado de Zustand (Memoria)
-        // Esto evita leer datos obsoletos o corruptos del localStorage si la persistencia asíncrona no ha terminado.
         const state = useAppStore.getState();
-        
         const data = {
             metadata: {
-                version: "2.0",
+                version: "2.1",
                 exportedAt: new Date().toISOString(),
                 app: "CFBND"
             },
@@ -72,10 +68,10 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            toast({ title: "Copia de Seguridad Generada", description: "El archivo JSON se ha descargado correctamente." });
+            toast({ title: "Copia de Seguridad Generada", description: "Archivo descargado correctamente." });
         } catch (e) {
-            console.error("Error generando backup:", e);
-            toast({ variant: "destructive", title: "Error", description: "No se pudo generar el archivo de respaldo." });
+            console.error(e);
+            toast({ variant: "destructive", title: "Error", description: "No se pudo generar el respaldo." });
         }
     };
 
@@ -88,165 +84,157 @@ export function GlobalConfigDialog({ isOpen, onOpenChange }: { isOpen: boolean; 
             try {
                 const content = e.target?.result as string;
                 const parsed = JSON.parse(content);
-                
-                // Soporte para estructura antigua (flat) y nueva (nested under 'data')
                 const incomingData = parsed.data || parsed;
                 
-                // Validación básica de integridad
-                if (!Array.isArray(incomingData.clients) || !Array.isArray(incomingData.advisors)) {
-                    throw new Error("Formato de archivo inválido o corrupto.");
-                }
+                if (!Array.isArray(incomingData.clients)) throw new Error("Archivo inválido.");
 
-                if (window.confirm("ADVERTENCIA CRÍTICA:\n\nEsta acción eliminará TODOS los datos actuales y los reemplazará con los del archivo de respaldo.\n\n¿Estás seguro de continuar?")) {
+                if (window.confirm("¿Restaurar todos los datos? Se borrará la información actual.")) {
                     const { setClients, setAdvisors, setEntities, setConfig, setCotizadorProfiles, setBrandingElements } = useAppStore.getState();
-
-                    // Actualización Atómica del Estado
                     if (incomingData.clients) setClients(incomingData.clients);
                     if (incomingData.advisors) setAdvisors(incomingData.advisors);
                     if (incomingData.entities) setEntities(incomingData.entities);
-                    if (incomingData.config || incomingData.sys_config) setConfig(incomingData.config || incomingData.sys_config);
+                    if (incomingData.config) setConfig(incomingData.config);
                     if (incomingData.cotizadorProfiles) setCotizadorProfiles(incomingData.cotizadorProfiles);
                     if (incomingData.brandingElements) setBrandingElements(incomingData.brandingElements);
                     
-                    if (parsed.theme) localStorage.setItem('cfbnd-theme', parsed.theme);
-                    
-                    toast({ title: "Restauración Exitosa", description: "La base de datos ha sido actualizada." });
-                    
-                    // Pequeño delay para asegurar que Zustand persista antes de recargar
-                    setTimeout(() => window.location.reload(), 500);
+                    toast({ title: "Datos Restaurados", description: "Reiniciando plataforma..." });
+                    setTimeout(() => window.location.reload(), 800);
                 }
             } catch (error) {
-                console.error(error);
-                toast({ variant: "destructive", title: "Error de Restauración", description: "El archivo está corrupto o no es compatible." });
+                toast({ variant: "destructive", title: "Error", description: "El archivo no es compatible." });
             }
         };
         reader.readAsText(file);
-        if (event.target) event.target.value = '';
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
-                <DialogHeader>
-                    <DialogTitle>Configuración Global y Soporte</DialogTitle>
-                    <DialogDescription>Administra el catálogo de servicios y las copias de seguridad.</DialogDescription>
-                </DialogHeader>
-                
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                    <TabsList className="grid w-full grid-cols-2 shrink-0">
-                        <TabsTrigger value="services">Catálogo de Servicios</TabsTrigger>
-                        <TabsTrigger value="backup">Backup y Datos</TabsTrigger>
-                    </TabsList>
-                    
-                    <div className="flex-1 flex flex-col min-h-0 mt-4">
-                        {/* Services Tab */}
-                        {activeTab === 'services' && (
-                            <div className="flex flex-col h-full space-y-4">
-                                <div className="flex justify-between items-center shrink-0 px-1">
-                                    <p className="text-sm text-muted-foreground">Gestiona los servicios disponibles para facturar.</p>
-                                    <Button size="sm" variant="outline" onClick={handleAddService}><PlusCircle className="mr-2 h-4 w-4"/> Nuevo Servicio</Button>
+        <Sheet open={isOpen} onOpenChange={onOpenChange}>
+            <SheetContent side="right" className="flex flex-col h-full p-0 overflow-hidden sm:w-[500px]">
+                <div className="p-6 pb-2">
+                    <div className="flex items-center justify-between mb-2">
+                        <SheetHeader className="space-y-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                                    <Settings2 className="w-5 h-5" />
                                 </div>
-                                <div className="flex-1 overflow-hidden border rounded-md relative">
-                                     <div className="absolute inset-0 overflow-auto">
-                                        <Table>
-                                            <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
-                                                <TableRow>
-                                                    <TableHead className="w-[100px]">ID</TableHead>
-                                                    <TableHead>Nombre del Servicio</TableHead>
-                                                    <TableHead>Precio Base</TableHead>
-                                                    <TableHead>Estado</TableHead>
-                                                    <TableHead className="w-[50px]"></TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {tempServices.map((service, index) => (
-                                                    <TableRow key={service.id}>
-                                                        <TableCell className="font-mono text-xs text-muted-foreground">{service.id}</TableCell>
-                                                        <TableCell>
-                                                            <Input 
-                                                                value={service.name} 
-                                                                onChange={(e) => handleServiceChange(index, 'name', e.target.value)}
-                                                                className="h-8"
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Input 
-                                                                type="number"
-                                                                value={service.price} 
-                                                                onChange={(e) => handleServiceChange(index, 'price', Number(e.target.value))}
-                                                                className="h-8 w-32"
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Switch 
-                                                                checked={service.active} 
-                                                                onCheckedChange={(checked) => handleServiceChange(index, 'active', checked)}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => {
-                                                                const updated = tempServices.filter((_, i) => i !== index);
-                                                                setTempServices(updated);
-                                                            }}>
-                                                                <Trash2 className="h-4 w-4"/>
-                                                            </Button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                     </div>
-                                </div>
-                                <div className="shrink-0 pt-2 flex justify-end">
-                                    <Button onClick={handleSaveServices} className="w-full md:w-auto"><Save className="mr-2 h-4 w-4"/> Guardar Catálogo</Button>
-                                </div>
+                                <SheetTitle>Configuración del Sistema</SheetTitle>
                             </div>
-                        )}
+                            <SheetDescription>Gestiona el núcleo de la plataforma CFBND.</SheetDescription>
+                        </SheetHeader>
+                        <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="rounded-full h-8 w-8">
+                            <X className="w-4 h-4" />
+                        </Button>
+                    </div>
+                    
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+                        <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1 rounded-xl">
+                            <TabsTrigger value="services" className="rounded-lg data-[state=active]:shadow-sm">
+                                <LifeBuoy className="w-3.5 h-3.5 mr-2" /> Servicios
+                            </TabsTrigger>
+                            <TabsTrigger value="backup" className="rounded-lg data-[state=active]:shadow-sm">
+                                <Database className="w-3.5 h-3.5 mr-2" /> Backup
+                            </TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                </div>
 
-                        {/* Backup Tab */}
-                        {activeTab === 'backup' && (
-                            <ScrollArea className="h-full">
-                                <div className="space-y-8 p-8 border rounded-md bg-card flex flex-col justify-center items-center text-center min-h-full">
-                                    <div className="space-y-4 max-w-md">
-                                        <div className="p-4 rounded-full bg-primary/10 w-16 h-16 flex items-center justify-center mx-auto">
-                                            <Download className="h-8 w-8 text-primary"/>
-                                        </div>
-                                        <h3 className="text-xl font-bold">Exportar Copia de Seguridad</h3>
-                                        <p className="text-muted-foreground">Descarga un archivo JSON con todos tus clientes, asesores y configuraciones. Guarda este archivo en un lugar seguro.</p>
-                                        <Button onClick={handleBackup} className="w-full">Descargar Backup</Button>
-                                    </div>
-                                    
-                                    <div className="w-full max-w-md border-t my-8"></div>
+                <Separator />
 
-                                    <div className="space-y-4 max-w-md">
-                                        <div className="p-4 rounded-full bg-blue-500/10 w-16 h-16 flex items-center justify-center mx-auto">
-                                            <Upload className="h-8 w-8 text-blue-600"/>
+                <div className="flex-1 overflow-hidden flex flex-col">
+                    {activeTab === 'services' && (
+                        <div className="flex flex-col h-full">
+                            <div className="p-6 flex justify-between items-center bg-muted/20">
+                                <div className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Precios y Catálogo</div>
+                                <Button size="sm" variant="outline" onClick={handleAddService} className="h-8 rounded-full border-primary/20 hover:bg-primary/10">
+                                    <PlusCircle className="mr-2 h-3.5 w-3.5"/> Nuevo
+                                </Button>
+                            </div>
+                            <ScrollArea className="flex-1 px-6">
+                                <div className="space-y-4 py-2">
+                                    {tempServices.map((service, index) => (
+                                        <div key={service.id} className="group p-4 rounded-2xl border bg-card/50 hover:border-primary/30 transition-all">
+                                            <div className="flex items-start justify-between gap-3 mb-3">
+                                                <div className="flex-1">
+                                                    <Input 
+                                                        value={service.name} 
+                                                        onChange={(e) => handleServiceChange(index, 'name', e.target.value)}
+                                                        className="h-9 border-transparent bg-transparent hover:bg-muted/50 focus:bg-background transition-colors font-semibold"
+                                                    />
+                                                </div>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setTempServices(tempServices.filter((_, i) => i !== index))}>
+                                                    <Trash2 className="h-4 w-4"/>
+                                                </Button>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5 flex-1">
+                                                    <span className="text-xs font-bold text-muted-foreground">$</span>
+                                                    <Input 
+                                                        type="number"
+                                                        value={service.price} 
+                                                        onChange={(e) => handleServiceChange(index, 'price', Number(e.target.value))}
+                                                        className="h-6 border-none bg-transparent p-0 text-sm font-mono focus-visible:ring-0"
+                                                    />
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold uppercase text-muted-foreground">{service.active ? 'Activo' : 'Inactivo'}</span>
+                                                    <Switch 
+                                                        checked={service.active} 
+                                                        onCheckedChange={(checked) => handleServiceChange(index, 'active', checked)}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
-                                        <h3 className="text-xl font-bold">Restaurar Datos</h3>
-                                        <p className="text-muted-foreground">Importa un archivo de respaldo previamente generado. <span className="text-destructive font-bold">Advertencia: Esto reemplazará tus datos actuales.</span></p>
-                                        <div className="relative">
-                                            <Button variant="outline" className="w-full cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                                                Seleccionar Archivo
-                                            </Button>
-                                            <input 
-                                                type="file" 
-                                                ref={fileInputRef}
-                                                onChange={handleRestore}
-                                                accept=".json"
-                                                className="hidden"
-                                            />
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
                             </ScrollArea>
-                        )}
-                    </div>
-                </Tabs>
-                
-                <DialogFooter className="mt-4 shrink-0">
-                    <Button variant="ghost" onClick={() => onOpenChange(false)}>Cerrar</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                            <div className="p-6 border-t bg-card/80 backdrop-blur-md">
+                                <Button onClick={handleSaveServices} className="w-full h-12 rounded-xl shadow-lg shadow-primary/20">
+                                    <Save className="mr-2 h-4 w-4"/> Guardar Cambios
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'backup' && (
+                        <div className="p-6 space-y-8 flex flex-col items-center justify-center h-full text-center">
+                            <div className="space-y-6 max-w-[320px]">
+                                <div className="mx-auto w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                                    <Download className="w-10 h-10" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-xl font-bold font-belanosima">Exportar Respaldo</h3>
+                                    <p className="text-sm text-muted-foreground">Obtén un archivo JSON con toda la información de la plataforma (clientes, asesores, branding).</p>
+                                </div>
+                                <Button onClick={handleBackup} className="w-full h-12 rounded-xl" variant="outline">
+                                    Descargar JSON
+                                </Button>
+                            </div>
+                            
+                            <div className="w-full flex items-center gap-4">
+                                <div className="h-px bg-border flex-1"></div>
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">O</span>
+                                <div className="h-px bg-border flex-1"></div>
+                            </div>
+
+                            <div className="space-y-6 max-w-[320px]">
+                                <div className="mx-auto w-20 h-20 rounded-3xl bg-blue-500/10 flex items-center justify-center text-blue-600 shadow-inner">
+                                    <Upload className="w-10 h-10" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-xl font-bold font-belanosima">Restaurar Datos</h3>
+                                    <p className="text-sm text-muted-foreground">Carga un archivo de respaldo. <span className="text-destructive font-bold">Esto sobrescribirá los datos actuales permanentemente.</span></p>
+                                </div>
+                                <div className="w-full">
+                                    <Button variant="secondary" className="w-full h-12 rounded-xl" onClick={() => fileInputRef.current?.click()}>
+                                        Importar Backup
+                                    </Button>
+                                    <input type="file" ref={fileInputRef} onChange={handleRestore} accept=".json" className="hidden" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </SheetContent>
+        </Sheet>
     );
 }

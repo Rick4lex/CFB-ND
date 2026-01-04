@@ -163,7 +163,6 @@ export const CardFooter = ({ className, children }: any) => <div className={`fle
 
 // --- Dialog ---
 export const DialogTrigger = ({ children, ...props }: any) => {
-    // Critical fix: Ensure props (like onClick) are passed to the child element
     return cloneElement(children, props);
 }
 DialogTrigger.displayName = 'DialogTrigger';
@@ -206,7 +205,6 @@ export const Dialog = ({ open, onOpenChange, children }: any) => {
              } else if ((child.type as any).displayName === 'DialogContent') {
                 content = child;
              } else {
-                 // Fallback if trigger is not explicitly wrapped (legacy support)
                  if(!trigger) trigger = child;
              }
         }
@@ -225,6 +223,73 @@ export const Dialog = ({ open, onOpenChange, children }: any) => {
     );
 };
 
+// --- Sheet (Sidebar) ---
+export const SheetTrigger = ({ children, ...props }: any) => {
+    return cloneElement(children, props);
+}
+SheetTrigger.displayName = 'SheetTrigger';
+
+export const SheetContent = ({ className, children, side = "right" }: any) => {
+    const sides: any = {
+        left: "left-0 h-full w-3/4 border-r sm:max-w-sm animate-in slide-in-from-left duration-300",
+        right: "right-0 h-full w-full sm:w-[450px] border-l animate-in slide-in-from-right duration-300",
+        top: "top-0 w-full border-b animate-in slide-in-from-top duration-300",
+        bottom: "bottom-0 w-full border-t animate-in slide-in-from-bottom duration-300",
+    };
+
+    return (
+        <div className={`fixed z-50 gap-4 bg-background p-6 shadow-2xl transition ease-in-out ${sides[side]} ${className}`} onClick={(e) => e.stopPropagation()}>
+            {children}
+        </div>
+    );
+};
+SheetContent.displayName = 'SheetContent';
+
+export const SheetHeader = ({ className, ...props }: any) => (
+  <div className={`flex flex-col space-y-2 text-left ${className}`} {...props} />
+)
+SheetHeader.displayName = "SheetHeader"
+
+export const SheetTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(({ className, ...props }, ref) => (
+  <h2 ref={ref} className={`text-xl font-bold text-foreground font-belanosima tracking-tight ${className}`} {...props} />
+))
+SheetTitle.displayName = "SheetTitle"
+
+export const SheetDescription = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(({ className, ...props }, ref) => (
+  <p ref={ref} className={`text-sm text-muted-foreground ${className}`} {...props} />
+))
+SheetDescription.displayName = "SheetDescription"
+
+export const Sheet = ({ open, onOpenChange, children }: any) => {
+    let trigger = null;
+    let content = null;
+
+    Children.forEach(children, (child) => {
+        if (isValidElement(child)) {
+             if ((child.type as any).displayName === 'SheetTrigger') {
+                trigger = child;
+             } else if ((child.type as any).displayName === 'SheetContent') {
+                content = child;
+             } else {
+                 if(!trigger) trigger = child;
+             }
+        }
+    });
+
+    return (
+        <>
+            {trigger && cloneElement(trigger as ReactElement<any>, { onClick: () => onOpenChange(true) })}
+            {open && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-end">
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in-0 duration-300" onClick={() => onOpenChange(false)} />
+                    {content}
+                </div>
+            )}
+        </>
+    );
+};
+
+
 // --- Select ---
 export const SelectContext = createContext<any>(null);
 
@@ -232,7 +297,6 @@ export const Select = ({ children, onValueChange, defaultValue, value }: any) =>
     const [open, setOpen] = useState(false);
     const [selectedValue, setSelectedValue] = useState(value || defaultValue);
 
-    // Sync external value changes
     useEffect(() => {
         if (value !== undefined) setSelectedValue(value);
     }, [value]);
@@ -421,7 +485,6 @@ FormControl.displayName = "FormControl";
 
 export const FormMessage = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(({ className, children, ...props }, ref) => {
     const { formState } = useFormContext();
-    // Simplified message handling - children usually passed by FormField render
     if (!children) return null;
     return (
         <p ref={ref} className={`text-[0.8rem] font-medium text-destructive ${className}`} {...props}>
@@ -487,9 +550,7 @@ Switch.displayName = "Switch"
 // --- Dropdown Menu (Placeholder / Simplified) ---
 export const DropdownMenu = ({ children }: any) => <div className="relative inline-block text-left">{children}</div>;
 export const DropdownMenuTrigger = ({ children, asChild, ...props }: any) => {
-    // Basic implementation for trigger, real one would need context
     return <div {...props} onClick={(e) => {
-        // Toggle logic would go here
         const menu = e.currentTarget.nextElementSibling;
         if(menu) menu.classList.toggle('hidden');
     }}>{children}</div>

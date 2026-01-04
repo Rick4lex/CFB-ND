@@ -1,11 +1,15 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-// Hook optimizado con estrategia de dos niveles: Memoria (RAM) + Persistencia (LocalStorage/Async)
-// Garantiza actualizaciones de UI inmediatas (optimistic UI) mientras persiste en segundo plano.
+/**
+ * useCFBraindStorage - Hook optimizado con estrategia de dos niveles.
+ * 
+ * Nivel 1: Memoria RAM (React State) para respuesta instantánea.
+ * Nivel 2: Persistencia (LocalStorage) con escritura asíncrona no bloqueante.
+ */
 export function useCFBraindStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
   
-  // Nivel 1: Estado en memoria (React State) - Lectura inicial síncrona segura
+  // Nivel 1: Estado en memoria (Lectura inicial síncrona segura)
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === "undefined") return initialValue;
     try {
@@ -17,10 +21,10 @@ export function useCFBraindStorage<T>(key: string, initialValue: T): [T, (value:
     }
   });
 
-  // Referencia mutable para acceso inmediato en callbacks sin dependencias
+  // Referencia mutable para acceso inmediato en callbacks y persistencia diferida
   const rawValueRef = useRef<T>(storedValue);
 
-  // Sincronización entre pestañas (Storage Event)
+  // Sincronización entre pestañas para coherencia de datos distribuida
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === key && e.newValue) {
@@ -29,7 +33,7 @@ export function useCFBraindStorage<T>(key: string, initialValue: T): [T, (value:
           setStoredValue(newValue);
           rawValueRef.current = newValue;
         } catch (error) {
-          console.error("Error parsing storage change:", error);
+          console.error("Error al sincronizar storage:", error);
         }
       }
     };
@@ -40,37 +44,35 @@ export function useCFBraindStorage<T>(key: string, initialValue: T): [T, (value:
 
   const setValue = useCallback((value: T | ((val: T) => T)) => {
     try {
-      // Permitir que el valor sea una función (estilo useState)
       const valueToStore = value instanceof Function ? value(rawValueRef.current) : value;
       
-      // 1. Actualizar Nivel 1 (Memoria UI) - Inmediato
+      // Actualizar Nivel 1 (Memoria RAM) - Respuesta inmediata en UI
       setStoredValue(valueToStore);
       rawValueRef.current = valueToStore;
 
-      // 2. Actualizar Nivel 2 (Persistencia) - Asíncrono/No bloqueante conceptualmente
+      // Actualizar Nivel 2 (Persistencia LocalStorage) - Asíncrono
       if (typeof window !== "undefined") {
-        // Usamos requestIdleCallback si está disponible para no bloquear interacciones críticas
-        const saveToStorage = () => {
+        const persistData = () => {
              try {
                 window.localStorage.setItem(key, JSON.stringify(valueToStore));
-                // Disparar evento para otras pestañas manualmente si es necesario (local storage lo hace auto entre pestañas, no misma pestaña)
             } catch (storageError: any) {
                 if (storageError.name === 'QuotaExceededError' || storageError.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-                    console.error("LocalStorage lleno. Datos solo en memoria.");
+                    console.error("LocalStorage lleno. Los cambios permanecen en memoria pero no persistirán.");
                 } else {
-                    console.error("Error guardando en localStorage:", storageError);
+                    console.error("Error en persistencia de datos:", storageError);
                 }
             }
         };
 
+        // Priorizamos la persistencia en tiempo de inactividad para no afectar el framerate
         if ('requestIdleCallback' in window) {
-            (window as any).requestIdleCallback(saveToStorage);
+            (window as any).requestIdleCallback(persistData);
         } else {
-            setTimeout(saveToStorage, 0);
+            setTimeout(persistData, 0);
         }
       }
     } catch (error) {
-      console.log(error);
+      console.error("Fallo crítico en useCFBraindStorage:", error);
     }
   }, [key]);
 

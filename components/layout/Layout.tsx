@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { LogOut, ArrowLeft, Sun, Moon, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { GlobalConfigDialog } from '../features/GlobalConfigDialog';
+import { GlobalConfigSidebar } from '../features/GlobalConfigDialog';
 
 export const AppHeader = () => {
     const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -31,7 +31,7 @@ export const AppHeader = () => {
                         onClick={() => setIsConfigOpen(true)}
                         className="text-sm font-medium hover:text-primary transition-colors hidden md:flex items-center gap-2 hover:bg-secondary/50 px-3 py-2 rounded-lg"
                     >
-                        <Settings className="w-4 h-4" /> Soporte & Config
+                        <Settings className="w-4 h-4" /> Configuración
                     </button>
                     <div className="h-6 w-px bg-border hidden md:block"></div>
                     <button onClick={handleLogout} className="text-destructive hover:bg-destructive/10 p-2 rounded-full transition-colors active:scale-90" title="Cerrar Sesión">
@@ -40,7 +40,7 @@ export const AppHeader = () => {
                     <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-secondary to-primary flex items-center justify-center text-secondary-foreground text-xs font-bold ring-2 ring-background shadow-md">AD</div>
                 </nav>
             </div>
-            <GlobalConfigDialog isOpen={isConfigOpen} onOpenChange={setIsConfigOpen} />
+            <GlobalConfigSidebar isOpen={isConfigOpen} onOpenChange={setIsConfigOpen} />
         </header>
     );
 };
@@ -48,8 +48,8 @@ export const AppHeader = () => {
 interface PageLayoutProps {
     title: string;
     subtitle?: string;
-    onBack?: () => void; // Legacy support or custom action
-    onBackRoute?: string; // Router support
+    onBack?: () => void;
+    onBackRoute?: string;
     actions?: ReactNode;
     children?: ReactNode;
 }
