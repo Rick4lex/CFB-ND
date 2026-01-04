@@ -1,6 +1,29 @@
 
 import { z } from 'zod';
 
+export const entityLinkSchema = z.object({
+    id: z.string(),
+    name: z.string().min(1, "El nombre del enlace es requerido."),
+    url: z.string().url("URL inválida.").or(z.literal('')),
+});
+
+export const entityContactSchema = z.object({
+    id: z.string(),
+    type: z.enum(['phone', 'whatsapp', 'email', 'location']),
+    department: z.string().min(1, "Departamento requerido."),
+    label: z.string().min(1, "Etiqueta requerida."),
+    value: z.string().min(1, "Valor requerido."),
+});
+
+export const entitySchema = z.object({
+    id: z.string(),
+    name: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
+    type: z.enum(['EPS', 'ARL', 'CAJA', 'PENSION', 'CESANTIAS', 'OTRO']),
+    code: z.string().optional(),
+    links: z.array(entityLinkSchema).optional().default([]),
+    contacts: z.array(entityContactSchema).optional().default([]),
+});
+
 export const clientSchema = z.object({
   documentType: z.string().min(1, "El tipo de documento es requerido"),
   documentId: z.string().min(1, "El número de documento es requerido"),
@@ -36,36 +59,17 @@ export const clientSchema = z.object({
 
   credentials: z.array(z.object({
     id: z.string(),
-    entityType: z.string().min(1, "Tipo requerido"),
-    entityName: z.string().min(1, "Nombre de entidad requerido"),
+    entityId: z.string().min(1, "Debe seleccionar una entidad"),
+    entityType: z.string(),
+    entityName: z.string(),
     username: z.string().optional(),
-    password: z.string().optional()
+    password: z.string().optional(),
+    registeredEmail: z.string().email("Email inválido").optional().or(z.literal('')),
+    notes: z.string().optional(),
   })).optional().default([]),
 
   notes: z.string().optional(),
   proofsLink: z.string().url().optional().or(z.literal('')),
-});
-
-export const entityLinkSchema = z.object({
-    id: z.string(),
-    name: z.string().min(1, "El nombre del enlace es requerido."),
-    url: z.string().url("URL inválida.").or(z.literal('')),
-});
-
-export const entityContactSchema = z.object({
-    id: z.string(),
-    type: z.enum(['phone', 'whatsapp', 'email', 'location']),
-    department: z.string().min(1, "Departamento requerido."),
-    label: z.string().min(1, "Etiqueta requerida."),
-    value: z.string().min(1, "Valor requerido."),
-});
-
-export const entitySchema = z.object({
-    id: z.string(),
-    name: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
-    type: z.string(),
-    links: z.array(entityLinkSchema).optional().default([]),
-    contacts: z.array(entityContactSchema).optional().default([]),
 });
 
 export const managerSchema = z.object({

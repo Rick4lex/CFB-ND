@@ -25,10 +25,13 @@ export interface Beneficiary {
 
 export interface Credential {
     id: string;
-    entityType: string;
-    entityName: string;
+    entityId: string;    // ID único de la entidad en el directorio
+    entityType: string;  // Para caché/referencia rápida
+    entityName: string;  // Para caché/referencia rápida
     username?: string;
     password?: string;
+    registeredEmail?: string; // Nuevo campo: Correo con el que se registró
+    notes?: string;           // Nuevo campo: Notas del acceso
 }
 
 export interface Client {
@@ -72,9 +75,28 @@ export interface Advisor {
 export interface Entity { 
     id: string; 
     name: string; 
-    type: string; 
+    type: 'EPS' | 'ARL' | 'CAJA' | 'PENSION' | 'CESANTIAS' | 'OTRO'; 
+    code?: string; // Código oficial (ej: EPS001)
     links?: EntityLink[]; 
     contacts?: EntityContact[]; 
+}
+
+export interface CotizadorProfile {
+    id: string;
+    name: string;
+    data: {
+        modality: string;
+        monthlyIncome: number;
+        ibc: number;
+        days: number;
+        includePension: boolean;
+        includeHealth: boolean;
+        includeArl: boolean;
+        arlRisk: number;
+        ccfRate: number;
+        adminFee: number;
+        charges: Record<string, boolean>;
+    }
 }
 
 export type ClientFormData = z.infer<typeof clientSchema>;

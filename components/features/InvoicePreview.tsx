@@ -20,18 +20,19 @@ interface InvoicePreviewProps {
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
-export function InvoicePreview({ client, additionalItems, totalAmount }: InvoicePreviewProps) {
+export function InvoicePreview({ client, additionalItems, totalAmount: _unusedTotalAmount }: InvoicePreviewProps) {
   const { config } = useAppStore();
   const catalog = config.servicesCatalog;
   
   const generationDate = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });
   
+  // Mapeo dinámico: Buscamos cada servicio del cliente en el catálogo actual para obtener su precio vigente
   const allItems = [
     ...(client.contractedServices || []).map(serviceIdentifier => {
-        // Try to find by ID first, then fall back to Name (for legacy data)
+        // Buscamos coincidencia por ID (recomendado) o por Nombre (compatibilidad)
         const service = catalog.find(s => s.id === serviceIdentifier) || catalog.find(s => s.name === serviceIdentifier);
         
-        // Fallback to using the identifier itself as name if not found in catalog (edge case)
+        // Si no existe en catálogo, mostramos el identificador guardado pero con precio 0 para evitar errores
         const name = service?.name || serviceIdentifier;
         const price = service?.price || 0;
 
@@ -39,6 +40,9 @@ export function InvoicePreview({ client, additionalItems, totalAmount }: Invoice
     }),
     ...additionalItems.map(item => ({ name: item.description, price: item.value }))
   ];
+
+  // Recalculamos el total real sumando los precios vigentes del catálogo + ítems adicionales
+  const realTotal = allItems.reduce((acc, item) => acc + item.price, 0);
 
   return (
     <div className="w-full bg-white text-[#3A2E27] font-sans p-4 shadow-lg rounded-lg border print:p-2 print:shadow-none print:border-none box-border">
@@ -102,7 +106,7 @@ export function InvoicePreview({ client, additionalItems, totalAmount }: Invoice
                         <div className='flex items-stretch print:flex print:items-stretch'>
                             <div className='bg-[#3A2E27] text-white font-bold text-lg px-4 py-2 flex-grow rounded-l-md print:text-base'>TOTAL A PAGAR</div>
                             <div className='bg-[#F7DC6F] text-[#3A2E27] font-bold text-2xl px-4 py-1.5 w-48 text-right rounded-r-md flex items-center justify-end print:text-xl print:w-40'>
-                                <span className='text-lg align-middle mr-2 print:text-base'>$</span>{formatCurrency(totalAmount).replace('$', '')}
+                                <span className='text-lg align-middle mr-2 print:text-base'>$</span>{formatCurrency(realTotal).replace('$', '')}
                             </div>
                         </div>
                         

@@ -1,11 +1,12 @@
+
 import { useState, useMemo, useCallback, type ChangeEvent } from 'react';
-import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download } from 'lucide-react';
+import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, KeyRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../lib/store';
 import { useClientOperations } from '../hooks/useClientOperations';
 import { PageLayout } from '../components/layout/Layout';
 import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Shared';
-import { EntityManagerDialog, AdvisorManagerDialog, ClientFormDialog } from '../components/features/Dialogs';
+import { EntityManagerDialog, AdvisorManagerDialog, ClientFormDialog, ClientCredentialsDialog } from '../components/features/Dialogs';
 import { Client, Advisor, Entity, ClientWithMultiple } from '../lib/types';
 import { serviceStatuses } from '../lib/constants';
 import { useToast } from '../hooks/use-toast';
@@ -39,6 +40,8 @@ export const ClientsView = () => {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isAdvisorModalOpen, setIsAdvisorModalOpen] = useState(false);
   const [isEntityModalOpen, setIsEntityModalOpen] = useState(false);
+  const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
+  const [credentialsClient, setCredentialsClient] = useState<Client | null>(null);
 
   // Filters State
   const [searchTerm, setSearchTerm] = useState('');
@@ -99,6 +102,11 @@ export const ClientsView = () => {
   const handleEdit = (client: Client) => {
       setEditingClient(client);
       setIsClientModalOpen(true);
+  };
+
+  const handleShowCredentials = (client: Client) => {
+      setCredentialsClient(client);
+      setIsCredentialsModalOpen(true);
   };
 
   const handleSaveClientWrapper = (saveData: ClientWithMultiple) => {
@@ -280,6 +288,9 @@ export const ClientsView = () => {
                                 <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">{c.entryDate}</TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30" onClick={() => handleShowCredentials(c)} title="Ver Accesos">
+                                            <KeyRound className="h-4 w-4"/>
+                                        </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30" onClick={() => navigate('/app/documentos', { state: { clientId: c.id } })} title="Generar Documentos">
                                             <FileText className="h-4 w-4"/>
                                         </Button>
@@ -329,6 +340,7 @@ export const ClientsView = () => {
         <ClientFormDialog isOpen={isClientModalOpen} onOpenChange={setIsClientModalOpen} onSave={handleSaveClientWrapper} client={editingClient} advisors={advisors} />
         <AdvisorManagerDialog isOpen={isAdvisorModalOpen} onOpenChange={setIsAdvisorModalOpen} advisors={advisors} onSave={handleSaveAdvisors} />
         <EntityManagerDialog isOpen={isEntityModalOpen} onOpenChange={setIsEntityModalOpen} onSave={handleSaveEntities} allEntities={entities} />
+        <ClientCredentialsDialog isOpen={isCredentialsModalOpen} onOpenChange={setIsCredentialsModalOpen} client={credentialsClient} entities={entities} />
     </PageLayout>
   );
 };

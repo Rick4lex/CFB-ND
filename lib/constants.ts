@@ -29,7 +29,7 @@ export const defaultGlobalConfig = {
 
 export const documentTypes = ['CC', 'CE', 'TI', 'NIT', 'PPT', 'PASAPORTE'];
 export const serviceStatuses = ['Contacto inicial', 'Documentación pendiente', 'En trámite', 'Activo', 'Mora', 'Suspendido', 'Retirado'];
-export const credentialTypes = ['EPS', 'ARL', 'AFP', 'CCF', 'Operador Pago', 'Correo', 'Otro'];
+export const credentialTypes = ['EPS', 'ARL', 'CAJA', 'PENSION', 'CESANTIAS', 'OTRO'];
 export const entityContactDepartments = ['General', 'Cartera', 'Aportes', 'Autorizaciones', 'Incapacidades', 'Afiliaciones'];
 export const entityContactTypes = [
     { value: 'phone', label: 'Teléfono' },

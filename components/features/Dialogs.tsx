@@ -15,7 +15,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { 
     PlusCircle, Trash2, Edit, Save, X, Phone, Mail, MapPin, 
-    MessageSquare, LayoutGrid, List, ExternalLink, Upload, Download, FileText, UserPlus 
+    MessageSquare, LayoutGrid, List, ExternalLink, Upload, Download, FileText, UserPlus, KeyRound, Link as LinkIcon,
+    Copy, Eye, EyeOff, Shield
 } from 'lucide-react';
 import { 
     advisorSchema, managerSchema as entityManagerStateSchema, clientSchema, 
@@ -27,6 +28,145 @@ import {
 } from '@/lib/constants';
 import { useAppStore } from '@/lib/store';
 import type { Advisor, Client, Entity, EntityContact, ClientWithMultiple } from '@/lib/types';
+
+// --- Client Credentials Viewer ---
+interface ClientCredentialsDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  client: Client | null;
+  entities: Entity[];
+}
+
+export function ClientCredentialsDialog({ isOpen, onOpenChange, client, entities }: ClientCredentialsDialogProps) {
+  const { toast } = useToast();
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+
+  const togglePassword = (id: string) => {
+    setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copiado", description: `${label} copiado al portapapeles.` });
+  };
+
+  if (!client) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" />
+            Accesos: {client.fullName}
+          </DialogTitle>
+          <DialogDescription>
+            Credenciales y códigos de operación para gestión de pagos.
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="h-[60vh] pr-4">
+            <div className="space-y-4">
+                {(!client.credentials || client.credentials.length === 0) && (
+                    <div className="text-center py-10 text-muted-foreground bg-muted/20 rounded-xl border border-dashed">
+                        <KeyRound className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                        <p>Este cliente no tiene credenciales registradas.</p>
+                    </div>
+                )}
+                {client.credentials?.map((cred) => {
+                    // Sincronización en tiempo real: Buscamos la entidad por ID en el directorio actual
+                    const entity = entities.find(e => e.id === cred.entityId);
+                    
+                    // Usamos datos del directorio si existen, sino fallback a los datos guardados en la credencial
+                    const entityName = entity?.name || cred.entityName || 'Entidad no encontrada';
+                    const entityType = entity?.type || cred.entityType || 'N/A';
+                    const entityCode = entity?.code; // El código siempre viene del directorio
+                    const entityUrl = entity?.links?.[0]?.url; // El enlace siempre viene del directorio
+
+                    return (
+                        <div key={cred.id} className="border rounded-xl p-4 bg-card shadow-sm hover:border-primary/30 transition-colors">
+                            {/* Entity Header */}
+                            <div className="flex justify-between items-start mb-4 border-b pb-3">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="font-bold text-lg">{entityName}</h4>
+                                        <Badge variant="secondary" className="text-[10px]">{entityType}</Badge>
+                                    </div>
+                                    {entityCode && (
+                                        <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground font-mono bg-muted/50 px-2 py-1 rounded w-fit border border-border/50">
+                                            <span className="font-bold">COD:</span> 
+                                            <span className="select-all">{entityCode}</span>
+                                            <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:text-foreground" onClick={() => copyToClipboard(entityCode, 'Código Operador')}>
+                                                <Copy className="h-3 w-3" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                                {entityUrl && (
+                                    <Button size="sm" variant="outline" className="gap-1 h-8 shadow-sm" onClick={() => window.open(entityUrl, '_blank')}>
+                                        <ExternalLink className="h-3.5 w-3.5" /> Portal
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Credentials Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div className="space-y-1">
+                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Usuario</span>
+                                    <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-md border border-transparent hover:border-border transition-colors">
+                                        <span className="truncate flex-1 font-mono font-medium">{cred.username || '---'}</span>
+                                        {cred.username && <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(cred.username!, 'Usuario')}><Copy className="h-3 w-3" /></Button>}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contraseña</span>
+                                    <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-md border border-transparent hover:border-border transition-colors">
+                                        <span className="truncate flex-1 font-mono font-medium">
+                                            {visiblePasswords[cred.id] ? cred.password : '••••••••'}
+                                        </span>
+                                        {cred.password && (
+                                            <>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => togglePassword(cred.id)}>
+                                                    {visiblePasswords[cred.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => copyToClipboard(cred.password!, 'Contraseña')}>
+                                                    <Copy className="h-3 w-3" />
+                                                </Button>
+                                            </>
+                                        )}
+                                        {!cred.password && <span className="text-muted-foreground text-xs italic">Sin clave</span>}
+                                    </div>
+                                </div>
+
+                                {cred.registeredEmail && (
+                                    <div className="space-y-1 md:col-span-2">
+                                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Correo Registrado</span>
+                                        <div className="flex items-center gap-2 p-1">
+                                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                                            <span className="font-mono text-xs">{cred.registeredEmail}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {cred.notes && (
+                                    <div className="space-y-1 md:col-span-2 bg-amber-50 dark:bg-amber-950/20 p-2 rounded text-xs border border-amber-100 dark:border-amber-900/50">
+                                        <span className="font-bold text-amber-700 dark:text-amber-500 block mb-0.5 text-[10px] uppercase">Notas de Acceso:</span>
+                                        <p className="text-amber-900 dark:text-amber-100/80 leading-relaxed">{cred.notes}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </ScrollArea>
+        <DialogFooter>
+            <Button onClick={() => onOpenChange(false)}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // --- Advisor Manager ---
 interface AdvisorManagerDialogProps {
@@ -241,7 +381,8 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
     append({
       id: newId,
       name: '',
-      type: '',
+      type: 'EPS',
+      code: '',
       links: [],
       contacts: [],
     });
@@ -336,7 +477,10 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
 
                             return (
                                 <TableRow key={field.id}>
-                                    <TableCell className="font-medium">{entity.name || 'Sin nombre'}</TableCell>
+                                    <TableCell className="font-medium">
+                                        {entity.name || 'Sin nombre'}
+                                        {entity.code && <span className="ml-2 text-xs text-muted-foreground">({entity.code})</span>}
+                                    </TableCell>
                                     <TableCell><Badge variant="secondary">{entity.type || 'N/A'}</Badge></TableCell>
                                     <TableCell className="hidden md:table-cell">
                                         <div className="flex gap-2 text-muted-foreground text-xs">
@@ -377,7 +521,10 @@ function ViewEntityCard({ entity, onEdit, onRemove, groupedContacts }: { entity:
             <div className="flex justify-between items-start">
                <div>
                     <p className="font-semibold">{entity.name || 'Nueva Entidad'}</p>
-                    <Badge variant="secondary" className="mt-1">{entity.type || 'Sin tipo'}</Badge>
+                    <div className="flex gap-2 mt-1">
+                        <Badge variant="secondary">{entity.type || 'Sin tipo'}</Badge>
+                        {entity.code && <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider">{entity.code}</Badge>}
+                    </div>
                </div>
                <div className="flex gap-2">
                     <Button type="button" variant="ghost" size="icon" onClick={onEdit}><Edit className="w-4 h-4"/></Button>
@@ -438,19 +585,23 @@ function EditEntityForm({ index, control, setEditingId }: { index: number, contr
 
     return (
         <div className="space-y-4">
-           <div className="grid grid-cols-2 gap-4">
-                <FormField name={`entities.${index}.name`} control={control} render={({ field }: any) => (
-                    <FormItem><FormLabel>Nombre Entidad</FormLabel><FormControl><Input {...field} placeholder="Ej: Porvenir" /></FormControl><FormMessage /></FormItem>
-                )} />
+           <FormField name={`entities.${index}.name`} control={control} render={({ field }: any) => (
+                <FormItem><FormLabel>Nombre Entidad</FormLabel><FormControl><Input {...field} placeholder="Ej: Porvenir" /></FormControl><FormMessage /></FormItem>
+            )} />
+            
+            <div className="grid grid-cols-2 gap-4">
                 <FormField name={`entities.${index}.type`} control={control} render={({ field }: any) => (
                     <FormItem>
-                        <FormLabel>Tipo</FormLabel>
+                        <FormLabel>Tipo de Entidad</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl>
                             <SelectContent>{credentialTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage />
                     </FormItem>
+                )} />
+                <FormField name={`entities.${index}.code`} control={control} render={({ field }: any) => (
+                    <FormItem><FormLabel>Código Operador</FormLabel><FormControl><Input {...field} placeholder="Ej: EPS001" className="font-mono uppercase" /></FormControl><FormMessage /></FormItem>
                 )} />
             </div>
 
@@ -495,7 +646,7 @@ function EditEntityForm({ index, control, setEditingId }: { index: number, contr
                         <FormField name={`entities.${index}.contacts.${contactIndex}.department`} control={control} render={({ field }: any) => (
                             <FormItem><FormLabel className="text-xs">Departamento</FormLabel>
                                  <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                <SelectContent>{entityContactDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select><FormMessage />
+                                 <SelectContent>{entityContactDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select><FormMessage />
                             </FormItem>
                         )} />
                         <FormField name={`entities.${index}.contacts.${contactIndex}.label`} control={control} render={({ field }: any) => (
@@ -542,9 +693,10 @@ interface ClientFormDialogProps {
 
 export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisors }: ClientFormDialogProps) {
   const { toast } = useToast();
-  const { config } = useAppStore();
+  const { config, entities } = useAppStore(); // Get entities from store
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Muestra servicios activos O servicios que ya tiene el cliente (aunque se desactiven después)
   const allServices = useMemo(() => config.servicesCatalog.filter(s => s.active || client?.contractedServices?.includes(s.id)), [config.servicesCatalog, client]);
 
   const form = useForm<ClientFormData>({
@@ -567,6 +719,9 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
   const adminCost = form.watch('adminCost', 0);
   const referralCommissionAmount = form.watch('referralCommissionAmount', 0);
   const discountPercentage = form.watch('discountPercentage', 0);
+  
+  // Watch credentials to dynamically display links
+  const watchedCredentials = form.watch('credentials');
 
 
   const totalProcedureCost = useMemo(() => {
@@ -622,6 +777,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
         adminCost: client.adminCost || 0,
         referralCommissionAmount: client.referralCommissionAmount || 0,
         discountPercentage: client.discountPercentage || 0,
+        credentials: client.credentials || [] // Ensure credentials load
       });
     } else {
       form.reset({
@@ -922,13 +1078,13 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                                       <FormItem className="flex flex-row items-center space-x-2 space-y-0">
                                         <FormControl>
                                           <Checkbox
-                                            checked={field.value?.includes(service.id) || field.value?.includes(service.name)}
+                                            checked={field.value?.includes(service.id)}
                                             onCheckedChange={(checked: boolean) => {
                                                 let newValue = field.value || [];
                                                 if (checked) {
                                                     newValue = [...newValue, service.id];
                                                 } else {
-                                                    newValue = newValue.filter((val: string) => val !== service.id && val !== service.name);
+                                                    newValue = newValue.filter((val: string) => val !== service.id);
                                                 }
                                                 field.onChange(newValue);
                                             }}
@@ -985,6 +1141,88 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                               <div><p className="text-xs text-muted-foreground">Descuento</p><p className="font-bold">{discountValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}</p></div>
                               <div><p className="text-xs text-muted-foreground">Valor Neto</p><p className="font-bold text-primary">{netOperationValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}</p></div>
                           </div>
+                       </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  
+                  <AccordionItem value="item-5">
+                    <AccordionTrigger className="font-bold text-base text-blue-600">Credenciales y Accesos</AccordionTrigger>
+                    <AccordionContent>
+                       <div className="space-y-4 pt-2">
+                         {credentialFields.map((field, index) => {
+                           const currentEntityId = watchedCredentials?.[index]?.entityId;
+                           const linkedEntity = entities.find(e => e.id === currentEntityId);
+                           const primaryLink = linkedEntity?.links?.[0]?.url;
+
+                           return (
+                           <div key={field.id} className="p-4 border rounded-xl bg-muted/20 relative space-y-3">
+                              <FormField name={`credentials.${index}.entityId`} control={form.control} render={({ field: selectField }: any) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs font-bold uppercase text-muted-foreground">Entidad / Portal</FormLabel>
+                                    <Select onValueChange={(val) => {
+                                        selectField.onChange(val);
+                                        const selectedEntity = entities.find(e => e.id === val);
+                                        if (selectedEntity) {
+                                            form.setValue(`credentials.${index}.entityName`, selectedEntity.name);
+                                            form.setValue(`credentials.${index}.entityType`, selectedEntity.type);
+                                        }
+                                    }} defaultValue={selectField.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar entidad..." /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {entities.map(ent => (
+                                                <SelectItem key={ent.id} value={ent.id}>{ent.name} ({ent.type})</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    
+                                    {/* Visual Link Feedback - Phase 3 Requirement */}
+                                    {primaryLink && (
+                                        <div className="flex items-center gap-2 mt-1.5 p-2 bg-blue-50/80 border border-blue-100 rounded-md text-xs text-blue-700 animate-in fade-in">
+                                            <LinkIcon className="h-3 w-3 shrink-0" />
+                                            <span className="truncate max-w-[200px] md:max-w-xs">{primaryLink}</span>
+                                            <a 
+                                                href={primaryLink} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="ml-auto font-semibold hover:underline flex items-center gap-1"
+                                                title="Abrir Oficina Virtual"
+                                            >
+                                                Ir a Portal <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                        </div>
+                                    )}
+                                    
+                                    <FormMessage />
+                                </FormItem>
+                              )} />
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <FormField name={`credentials.${index}.username`} control={form.control} render={({ field }: any) => (
+                                      <FormItem><FormLabel className="text-xs">Usuario</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                                  )} />
+                                  <FormField name={`credentials.${index}.password`} control={form.control} render={({ field }: any) => (
+                                      <FormItem><FormLabel className="text-xs">Contraseña</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                                  )} />
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <FormField name={`credentials.${index}.registeredEmail`} control={form.control} render={({ field }: any) => (
+                                      <FormItem><FormLabel className="text-xs">Correo Registrado</FormLabel><FormControl><Input {...field} type="email" placeholder="ejemplo@email.com" /></FormControl></FormItem>
+                                  )} />
+                                   <FormField name={`credentials.${index}.notes`} control={form.control} render={({ field }: any) => (
+                                      <FormItem><FormLabel className="text-xs">Notas de Acceso</FormLabel><FormControl><Input {...field} placeholder="Ej: Clave temporal..." /></FormControl></FormItem>
+                                  )} />
+                              </div>
+
+                              <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeCredential(index)}>
+                                <Trash2 className="h-4 w-4"/>
+                              </Button>
+                           </div>
+                         )})}
+
+                         <Button type="button" variant="outline" size="sm" onClick={() => appendCredential({ id: crypto.randomUUID(), entityId: '', entityType: '', entityName: '', username: '', password: '', registeredEmail: '', notes: '' })}>
+                            <KeyRound className="mr-2 h-4 w-4" /> Añadir Credencial
+                         </Button>
                        </div>
                     </AccordionContent>
                   </AccordionItem>

@@ -5,16 +5,17 @@ import {
     Button, Card, CardHeader, CardTitle, CardContent, CardDescription, 
     Input, Label, Switch, Tabs, TabsList, TabsTrigger, 
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter,
-    Checkbox, Separator
+    Checkbox, Separator, ScrollArea
 } from '../components/ui/Shared';
 import { 
-    Wallet, Handshake, Briefcase, FileText, Eye, PlusCircle, Trash2, Bookmark, Settings, Download, Loader2 
+    Wallet, Handshake, Briefcase, FileText, Eye, PlusCircle, Trash2, Bookmark, Settings, Download, Loader2, Save, Check
 } from 'lucide-react';
 import { CotizacionSummaryImage, type CotizacionData } from '../components/features/CotizacionSummaryImage';
 import { useToast } from '../hooks/use-toast';
 import { PageLayout } from '../components/layout/Layout';
 import { useAppStore } from '../lib/store';
 import { formatCurrency, parseCurrency, calculateSocialSecurity } from '../lib/utils';
+import type { CotizadorProfile } from '../lib/types';
 
 const initialProcedureCosts = {
     pensionAffiliation: 15000,
@@ -45,13 +46,14 @@ interface AdditionalProcedureItem {
 export function CotizadorView() {
   const imageRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { config, setConfig } = useAppStore();
+  const { config, setConfig, cotizadorProfiles, setCotizadorProfiles } = useAppStore();
   const SMLV = config.financials.smlv;
 
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
 
   // Form State
   const [modality, setModality] = useState('independent');
@@ -68,7 +70,7 @@ export function CotizadorView() {
   const [ccfRate, setCcfRate] = useState(0);
 
   // Services
-  const [charges, setCharges] = useState({
+  const [charges, setCharges] = useState<Record<string, boolean>>({
       pensionAffiliation: false, pensionPortal: false,
       healthAffiliation: false, healthPortal: false,
       ccfAffiliation: false, ccfPortal: false,
@@ -87,7 +89,7 @@ export function CotizadorView() {
   const [tempFinancials, setTempFinancials] = useState(config.financials);
 
   // Toggle charge handler
-  const toggleCharge = (key: keyof typeof charges) => {
+  const toggleCharge = (key: string) => {
       setCharges(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -107,7 +109,7 @@ export function CotizadorView() {
     setCcfRate(0);
   }, [modality]);
 
-  // Main Calculation (Optimized using utils)
+  // Main Calculation
   const cotizacionData = useMemo(() => {
       const socialSecResult = calculateSocialSecurity({
           ibc, days, modality, includePension, includeHealth, includeArl, arlRisk, ccfRate, contributionRates
@@ -159,22 +161,17 @@ export function CotizadorView() {
     if (!imageRef.current) return;
     setIsGenerating(true);
     try {
-        // Wait a bit for React renders/styles
         await new Promise(r => setTimeout(r, 100)); 
-        
         const dataUrl = await htmlToImage.toPng(imageRef.current, { 
             quality: 1, 
             pixelRatio: 2, 
             backgroundColor: '#ffffff' 
         });
-        
         const link = document.createElement('a');
         link.download = `cotizacion_${new Date().getTime()}.png`;
         link.href = dataUrl;
         link.click();
-        
-        toast({ title: "Comprobante Descargado", description: "La imagen se ha guardado en tu dispositivo." });
-
+        toast({ title: "Comprobante Descargado", description: "La imagen se ha guardado correctamente." });
     } catch(error) {
         console.error("Error generating image:", error);
         toast({ variant: "destructive", title: "Error", description: "No se pudo generar la imagen." });
@@ -186,7 +183,7 @@ export function CotizadorView() {
   const handleConfigSave = () => {
     setProcedureCosts(tempCosts);
     setConfig(prev => ({ ...prev, financials: tempFinancials }));
-    toast({ title: "Configuración Actualizada", description: "Se han guardado los costos y parámetros financieros." });
+    toast({ title: "Configuración Actualizada", description: "Parámetros globales guardados." });
     setIsConfigModalOpen(false);
   }
 
@@ -198,10 +195,51 @@ export function CotizadorView() {
     }
   };
 
+  const handleSaveProfile = () => {
+    if (!newProfileName.trim()) {
+        toast({ variant: 'destructive', title: 'Nombre requerido', description: 'Ingresa un nombre para el perfil.' });
+        return;
+    }
+
+    const newProfile: CotizadorProfile = {
+        id: crypto.randomUUID(),
+        name: newProfileName,
+        data: {
+            modality, monthlyIncome, ibc, days, includePension, includeHealth, includeArl, arlRisk, ccfRate, adminFee, charges
+        }
+    };
+
+    setCotizadorProfiles(prev => [...prev, newProfile]);
+    setNewProfileName('');
+    toast({ title: 'Perfil Guardado', description: `Se ha creado el perfil "${newProfile.name}".` });
+  };
+
+  const handleLoadProfile = (profile: CotizadorProfile) => {
+    const d = profile.data;
+    setModality(d.modality);
+    setMonthlyIncome(d.monthlyIncome);
+    setIbc(d.ibc);
+    setDays(d.days);
+    setIncludePension(d.includePension);
+    setIncludeHealth(d.includeHealth);
+    setIncludeArl(d.includeArl);
+    setArlRisk(d.arlRisk);
+    setCcfRate(d.ccfRate);
+    setAdminFee(d.adminFee || 20000);
+    setCharges(d.charges);
+    
+    setIsProfileManagerOpen(false);
+    toast({ title: 'Perfil Cargado', description: `Configuración aplicada: ${profile.name}` });
+  };
+
+  const handleDeleteProfile = (id: string) => {
+    setCotizadorProfiles(prev => prev.filter(p => p.id !== id));
+    toast({ title: 'Perfil Eliminado', description: 'El perfil ha sido removido.' });
+  };
+
   return (
     <PageLayout title="Cotizador Inteligente" subtitle="Calcula y genera comprobantes de cotización." onBackRoute="/app/dashboard">
         <div className="w-full">
-            {/* Hidden capture area */}
             <div className="absolute -left-[9999px] top-0">
                 <div ref={imageRef} style={{ width: '400px' }}>
                     <CotizacionSummaryImage {...cotizacionData} />
@@ -209,7 +247,6 @@ export function CotizadorView() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-24 lg:pb-0">
-                {/* Configuration Panel */}
                 <div className="lg:col-span-5 xl:col-span-4 h-fit lg:sticky lg:top-24 space-y-4">
                     <Card className="border-primary/20 shadow-md">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -220,9 +257,46 @@ export function CotizadorView() {
                              <div className="flex gap-1">
                                 <Dialog open={isProfileManagerOpen} onOpenChange={setIsProfileManagerOpen}>
                                     <DialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Bookmark className="h-4 w-4"/></Button></DialogTrigger>
-                                    <DialogContent>
-                                        <DialogHeader><DialogTitle>Perfiles</DialogTitle></DialogHeader>
-                                        <div className="p-4 bg-muted rounded-md"><p className="text-sm text-center text-muted-foreground">Funcionalidad simplificada para esta vista.</p></div>
+                                    <DialogContent className="max-w-md">
+                                        <DialogHeader>
+                                            <DialogTitle>Perfiles Guardados</DialogTitle>
+                                            <CardDescription>Carga configuraciones frecuentes rápidamente.</CardDescription>
+                                        </DialogHeader>
+                                        
+                                        <div className="space-y-4 py-2">
+                                            <div className="flex gap-2">
+                                                <Input placeholder="Nombre del nuevo perfil..." value={newProfileName} onChange={e => setNewProfileName(e.target.value)} />
+                                                <Button onClick={handleSaveProfile} size="icon" title="Guardar actual como perfil"><Save className="h-4 w-4"/></Button>
+                                            </div>
+
+                                            <Separator />
+
+                                            <ScrollArea className="h-64 pr-2">
+                                                {cotizadorProfiles.length > 0 ? (
+                                                    <div className="space-y-2">
+                                                        {cotizadorProfiles.map((profile: CotizadorProfile) => (
+                                                            <div key={profile.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors group">
+                                                                <div className="flex flex-col cursor-pointer flex-1" onClick={() => handleLoadProfile(profile)}>
+                                                                    <span className="font-bold text-sm">{profile.name}</span>
+                                                                    <span className="text-[10px] text-muted-foreground uppercase">{profile.data.modality === 'independent' ? 'Independiente' : 'Empresa'} • IBC {formatCurrency(profile.data.ibc)}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleDeleteProfile(profile.id)}>
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                    <Check className="h-4 w-4 text-primary" />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center py-8 text-muted-foreground">
+                                                        <Bookmark className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                                        <p className="text-sm italic">No tienes perfiles guardados.</p>
+                                                    </div>
+                                                )}
+                                            </ScrollArea>
+                                        </div>
                                     </DialogContent>
                                 </Dialog>
                                 <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
@@ -288,7 +362,6 @@ export function CotizadorView() {
 
                             <Separator />
                             
-                            {/* Contributions Toggles */}
                             <div className="space-y-4">
                                 <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Aportes de Ley</h4>
                                 <div className="space-y-3">
@@ -329,7 +402,6 @@ export function CotizadorView() {
                             
                             <Separator />
                             
-                            {/* Additional Services */}
                             <div className="space-y-4">
                                 <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Extras & Administrativos</h4>
                                 <div className="space-y-2">
@@ -355,7 +427,6 @@ export function CotizadorView() {
                     </Card>
                 </div>
 
-                {/* Desktop Results (Center/Right) */}
                 <div className="hidden lg:flex lg:col-span-7 xl:col-span-8 flex-col items-center justify-start space-y-8 pt-8">
                      <div className="relative group perspective-1000">
                         <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full opacity-20 group-hover:opacity-40 transition-opacity duration-700"></div>
@@ -377,7 +448,6 @@ export function CotizadorView() {
                 </div>
             </div>
             
-            {/* Mobile Sticky Footer */}
             <div className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t p-4 lg:hidden z-40 flex items-center justify-between shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] pb-safe-area">
                 <div className="flex flex-col">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Estimado</p>
