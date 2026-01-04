@@ -37,34 +37,38 @@ export function CotizacionSummaryImage({
 }: CotizacionData) {
     return (
         <div id="summary-image-content" className="w-[400px] bg-white p-6 font-sans text-[#3A2E27]">
-            <div className="flex items-center justify-start gap-2 mb-4">
-                <img src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1748304382/codefaker-04_pjvwsp.png" alt="CFBND Logo" width={32} height={32} crossOrigin="anonymous" />
-                <span className="font-bold text-xl text-[#E08C79]">CFBND</span>
+            {/* Header: Logo and IBC Info split */}
+            <div className="flex items-start justify-between mb-4 border-b border-gray-100 pb-3">
+                <div className="flex items-center justify-start gap-2">
+                    <img src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1748304382/codefaker-04_pjvwsp.png" alt="CFBND Logo" width={32} height={32} crossOrigin="anonymous" />
+                    <span className="font-bold text-xl text-[#E08C79]">CFBND</span>
+                </div>
+                {/* Moved IBC Info Here */}
+                <div className="text-right">
+                    <p className="text-sm font-bold text-blue-600 uppercase tracking-tight">{resultsIbcDays}</p>
+                    <p className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full inline-block mt-1">Base: {resultsIbc}</p>
+                </div>
             </div>
 
-            <div className="relative mt-4">
-                <div className="bg-[#F8EDD2] rounded-lg p-3 pt-4">
+            <div className="relative mt-2">
+                <div className="bg-[#F8EDD2] rounded-lg p-4 pt-5 pb-5">
                     <h2 className="text-md font-bold">Resumen de Cotización</h2>
                     <p className="text-xs" style={{ color: '#8d7a6e' }}>Cálculos para <span className="font-semibold text-[#E08C79]">{modality}</span>.</p>
-                    <div className="flex justify-between items-end mt-2">
-                        <div>
-                            <p className="text-xs" style={{ color: '#8d7a6e' }}>Valor Final Cliente</p>
-                            <p className="text-4xl font-bold text-[#E08C79] leading-none">{totalNet}</p>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-xl font-bold text-blue-600">{resultsIbcDays}</p>
-                            <p className="text-xs font-semibold">{resultsIbc}</p>
-                        </div>
+                    
+                    {/* Total Net Amount - Centered and Larger */}
+                    <div className="mt-3">
+                        <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#8d7a6e' }}>Valor Final Cliente</p>
+                        <p className="text-5xl font-bold text-[#E08C79] leading-none tracking-tight">{totalNet}</p>
                     </div>
                 </div>
-                 <div className="absolute -top-4 right-2">
+                 <div className="absolute -top-3 right-3 shadow-md rounded-full border-2 border-white">
                     <img
                         src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1733031738/tu_imagen_gapghc.png"
                         alt="Asesor"
-                        width={80}
-                        height={80}
+                        width={64}
+                        height={64}
                         className="rounded-full object-cover"
-                        style={{width: 80, height: 80}}
+                        style={{width: 64, height: 64}}
                         crossOrigin="anonymous"
                     />
                 </div>
@@ -87,7 +91,7 @@ export function CotizacionSummaryImage({
                 <div className="bg-[#F8EDD2] rounded-lg p-3 flex flex-col">
                     <h3 className="font-bold text-center uppercase text-xs" style={{ color: '#8d7a6e' }}>Aportes a Seg. Social</h3>
                     <p className="text-[10px] text-center" style={{ color: '#8d7a6e' }}>SUBTOTAL</p>
-                    <p className="text-3xl font-bold text-center text-[#E08C79] my-1">{totalSocialSecurity}</p>
+                    <p className="text-2xl font-bold text-center text-[#E08C79] my-1">{totalSocialSecurity}</p>
                     <hr className="border-gray-300 my-1" />
                     <ul className="space-y-1 text-[10px] flex-grow">
                         {breakdownItems.length > 0 ? breakdownItems.map(item => (
@@ -95,13 +99,13 @@ export function CotizacionSummaryImage({
                                 <span className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-green-500" />{item.label}</span>
                                 <span>{item.value}</span>
                             </li>
-                        )) : <p className="text-center text-[10px] py-2" style={{ color: '#8d7a6e' }}>No hay aportes.</p>}
+                        )) : <p className="text-center text-[10px] py-2 italic opacity-60" style={{ color: '#8d7a6e' }}>Sin aportes seleccionados.</p>}
                     </ul>
                 </div>
                 <div className="bg-[#F8EDD2] rounded-lg p-3 flex flex-col">
                     <h3 className="font-bold text-center uppercase text-xs" style={{ color: '#8d7a6e' }}>Trámites y Servicios</h3>
                     <p className="text-[10px] text-center" style={{ color: '#8d7a6e' }}>SUBTOTAL</p>
-                    <p className="text-3xl font-bold text-center text-[#E08C79] my-1">{totalProcedureCost}</p>
+                    <p className="text-2xl font-bold text-center text-[#E08C79] my-1">{totalProcedureCost}</p>
                      <hr className="border-gray-300 my-1" />
                     <ul className="space-y-1 text-[10px] flex-grow">
                         {procedureItems.length > 0 ? procedureItems.map(item => (
@@ -109,7 +113,7 @@ export function CotizacionSummaryImage({
                                 <span style={{ color: '#8d7a6e' }}>{item.label}</span>
                                 <span>{item.value}</span>
                             </li>
-                        )): <p className="text-center text-[10px] py-2" style={{ color: '#8d7a6e' }}>No hay trámites.</p>}
+                        )): <p className="text-center text-[10px] py-2 italic opacity-60" style={{ color: '#8d7a6e' }}>Sin trámites adicionales.</p>}
                     </ul>
                 </div>
             </div>
