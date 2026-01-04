@@ -53,6 +53,7 @@ export function CotizadorView() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isProfileManagerOpen, setIsProfileManagerOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
 
   // Form State
@@ -454,7 +455,7 @@ export function CotizadorView() {
                     <p className="text-2xl font-bold text-primary leading-none mt-1">{cotizacionData.totalNet}</p>
                 </div>
                 <div className="flex gap-3">
-                    <Dialog>
+                    <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
                         <DialogTrigger asChild><Button variant="secondary" size="icon" className="h-12 w-12 rounded-xl"><FileText className="h-5 w-5"/></Button></DialogTrigger>
                         <DialogContent className="max-h-[85vh] overflow-auto">
                             <DialogHeader><DialogTitle>Detalle de Costos</DialogTitle></DialogHeader>
