@@ -17,7 +17,6 @@ import {
   type HTMLAttributes,
   type ThHTMLAttributes,
   type TdHTMLAttributes,
-  type HTMLTableCaptionElement,
   type ReactElement,
   type ReactNode
 } from 'react';
