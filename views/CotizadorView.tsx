@@ -437,9 +437,9 @@ export function CotizadorView() {
                 <div className="hidden lg:flex lg:col-span-7 xl:col-span-8 flex-col items-center justify-start space-y-8 pt-8">
                      <div className="relative group perspective-1000">
                         <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full opacity-20 group-hover:opacity-40 transition-opacity duration-700"></div>
-                        <Card className="relative bg-[#F8EDD2]/30 border-0 shadow-2xl ring-1 ring-border/10 overflow-hidden transform transition-transform duration-500 hover:scale-[1.01]">
-                            <CardContent className="flex justify-center pt-8 pb-8 px-8">
-                                <div className="transform scale-[1.05] origin-top">
+                        <Card className="relative bg-transparent border-0 shadow-none ring-0 overflow-visible transform transition-transform duration-500 hover:scale-[1.01]">
+                            <CardContent className="flex justify-center p-0">
+                                <div className="transform scale-[1.06] origin-top mt-4 p-1">
                                     <CotizacionSummaryImage {...cotizacionData} />
                                 </div>
                             </CardContent>
@@ -463,7 +463,7 @@ export function CotizadorView() {
                 <div className="flex gap-3">
                     <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
                         <DialogTrigger asChild><Button variant="secondary" size="icon" className="h-12 w-12 rounded-xl"><FileText className="h-5 w-5"/></Button></DialogTrigger>
-                        <DialogContent className="max-h-[85vh] overflow-auto">
+                        <DialogContent className="w-[95%] sm:max-w-md max-h-[80vh] overflow-y-auto rounded-2xl">
                             <DialogHeader><DialogTitle>Detalle de Costos</DialogTitle></DialogHeader>
                             <div className="space-y-6 pt-2">
                                 <div>
