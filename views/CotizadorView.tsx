@@ -189,8 +189,10 @@ export function CotizadorView() {
   }
 
   const handleAddAdditionalItem = () => {
+    // Note: parseCurrency now accepts negative strings like "-5000"
     const value = parseCurrency(newAdditionalItem.value);
-    if (newAdditionalItem.description && value > 0) {
+    // Allow adding if value is valid (non-zero)
+    if (newAdditionalItem.description && value !== 0) {
       setAdditionalProcedureItems(prev => [...prev, { id: Date.now(), description: newAdditionalItem.description, value }]);
       setNewAdditionalItem({ description: '', value: '' });
     }
@@ -417,14 +419,14 @@ export function CotizadorView() {
                                 </div>
                                 <div className="flex gap-2">
                                     <Input aria-label="Descripción ítem adicional" placeholder="Descripción ítem..." value={newAdditionalItem.description} onChange={e => setNewAdditionalItem({...newAdditionalItem, description: e.target.value})} className="h-9 text-xs"/>
-                                    <Input aria-label="Valor ítem adicional" placeholder="$0" value={newAdditionalItem.value} onChange={e => setNewAdditionalItem({...newAdditionalItem, value: formatCurrency(parseCurrency(e.target.value))})} className="h-9 w-24 text-xs"/>
+                                    <Input aria-label="Valor ítem adicional" placeholder="$0 (Use - para descuentos)" value={newAdditionalItem.value} onChange={e => setNewAdditionalItem({...newAdditionalItem, value: formatCurrency(parseCurrency(e.target.value))})} className="h-9 w-40 text-xs"/>
                                     <Button size="icon" className="h-9 w-9 shrink-0" onClick={handleAddAdditionalItem}><PlusCircle className="h-4 w-4"/></Button>
                                 </div>
                                 {additionalProcedureItems.map(i => (
                                     <div key={i.id} className="flex justify-between items-center text-xs bg-muted/50 p-2 rounded-lg border">
                                         <span className="font-medium">{i.description}</span>
                                         <div className="flex items-center gap-3">
-                                            <span>{formatCurrency(i.value)}</span>
+                                            <span className={i.value < 0 ? 'text-red-600 font-bold' : ''}>{formatCurrency(i.value)}</span>
                                             <Trash2 className="h-3.5 w-3.5 cursor-pointer text-destructive hover:text-red-700" onClick={() => setAdditionalProcedureItems(p => p.filter(x => x.id !== i.id))}/>
                                         </div>
                                     </div>

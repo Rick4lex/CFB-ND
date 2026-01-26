@@ -4,7 +4,8 @@ export const formatCurrency = (amount: number) => new Intl.NumberFormat('es-CO',
 
 export const parseCurrency = (value: string) => {
     if (typeof value === 'number') return value;
-    return parseFloat(value.toString().replace(/[^0-9]/g, '')) || 0;
+    // Permite números y el signo menos al inicio para descuentos
+    return parseFloat(value.toString().replace(/[^0-9-]/g, '')) || 0;
 };
 
 // --- String Utils ---

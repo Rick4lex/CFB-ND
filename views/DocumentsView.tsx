@@ -14,6 +14,7 @@ import {
 } from '../components/ui/Shared';
 import { proceduralServices } from '../lib/constants';
 import { useToast } from '../hooks/use-toast';
+import { formatCurrency, parseCurrency } from '../lib/utils';
 
 interface AdditionalItem {
   id: number;
@@ -119,11 +120,13 @@ export const DocumentsView = () => {
 
 
   const handleAddAdditionalItem = () => {
-    if (newAdditionalItem.description && newAdditionalItem.value) {
+    // Allows negative values for discounts
+    const val = parseCurrency(newAdditionalItem.value);
+    if (newAdditionalItem.description && val !== 0) {
       setAdditionalInvoiceItems(prev => [...prev, {
         id: Date.now(),
         description: newAdditionalItem.description,
-        value: parseFloat(newAdditionalItem.value),
+        value: val,
       }]);
       setNewAdditionalItem({ description: '', value: '' });
     }
@@ -240,11 +243,11 @@ export const DocumentsView = () => {
                        </div>
                        
                         <Card>
-                            <CardHeader><CardTitle className="text-base">Ítems Adicionales</CardTitle></CardHeader>
+                            <CardHeader><CardTitle className="text-base">Ítems Adicionales y Descuentos</CardTitle></CardHeader>
                             <CardContent>
                                     <div className="flex gap-2 mb-4">
-                                    <Input aria-label="Descripción ítem adicional" placeholder="Descripción ítem adicional" value={newAdditionalItem.description} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, description: e.target.value}))}/>
-                                    <Input aria-label="Valor ítem adicional" type="number" placeholder="Valor" value={newAdditionalItem.value} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, value: e.target.value}))}/>
+                                    <Input aria-label="Descripción ítem adicional" placeholder="Descripción (ej: Descuento Combo)" value={newAdditionalItem.description} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, description: e.target.value}))}/>
+                                    <Input aria-label="Valor ítem adicional" placeholder="Valor ($ -5000 para descuentos)" value={newAdditionalItem.value} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, value: formatCurrency(parseCurrency(e.target.value))}))}/>
                                     <Button onClick={handleAddAdditionalItem} variant="secondary">Añadir</Button>
                                 </div>
                                 {additionalInvoiceItems.length > 0 && (
@@ -257,7 +260,7 @@ export const DocumentsView = () => {
                                                 {additionalInvoiceItems.map(item => (
                                                     <tr key={item.id} className="border-t">
                                                         <td className="p-2">{item.description}</td>
-                                                        <td className="p-2 text-right">{item.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
+                                                        <td className={`p-2 text-right ${item.value < 0 ? 'text-red-500 font-medium' : ''}`}>{item.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
