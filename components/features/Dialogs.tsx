@@ -27,6 +27,7 @@ import {
     documentTypes, serviceStatuses, defaultGlobalConfig
 } from '@/lib/constants';
 import { useAppStore } from '@/lib/store';
+import { normalizeString } from '@/lib/utils';
 import type { Advisor, Client, Entity, EntityContact, ClientWithMultiple } from '@/lib/types';
 
 // --- Client Credentials Viewer ---
@@ -179,6 +180,7 @@ interface AdvisorManagerDialogProps {
 export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAdvisors, onSave }: AdvisorManagerDialogProps) {
   const { toast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<{ advisors: Advisor[] }>({
     resolver: zodResolver(advisorManagerSchema) as any,
@@ -220,14 +222,101 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
     setEditingId(newId);
   }
 
+  const handleExport = () => {
+      const data = getValues().advisors;
+      if (data.length === 0) {
+          toast({ variant: "destructive", title: "Sin datos", description: "No hay asesores para exportar." });
+          return;
+      }
+      const csv = Papa.unparse(data);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `asesores_export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+  };
+
+  const handleImport = (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+              const importedData = results.data as any[];
+              if (!importedData || importedData.length === 0) {
+                  toast({ variant: "destructive", title: "Error", description: "Archivo vacío o inválido." });
+                  return;
+              }
+
+              const currentAdvisors = getValues().advisors;
+              const mergedAdvisors = [...currentAdvisors];
+
+              let addedCount = 0;
+              let updatedCount = 0;
+
+              importedData.forEach((row) => {
+                  if (!row.name) return; // Skip invalid rows
+                  
+                  // Intentar encontrar por ID o Nombre Normalizado
+                  const existingIndex = mergedAdvisors.findIndex(
+                      a => a.id === row.id || normalizeString(a.name) === normalizeString(row.name)
+                  );
+
+                  const newAdvisor: Advisor = {
+                      id: row.id || crypto.randomUUID(),
+                      name: row.name,
+                      commissionType: row.commissionType === 'fixed' ? 'fixed' : 'percentage',
+                      commissionValue: parseFloat(row.commissionValue) || 0,
+                      phone: row.phone || '',
+                      email: row.email || '',
+                      paymentDetails: row.paymentDetails || ''
+                  };
+
+                  if (existingIndex >= 0) {
+                      mergedAdvisors[existingIndex] = { ...mergedAdvisors[existingIndex], ...newAdvisor, id: mergedAdvisors[existingIndex].id }; // Mantener ID original si existe
+                      updatedCount++;
+                  } else {
+                      mergedAdvisors.push(newAdvisor);
+                      addedCount++;
+                  }
+              });
+
+              reset({ advisors: mergedAdvisors });
+              toast({ 
+                  title: "Importación Completada", 
+                  description: `Se añadieron ${addedCount} y se actualizaron ${updatedCount} asesores.` 
+              });
+          },
+          error: (error) => {
+              toast({ variant: "destructive", title: "Error de lectura", description: error.message });
+          }
+      });
+      e.target.value = ''; // Reset input
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Gestionar Asesores</DialogTitle>
-          <DialogDescription>
-            Añade, edita o elimina asesores de tu equipo. La información se guardará localmente en tu navegador.
-          </DialogDescription>
+          <div className="flex justify-between items-center pr-8">
+              <div>
+                <DialogTitle>Gestionar Asesores</DialogTitle>
+                <DialogDescription>
+                    Añade, edita o elimina asesores de tu equipo.
+                </DialogDescription>
+              </div>
+              <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleExport} title="Exportar CSV">
+                      <Download className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} title="Importar CSV">
+                      <Upload className="h-4 w-4" />
+                  </Button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImport} />
+              </div>
+          </div>
         </DialogHeader>
         <Form {...form}>
           <div className="space-y-4">
@@ -349,6 +438,7 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
   const { toast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<{ entities: Entity[] }>({
     resolver: zodResolver(entityManagerStateSchema) as any,
@@ -396,14 +486,116 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
     }, {} as Record<string, EntityContact[]>);
   };
 
+  const handleExport = () => {
+      const data = getValues().entities;
+      if (data.length === 0) {
+          toast({ variant: "destructive", title: "Sin datos", description: "No hay entidades para exportar." });
+          return;
+      }
+      
+      // Transform nested objects to JSON strings
+      const exportData = data.map(e => ({
+          ...e,
+          links: JSON.stringify(e.links),
+          contacts: JSON.stringify(e.contacts)
+      }));
+
+      const csv = Papa.unparse(exportData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `entidades_export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+  };
+
+  const handleImport = (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+              const importedData = results.data as any[];
+              if (!importedData || importedData.length === 0) {
+                  toast({ variant: "destructive", title: "Error", description: "Archivo vacío o inválido." });
+                  return;
+              }
+
+              const currentEntities = getValues().entities;
+              const mergedEntities = [...currentEntities];
+              
+              let addedCount = 0;
+              let updatedCount = 0;
+
+              importedData.forEach(row => {
+                  if (!row.name) return;
+
+                  let parsedLinks = [];
+                  let parsedContacts = [];
+                  try {
+                      parsedLinks = row.links ? JSON.parse(row.links) : [];
+                      parsedContacts = row.contacts ? JSON.parse(row.contacts) : [];
+                  } catch (err) {
+                      console.warn("Error parsing nested JSON for entity:", row.name);
+                  }
+
+                  const existingIndex = mergedEntities.findIndex(
+                      ent => ent.id === row.id || normalizeString(ent.name) === normalizeString(row.name)
+                  );
+
+                  const newEntity: Entity = {
+                      id: row.id || crypto.randomUUID(),
+                      name: row.name,
+                      type: row.type || 'EPS',
+                      code: row.code || '',
+                      links: parsedLinks,
+                      contacts: parsedContacts
+                  };
+
+                  if (existingIndex >= 0) {
+                      mergedEntities[existingIndex] = { ...mergedEntities[existingIndex], ...newEntity, id: mergedEntities[existingIndex].id };
+                      updatedCount++;
+                  } else {
+                      mergedEntities.push(newEntity);
+                      addedCount++;
+                  }
+              });
+
+              reset({ entities: mergedEntities });
+              toast({ 
+                  title: "Importación Completada", 
+                  description: `Se añadieron ${addedCount} y se actualizaron ${updatedCount} entidades.` 
+              });
+          },
+          error: (error) => {
+              toast({ variant: "destructive", title: "Error de lectura", description: error.message });
+          }
+      });
+      e.target.value = '';
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Gestionar Entidades</DialogTitle>
-          <DialogDescription>
-            Añade, edita o elimina las entidades. Los enlaces y contactos que configures estarán disponibles para acceso rápido.
-          </DialogDescription>
+           <div className="flex justify-between items-center pr-8">
+              <div>
+                <DialogTitle>Gestionar Entidades</DialogTitle>
+                <DialogDescription>
+                    Añade, edita o elimina las entidades del sistema.
+                </DialogDescription>
+              </div>
+              <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleExport} title="Exportar CSV">
+                      <Download className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} title="Importar CSV">
+                      <Upload className="h-4 w-4" />
+                  </Button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImport} />
+              </div>
+          </div>
         </DialogHeader>
         <div className="flex justify-between items-center gap-4 py-2">
             <Button type="button" variant="outline" onClick={handleAddNew} className="h-9">
@@ -679,7 +871,7 @@ const CSV_HEADERS = [
 ];
 
 // Helper for fuzzy matching
-const normalizeString = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+// NOTE: normalizeString is imported from utils now
 
 type ClientFormData = any;
 

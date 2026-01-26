@@ -7,6 +7,9 @@ export const parseCurrency = (value: string) => {
     return parseFloat(value.toString().replace(/[^0-9]/g, '')) || 0;
 };
 
+// --- String Utils ---
+export const normalizeString = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
 // --- Optimization Utils ---
 export function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
     let timeout: ReturnType<typeof setTimeout>;
