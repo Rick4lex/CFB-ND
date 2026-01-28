@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useRef, useMemo, useContext, type ChangeEvent, type MouseEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, useContext, type ChangeEvent, type MouseEvent, type ReactNode } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Papa from 'papaparse';
@@ -17,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { 
     PlusCircle, Trash2, Edit, Save, X, Phone, Mail, MapPin, 
     MessageSquare, LayoutGrid, List, ExternalLink, Upload, Download, FileText, UserPlus, KeyRound, Link as LinkIcon,
-    Copy, Eye, EyeOff, Shield
+    Copy, Eye, EyeOff, Shield, Check
 } from 'lucide-react';
 import { 
     advisorSchema, managerSchema as entityManagerStateSchema, clientSchema, 
@@ -33,12 +32,18 @@ import type { Advisor, Client, Entity, EntityContact, ClientWithMultiple } from 
 
 // --- Helper Components ---
 
-const TabsContent = ({ value, children, className }: { value: string, children: React.ReactNode, className?: string }) => {
+// MODIFICADO: TabsContent ahora usa CSS para ocultar en lugar de no renderizar.
+// Esto mantiene vivo el estado de los formularios en pestañas inactivas.
+const TabsContent = ({ value, children, className }: { value: string, children?: ReactNode, className?: string }) => {
     const context = useContext(TabsContext);
     if (!context) return null;
     const { activeTab } = context;
-    if (activeTab !== value) return null;
-    return <div className={className}>{children}</div>;
+    
+    return (
+        <div className={`${className} ${activeTab === value ? '' : 'hidden'}`}>
+            {children}
+        </div>
+    );
 };
 
 // --- Client Credentials Viewer ---
@@ -1092,8 +1097,8 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                                                                     // Auto-fill related fields based on selection
                                                                     const selectedEntity = entities.find(e => e.id === val);
                                                                     if (selectedEntity) {
-                                                                        setValue(`credentials.${index}.entityName`, selectedEntity.name);
-                                                                        setValue(`credentials.${index}.entityType`, selectedEntity.type);
+                                                                        setValue(`credentials.${index}.entityName`, selectedEntity.name, { shouldValidate: true, shouldDirty: true });
+                                                                        setValue(`credentials.${index}.entityType`, selectedEntity.type, { shouldValidate: true, shouldDirty: true });
                                                                     }
                                                                 }}
                                                             >
@@ -1123,7 +1128,16 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                                                 <FormField name={`credentials.${index}.notes`} control={control} render={({ field }) => (
                                                     <FormItem className="md:col-span-2"><FormLabel>Notas</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                                                 )} />
-                                                <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => removeCred(index)}><Trash2 className="h-4 w-4"/></Button>
+                                                
+                                                <div className="absolute top-2 right-2 flex gap-1">
+                                                    {/* "Save"/Check Visual Button requested */}
+                                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" title="Credencial Lista">
+                                                        <Check className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeCred(index)}>
+                                                        <Trash2 className="h-4 w-4"/>
+                                                    </Button>
+                                                </div>
                                             </CardContent>
                                         </Card>
                                     ))}

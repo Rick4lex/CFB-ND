@@ -59,9 +59,10 @@ export const clientSchema = z.object({
 
   credentials: z.array(z.object({
     id: z.string(),
-    entityId: z.string().min(1, "Debe seleccionar una entidad"),
-    entityType: z.string(),
-    entityName: z.string(),
+    // MODIFICADO: Permite opcional o string vacío para compatibilidad con datos antiguos
+    entityId: z.string().optional().or(z.literal('')), 
+    entityType: z.string().optional(),
+    entityName: z.string().optional(),
     username: z.string().optional(),
     password: z.string().optional(),
     registeredEmail: z.string().email("Email inválido").optional().or(z.literal('')),
