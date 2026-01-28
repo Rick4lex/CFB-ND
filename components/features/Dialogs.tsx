@@ -1,5 +1,4 @@
-
-import { useState, useEffect, useRef, useMemo, type ChangeEvent, type MouseEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, useContext, type ChangeEvent, type MouseEvent } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Papa from 'papaparse';
@@ -10,7 +9,8 @@ import {
     Textarea, Tabs, TabsList, TabsTrigger, Separator, Badge,
     Accordion, AccordionContent, AccordionItem, AccordionTrigger,
     Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-    Table, TableHeader, TableRow, TableHead, TableBody, TableCell
+    Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
+    Label, Card, CardContent, TabsContext
 } from '@/components/ui/Shared';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -29,6 +29,16 @@ import {
 import { useAppStore } from '@/lib/store';
 import { normalizeString } from '@/lib/utils';
 import type { Advisor, Client, Entity, EntityContact, ClientWithMultiple } from '@/lib/types';
+
+// --- Helper Components ---
+
+const TabsContent = ({ value, children, className }: { value: string, children: React.ReactNode, className?: string }) => {
+    const context = useContext(TabsContext);
+    if (!context) return null;
+    const { activeTab } = context;
+    if (activeTab !== value) return null;
+    return <div className={className}>{children}</div>;
+};
 
 // --- Client Credentials Viewer ---
 interface ClientCredentialsDialogProps {
@@ -250,32 +260,46 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
                   return;
               }
 
-              const currentAdvisors = getValues().advisors;
+              const currentAdvisors = getValues().advisors || [];
               const mergedAdvisors = [...currentAdvisors];
 
               let addedCount = 0;
               let updatedCount = 0;
 
               importedData.forEach((row) => {
-                  if (!row.name) return; // Skip invalid rows
+                  if (!row.name) return; // Validación básica
                   
+                  // Normalización de valores numéricos (manejo de comas y símbolos)
+                  let commVal = 0;
+                  if (row.commissionValue) {
+                      // Reemplazar comas por puntos si existen, eliminar símbolos no numéricos
+                      const cleanVal = String(row.commissionValue).replace(/[^0-9.,]/g, '').replace(',', '.');
+                      commVal = parseFloat(cleanVal) || 0;
+                  }
+
                   // Intentar encontrar por ID o Nombre Normalizado
+                  const safeName = row.name ? normalizeString(row.name) : '';
                   const existingIndex = mergedAdvisors.findIndex(
-                      a => a.id === row.id || normalizeString(a.name) === normalizeString(row.name)
+                      a => a.id === row.id || normalizeString(a.name) === safeName
                   );
 
                   const newAdvisor: Advisor = {
                       id: row.id || crypto.randomUUID(),
                       name: row.name,
-                      commissionType: row.commissionType === 'fixed' ? 'fixed' : 'percentage',
-                      commissionValue: parseFloat(row.commissionValue) || 0,
+                      commissionType: row.commissionType?.toLowerCase() === 'fixed' ? 'fixed' : 'percentage',
+                      commissionValue: commVal,
                       phone: row.phone || '',
                       email: row.email || '',
                       paymentDetails: row.paymentDetails || ''
                   };
 
                   if (existingIndex >= 0) {
-                      mergedAdvisors[existingIndex] = { ...mergedAdvisors[existingIndex], ...newAdvisor, id: mergedAdvisors[existingIndex].id }; // Mantener ID original si existe
+                      // Actualizar existente preservando ID original
+                      mergedAdvisors[existingIndex] = { 
+                          ...mergedAdvisors[existingIndex], 
+                          ...newAdvisor, 
+                          id: mergedAdvisors[existingIndex].id 
+                      }; 
                       updatedCount++;
                   } else {
                       mergedAdvisors.push(newAdvisor);
@@ -293,7 +317,7 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
               toast({ variant: "destructive", title: "Error de lectura", description: error.message });
           }
       });
-      e.target.value = ''; // Reset input
+      e.target.value = ''; // Reset input para permitir re-selección
   };
 
   return (
@@ -427,6 +451,151 @@ const ContactValue = ({ contact }: { contact: EntityContact }) => {
     )
 };
 
+const EditEntityForm = ({ index, control, setEditingId }: { index: number, control: any, setEditingId: (id: string | null) => void }) => {
+    const { fields: linkFields, append: appendLink, remove: removeLink } = useFieldArray({
+        control,
+        name: `entities.${index}.links`
+    });
+    
+    const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({
+        control,
+        name: `entities.${index}.contacts`
+    });
+
+    return (
+        <div className="space-y-4">
+             <div className="grid grid-cols-2 gap-4">
+                <FormField name={`entities.${index}.name`} control={control} render={({ field }: any) => (
+                    <FormItem><FormLabel>Nombre Entidad</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField name={`entities.${index}.type`} control={control} render={({ field }: any) => (
+                    <FormItem>
+                        <FormLabel>Tipo</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                {['EPS', 'ARL', 'CAJA', 'PENSION', 'CESANTIAS', 'OTRO'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+             </div>
+             <FormField name={`entities.${index}.code`} control={control} render={({ field }: any) => (
+                <FormItem><FormLabel>Código (Opcional)</FormLabel><FormControl><Input {...field} placeholder="EPS001" /></FormControl><FormMessage /></FormItem>
+             )} />
+
+             <Separator className="my-2" />
+             
+             <div>
+                <div className="flex justify-between items-center mb-2">
+                    <Label className="text-xs font-bold uppercase">Enlaces / Portales</Label>
+                    <Button type="button" variant="outline" size="sm" className="h-6 text-xs" onClick={() => appendLink({ id: crypto.randomUUID(), name: '', url: '' })}><PlusCircle className="mr-1 h-3 w-3"/> Link</Button>
+                </div>
+                <div className="space-y-2">
+                    {linkFields.map((field: any, k) => (
+                        <div key={field.id} className="flex gap-2">
+                            <FormField name={`entities.${index}.links.${k}.name`} control={control} render={({ field }: any) => <FormControl><Input {...field} placeholder="Nombre" className="h-8 text-xs" /></FormControl>} />
+                            <FormField name={`entities.${index}.links.${k}.url`} control={control} render={({ field }: any) => <FormControl><Input {...field} placeholder="URL" className="h-8 text-xs" /></FormControl>} />
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeLink(k)}><Trash2 className="h-3 w-3"/></Button>
+                        </div>
+                    ))}
+                </div>
+             </div>
+
+             <div>
+                <div className="flex justify-between items-center mb-2">
+                    <Label className="text-xs font-bold uppercase">Directorios de Contacto</Label>
+                    <Button type="button" variant="outline" size="sm" className="h-6 text-xs" onClick={() => appendContact({ id: crypto.randomUUID(), type: 'phone', department: 'General', label: '', value: '' })}><PlusCircle className="mr-1 h-3 w-3"/> Contacto</Button>
+                </div>
+                <div className="space-y-2">
+                    {contactFields.map((field: any, k) => (
+                        <div key={field.id} className="grid grid-cols-12 gap-2 items-start border p-2 rounded-md bg-muted/20">
+                            <div className="col-span-3">
+                                 <FormField name={`entities.${index}.contacts.${k}.department`} control={control} render={({ field }: any) => (
+                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Depto" /></SelectTrigger></FormControl>
+                                        <SelectContent>{entityContactDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                 )} />
+                            </div>
+                            <div className="col-span-3">
+                                 <FormField name={`entities.${index}.contacts.${k}.type`} control={control} render={({ field }: any) => (
+                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger></FormControl>
+                                        <SelectContent>{entityContactTypes.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                 )} />
+                            </div>
+                            <div className="col-span-5 space-y-1">
+                                <FormField name={`entities.${index}.contacts.${k}.label`} control={control} render={({ field }: any) => <FormControl><Input {...field} placeholder="Etiqueta" className="h-7 text-xs" /></FormControl>} />
+                                <FormField name={`entities.${index}.contacts.${k}.value`} control={control} render={({ field }: any) => <FormControl><Input {...field} placeholder="Valor" className="h-7 text-xs" /></FormControl>} />
+                            </div>
+                            <div className="col-span-1">
+                                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeContact(k)}><Trash2 className="h-3 w-3"/></Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+             </div>
+
+             <div className="flex justify-end pt-2">
+                 <Button type="button" size="sm" onClick={() => setEditingId(null)}>Terminar Edición</Button>
+             </div>
+        </div>
+    );
+};
+
+const ViewEntityCard = ({ entity, onEdit, onRemove, groupedContacts }: any) => {
+    const contactsByDept = groupedContacts(entity.contacts);
+    return (
+        <>
+            <div className="flex justify-between items-start mb-2">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-lg">{entity.name}</h4>
+                        <Badge variant="outline">{entity.type}</Badge>
+                    </div>
+                    {entity.code && <span className="text-xs font-mono text-muted-foreground bg-muted px-1 rounded">CODE: {entity.code}</span>}
+                </div>
+                <div className="flex gap-1">
+                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={onEdit}><Edit className="h-3 w-3"/></Button>
+                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={onRemove}><Trash2 className="h-3 w-3"/></Button>
+                </div>
+            </div>
+            
+            {/* Links */}
+            {entity.links && entity.links.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                    {entity.links.map((link: any, i: number) => (
+                        <a key={i} href={link.url} target="_blank" rel="noreferrer" className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-full flex items-center hover:underline">
+                            <ExternalLink className="h-3 w-3 mr-1" /> {link.name}
+                        </a>
+                    ))}
+                </div>
+            )}
+
+            {/* Contacts */}
+            <div className="space-y-2">
+                {Object.entries(contactsByDept).map(([dept, contacts]: any) => (
+                     <div key={dept} className="text-xs">
+                         <span className="font-semibold text-muted-foreground uppercase text-[10px]">{dept}</span>
+                         <div className="grid grid-cols-1 gap-1 pl-1 border-l-2 border-muted">
+                             {contacts.map((c: any, i: number) => (
+                                 <div key={i} className="flex items-center gap-2">
+                                     {contactIcons[c.type as keyof typeof contactIcons]}
+                                     <span className="font-medium">{c.label}:</span>
+                                     <ContactValue contact={c} />
+                                 </div>
+                             ))}
+                         </div>
+                     </div>
+                ))}
+            </div>
+        </>
+    )
+}
+
 interface EntityManagerDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -522,7 +691,7 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
                   return;
               }
 
-              const currentEntities = getValues().entities;
+              const currentEntities = getValues().entities || [];
               const mergedEntities = [...currentEntities];
               
               let addedCount = 0;
@@ -534,14 +703,19 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
                   let parsedLinks = [];
                   let parsedContacts = [];
                   try {
-                      parsedLinks = row.links ? JSON.parse(row.links) : [];
-                      parsedContacts = row.contacts ? JSON.parse(row.contacts) : [];
+                      // Attempt to parse if exists, otherwise default to empty
+                      parsedLinks = (row.links && row.links !== '[]') ? JSON.parse(row.links) : [];
+                      parsedContacts = (row.contacts && row.contacts !== '[]') ? JSON.parse(row.contacts) : [];
                   } catch (err) {
-                      console.warn("Error parsing nested JSON for entity:", row.name);
+                      console.warn("Aviso: Columnas complejas no válidas para entidad:", row.name);
+                      // Fallback: Si no es JSON, asumir vacío
+                      parsedLinks = [];
+                      parsedContacts = [];
                   }
 
+                  const safeName = row.name ? normalizeString(row.name) : '';
                   const existingIndex = mergedEntities.findIndex(
-                      ent => ent.id === row.id || normalizeString(ent.name) === normalizeString(row.name)
+                      ent => ent.id === row.id || normalizeString(ent.name) === safeName
                   );
 
                   const newEntity: Entity = {
@@ -549,12 +723,16 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
                       name: row.name,
                       type: row.type || 'EPS',
                       code: row.code || '',
-                      links: parsedLinks,
-                      contacts: parsedContacts
+                      links: Array.isArray(parsedLinks) ? parsedLinks : [],
+                      contacts: Array.isArray(parsedContacts) ? parsedContacts : []
                   };
 
                   if (existingIndex >= 0) {
-                      mergedEntities[existingIndex] = { ...mergedEntities[existingIndex], ...newEntity, id: mergedEntities[existingIndex].id };
+                      mergedEntities[existingIndex] = { 
+                          ...mergedEntities[existingIndex], 
+                          ...newEntity, 
+                          id: mergedEntities[existingIndex].id // Preservar ID original
+                      };
                       updatedCount++;
                   } else {
                       mergedEntities.push(newEntity);
@@ -707,733 +885,225 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
   );
 }
 
-function ViewEntityCard({ entity, onEdit, onRemove, groupedContacts }: { entity: any, onEdit: () => void, onRemove: () => void, groupedContacts: (contacts: EntityContact[]) => Record<string, EntityContact[]>}) {
-    return (
-        <div className="flex flex-col gap-4">
-            <div className="flex justify-between items-start">
-               <div>
-                    <p className="font-semibold">{entity.name || 'Nueva Entidad'}</p>
-                    <div className="flex gap-2 mt-1">
-                        <Badge variant="secondary">{entity.type || 'Sin tipo'}</Badge>
-                        {entity.code && <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider">{entity.code}</Badge>}
-                    </div>
-               </div>
-               <div className="flex gap-2">
-                    <Button type="button" variant="ghost" size="icon" onClick={onEdit}><Edit className="w-4 h-4"/></Button>
-                    <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={onRemove}><Trash2 className="w-4 h-4"/></Button>
-               </div>
-            </div>
-            
-            <Separator />
-
-            {entity.links && entity.links.length > 0 && (
-                <div className="space-y-2">
-                     <h4 className="text-sm font-semibold text-muted-foreground">Enlaces Rápidos</h4>
-                     <div className="flex flex-wrap gap-2">
-                        {entity.links.map((link: any) => (
-                            link.url ? (
-                            <Button key={link.id} size="sm" variant="outline" onClick={() => window.open(link.url, '_blank')}>
-                                <ExternalLink className="mr-1 h-3 w-3"/>{link.name}
-                            </Button>
-                            ) : null
-                        ))}
-                    </div>
-                </div>
-             )}
-
-            {entity.contacts && entity.contacts.length > 0 && (
-            <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-muted-foreground">Puntos de Contacto</h4>
-                    {Object.entries(groupedContacts(entity.contacts)).map(([department, contacts]) => (
-                    <div key={department}>
-                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{department}</p>
-                        <div className="space-y-1 mt-1">
-                        {contacts.map(contact => (
-                            <div key={contact.id} className="flex items-center">
-                                {contactIcons[contact.type as keyof typeof contactIcons]}
-                                <span className="text-sm font-medium mr-2">{contact.label}:</span>
-                                <ContactValue contact={contact} />
-                            </div>
-                        ))}
-                        </div>
-                    </div>
-                    ))}
-            </div>
-            )}
-        </div>
-    );
-}
-
-function EditEntityForm({ index, control, setEditingId }: { index: number, control: any, setEditingId: (id: string | null) => void }) {
-    const { fields: linkFields, append: appendLink, remove: removeLink } = useFieldArray({
-        control,
-        name: `entities.${index}.links`
-    });
-
-    const { fields: contactFields, append: appendContact, remove: removeContact } = useFieldArray({
-        control,
-        name: `entities.${index}.contacts`
-    });
-
-    return (
-        <div className="space-y-4">
-           <FormField name={`entities.${index}.name`} control={control} render={({ field }: any) => (
-                <FormItem><FormLabel>Nombre Entidad</FormLabel><FormControl><Input {...field} placeholder="Ej: Porvenir" /></FormControl><FormMessage /></FormItem>
-            )} />
-            
-            <div className="grid grid-cols-2 gap-4">
-                <FormField name={`entities.${index}.type`} control={control} render={({ field }: any) => (
-                    <FormItem>
-                        <FormLabel>Tipo de Entidad</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl>
-                            <SelectContent>{credentialTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-                <FormField name={`entities.${index}.code`} control={control} render={({ field }: any) => (
-                    <FormItem><FormLabel>Código Operador</FormLabel><FormControl><Input {...field} placeholder="Ej: EPS001" className="font-mono uppercase" /></FormControl><FormMessage /></FormItem>
-                )} />
-            </div>
-
-            <Separator />
-            
-            {/* Links Section */}
-            <div className="space-y-2 pt-2">
-                <h4 className="text-sm font-medium">Enlaces de Acceso Rápido</h4>
-                {linkFields.map((linkField, linkIndex) => (
-                    <div key={linkField.id} className="grid grid-cols-1 md:grid-cols-8 gap-2 items-end">
-                        <div className="md:col-span-3">
-                             <FormField name={`entities.${index}.links.${linkIndex}.name`} control={control} render={({ field }: any) => (
-                                <FormItem><FormLabel className="text-xs">Nombre del Enlace</FormLabel><FormControl><Input {...field} placeholder="Ej: Portal Pagos" /></FormControl><FormMessage /></FormItem>
-                             )} />
-                        </div>
-                        <div className="md:col-span-4">
-                            <FormField name={`entities.${index}.links.${linkIndex}.url`} control={control} render={({ field }: any) => (
-                                <FormItem><FormLabel className="text-xs">URL Completa</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl><FormMessage /></FormItem>
-                            )} />
-                        </div>
-                        <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive h-10 w-10 mb-0" onClick={() => removeLink(linkIndex)}><Trash2 className="w-4 h-4"/></Button>
-                    </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => appendLink({ id: crypto.randomUUID(), name: '', url: '' })}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir Enlace
-                </Button>
-            </div>
-            
-            <Separator />
-
-            {/* Contacts Section */}
-            <div className="space-y-2 pt-2">
-                <h4 className="text-sm font-medium">Puntos de Contacto</h4>
-                {contactFields.map((contactField, contactIndex) => (
-                     <div key={contactField.id} className="p-3 border rounded-md grid grid-cols-1 md:grid-cols-5 gap-2 items-end relative bg-muted/20">
-                        <FormField name={`entities.${index}.contacts.${contactIndex}.type`} control={control} render={({ field }: any) => (
-                            <FormItem><FormLabel className="text-xs">Tipo</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                                <SelectContent>{entityContactTypes.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent></Select><FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField name={`entities.${index}.contacts.${contactIndex}.department`} control={control} render={({ field }: any) => (
-                            <FormItem><FormLabel className="text-xs">Departamento</FormLabel>
-                                 <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                 <SelectContent>{entityContactDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select><FormMessage />
-                            </FormItem>
-                        )} />
-                        <FormField name={`entities.${index}.contacts.${contactIndex}.label`} control={control} render={({ field }: any) => (
-                            <FormItem><FormLabel className="text-xs">Etiqueta</FormLabel><FormControl><Input {...field} placeholder="Línea Nacional"/></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField name={`entities.${index}.contacts.${contactIndex}.value`} control={control} render={({ field }: any) => (
-                            <FormItem><FormLabel className="text-xs">Valor</FormLabel><FormControl><Input {...field} placeholder="01 8000 ..."/></FormControl><FormMessage /></FormItem>
-                        )} />
-                         <Button type="button" variant="ghost" size="icon" className="text-destructive hover:text-destructive h-10 w-10 mb-0" onClick={() => removeContact(contactIndex)}><Trash2 className="w-4 h-4"/></Button>
-                    </div>
-                ))}
-                 <Button type="button" variant="outline" size="sm" onClick={() => appendContact({ id: crypto.randomUUID(), type: 'phone', department: 'General', label: '', value: '' })}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir Contacto
-                </Button>
-            </div>
-
-          <div className="absolute top-2 right-2 flex gap-2">
-             <Button type="button" size="icon" onClick={() => setEditingId(null)}><Save className="w-4 h-4"/></Button>
-          </div>
-        </div>
-    );
-}
-
-// --- Client Form ---
-const CSV_HEADERS = [
-  "documentId", "fullName", "documentType", "email", "whatsapp",
-  "serviceStatus", "entryDate", "assignedAdvisor", "referredBy",
-  "adminCost", "referralCommissionAmount", "discountPercentage",
-  "notes"
-];
-
-// Helper for fuzzy matching
-// NOTE: normalizeString is imported from utils now
-
-type ClientFormData = any;
-
+// --- Client Form Dialog ---
 interface ClientFormDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (clientData: ClientWithMultiple) => void;
+  onSave: (saveData: ClientWithMultiple) => void;
   client: Client | null;
   advisors: Advisor[];
 }
 
 export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisors }: ClientFormDialogProps) {
-  const { toast } = useToast();
-  const { config, entities } = useAppStore(); // Get entities from store
-  const fileInputRef = useRef<HTMLInputElement>(null);
+    const { toast } = useToast();
+    const { config } = useAppStore();
+    const servicesCatalog = config.servicesCatalog;
 
-  // Muestra servicios activos O servicios que ya tiene el cliente (aunque se desactiven después)
-  const allServices = useMemo(() => config.servicesCatalog.filter(s => s.active || client?.contractedServices?.includes(s.id)), [config.servicesCatalog, client]);
+    const form = useForm({
+        resolver: zodResolver(clientSchema),
+        defaultValues: {
+            id: '', fullName: '', documentType: 'CC', documentId: '', email: '', whatsapp: '',
+            address: '', serviceStatus: 'Contacto inicial', entryDate: new Date().toISOString().split('T')[0],
+            assignedAdvisor: '', adminCost: 0, referralCommissionAmount: 0, discountPercentage: 0,
+            contractedServices: [], beneficiaries: [], credentials: [], notes: ''
+        } as any
+    });
 
-  const form = useForm<ClientFormData>({
-    resolver: zodResolver(clientSchema),
-    defaultValues: { contractedServices: [], beneficiaries: [], credentials: [] }
-  });
+    const { reset, control, handleSubmit, watch, setValue } = form;
 
-  const { fields: beneficiaryFields, append: appendBeneficiary, remove: removeBeneficiary } = useFieldArray({
-    control: form.control,
-    name: "beneficiaries"
-  });
+    const { fields: beneficiaryFields, append: appendBen, remove: removeBen } = useFieldArray({ control, name: 'beneficiaries' });
+    const { fields: credentialFields, append: appendCred, remove: removeCred } = useFieldArray({ control, name: 'credentials' });
 
-  const { fields: credentialFields, append: appendCredential, remove: removeCredential } = useFieldArray({
-    control: form.control,
-    name: "credentials"
-  });
-
-  const contractedServices = form.watch('contractedServices', []);
-  const assignedAdvisorName = form.watch('assignedAdvisor');
-  const adminCost = form.watch('adminCost', 0);
-  const referralCommissionAmount = form.watch('referralCommissionAmount', 0);
-  const discountPercentage = form.watch('discountPercentage', 0);
-  
-  // Watch credentials to dynamically display links
-  const watchedCredentials = form.watch('credentials');
-
-
-  const totalProcedureCost = useMemo(() => {
-    return (contractedServices || []).reduce((total: number, serviceIdentifier: string) => {
-      const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
-      return total + (service?.price || 0);
-    }, 0);
-  }, [contractedServices, config.servicesCatalog]);
-
-
-  const commissionDetails = useMemo(() => {
-    const advisor = advisors.find(a => a.name === assignedAdvisorName);
-    if (!advisor) {
-      return { value: 0, summary: 'Asesor no asignado' };
-    }
-    
-    if (advisor.commissionType === 'percentage') {
-      const commission = totalProcedureCost * (advisor.commissionValue / 100);
-      return { 
-        value: commission, 
-        summary: `${advisor.commissionValue}% de ${totalProcedureCost.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}`
-      };
-    }
-    
-    if (advisor.commissionType === 'fixed') {
-      const affiliationServiceCount = (contractedServices || []).filter((s: string) => {
-           const resolvedName = config.servicesCatalog.find(cat => cat.id === s)?.name || s;
-           return resolvedName.toLowerCase().includes('afiliación') || resolvedName.toLowerCase().includes('liquidación');
-      }).length;
-
-      const commission = affiliationServiceCount * advisor.commissionValue;
-      return {
-        value: commission,
-        summary: `${affiliationServiceCount} serv. x ${advisor.commissionValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}`
-      };
-    }
-    
-    return { value: 0, summary: 'Tipo de comisión no válido' };
-
-  }, [advisors, assignedAdvisorName, contractedServices, totalProcedureCost, config.servicesCatalog]);
-  
-  const advisorCommissionValue = commissionDetails.value;
-  const commissionSummary = commissionDetails.summary;
-
-
-  const discountValue = totalProcedureCost * (discountPercentage / 100);
-  const netOperationValue = totalProcedureCost - adminCost - advisorCommissionValue - referralCommissionAmount - discountValue;
-
-  useEffect(() => {
-    if (client) {
-      form.reset({
-        ...client,
-        adminCost: client.adminCost || 0,
-        referralCommissionAmount: client.referralCommissionAmount || 0,
-        discountPercentage: client.discountPercentage || 0,
-        credentials: client.credentials || [] // Ensure credentials load
-      });
-    } else {
-      form.reset({
-        documentType: 'CC',
-        documentId: '',
-        fullName: '',
-        serviceStatus: 'Contacto inicial',
-        entryDate: new Date().toISOString().split('T')[0],
-        contractedServices: [],
-        beneficiaries: [],
-        credentials: [],
-        adminCost: 0,
-        referralCommissionAmount: 0,
-        discountPercentage: 0,
-      });
-    }
-  }, [client, isOpen, form]);
-
-  const handleDownloadTemplate = () => {
-    const csvContent = CSV_HEADERS.join(',') + '\n';
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'plantilla_clientes.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({ title: "Plantilla descargada", description: "Completa el archivo plantilla_clientes.csv para importar tus clientes."});
-  };
-  
-  const handleFileImport = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-            const clientsData = results.data as any[];
-            if (clientsData.length === 0) {
-                toast({ variant: "destructive", title: "Archivo vacío", description: "El archivo CSV no contiene datos." });
-                return;
-            }
-
-            if (clientsData.length === 1) {
-                const singleClient = clientsData[0];
-                const transformedClient = {
-                    ...form.getValues(),
-                    documentId: singleClient.documentId || '',
-                    fullName: singleClient.fullName || '',
-                    documentType: singleClient.documentType || 'CC',
-                    email: singleClient.email || '',
-                    whatsapp: singleClient.whatsapp || '',
-                    serviceStatus: singleClient.serviceStatus || 'Contacto inicial',
-                    entryDate: singleClient.entryDate || new Date().toISOString().split('T')[0],
-                    assignedAdvisor: singleClient.assignedAdvisor || '',
-                    referredBy: singleClient.referredBy || '',
-                    adminCost: parseFloat(singleClient.adminCost) || 0,
-                    referralCommissionAmount: parseFloat(singleClient.referralCommissionAmount) || 0,
-                    discountPercentage: parseFloat(singleClient.discountPercentage) || 0,
-                    notes: singleClient.notes || '',
-                };
-                form.reset(transformedClient);
-                toast({ title: "Cliente cargado", description: "Los datos del cliente se han cargado en el formulario." });
+    useEffect(() => {
+        if (isOpen) {
+            if (client) {
+                reset({ ...client });
             } else {
-                const addMultipleFn = (allClients: Client[], allAdvisors: Advisor[]) => {
-                    const existingClientIds = new Set(allClients.map(cl => cl.id));
-                    const existingAdvisorMap = new Map();
-                    allAdvisors.forEach(a => existingAdvisorMap.set(normalizeString(a.name), a));
-
-                    let newAdvisors: Advisor[] = [];
-
-                    const clientsToAdd = clientsData
-                        .map(c => {
-                            if (!c.documentId || !c.fullName) return null;
-                            
-                            let advisorName = c.assignedAdvisor;
-
-                            if (advisorName) {
-                                const normalizedInput = normalizeString(advisorName);
-                                if (existingAdvisorMap.has(normalizedInput)) {
-                                    advisorName = existingAdvisorMap.get(normalizedInput).name;
-                                } else {
-                                    const newAdvisor: Advisor = {
-                                        id: crypto.randomUUID(),
-                                        name: c.assignedAdvisor,
-                                        commissionType: 'percentage',
-                                        commissionValue: 10,
-                                    };
-                                    newAdvisors.push(newAdvisor);
-                                    existingAdvisorMap.set(normalizedInput, newAdvisor);
-                                }
-                            }
-
-                            return {
-                                id: c.documentId,
-                                documentId: c.documentId,
-                                fullName: c.fullName,
-                                documentType: c.documentType || 'CC',
-                                email: c.email || undefined,
-                                whatsapp: c.whatsapp || undefined,
-                                serviceStatus: c.serviceStatus || 'Contacto inicial',
-                                entryDate: c.entryDate || new Date().toISOString().split('T')[0],
-                                assignedAdvisor: advisorName || undefined,
-                                referredBy: c.referredBy || undefined,
-                                contractedServices: [],
-                                beneficiaries: [],
-                                credentials: [],
-                                adminCost: parseFloat(c.adminCost) || 0,
-                                referralCommissionAmount: parseFloat(c.referralCommissionAmount) || 0,
-                                discountPercentage: parseFloat(c.discountPercentage) || 0,
-                                notes: c.notes || undefined,
-                            } as Client;
-                        })
-                        .filter((c): c is Client => c !== null && !existingClientIds.has(c.id));
-                    
-                    const updatedClients = [...clientsToAdd, ...allClients];
-                    const updatedAdvisors = [...allAdvisors, ...newAdvisors];
-                    
-                    return { updatedClients, updatedAdvisors };
-                };
-
-
-                onSave({ client: {} as Client, addMultiple: addMultipleFn });
-
-                toast({ title: "Importación Masiva Procesada", description: `${clientsData.length} registros fueron procesados.` });
-                onOpenChange(false);
+                reset({
+                    id: crypto.randomUUID(),
+                    fullName: '', documentType: 'CC', documentId: '', email: '', whatsapp: '',
+                    address: '', serviceStatus: 'Contacto inicial', entryDate: new Date().toISOString().split('T')[0],
+                    assignedAdvisor: '', adminCost: 0, referralCommissionAmount: 0, discountPercentage: 0,
+                    contractedServices: [], beneficiaries: [], credentials: [], notes: ''
+                });
             }
-        },
-        error: (error: any) => {
-            toast({ variant: "destructive", title: "Error al importar", description: error.message });
         }
-    });
+    }, [isOpen, client, reset]);
 
-    if (event.target) event.target.value = '';
-  };
-
-
-  const handleDirectSubmit = (e: MouseEvent) => {
-    e.preventDefault(); 
-    const data = form.getValues();
-    
-    if (!data.fullName || !data.documentId) {
-        toast({ variant: "destructive", title: "Datos incompletos", description: "Nombre y Documento son requeridos." });
-        return;
-    }
-
-    const advisor = advisors.find(a => a.name === data.assignedAdvisor);
-    
-    const recordId = client?.id ? client.id : crypto.randomUUID();
-    
-    const finalClient: Client = {
-      ...data,
-      id: recordId,
-      documentId: data.documentId || client?.documentId || '', 
-      advisorCommissionPercentage: advisor?.commissionType === 'percentage' ? advisor.commissionValue : 0,
-      advisorCommissionAmount: advisorCommissionValue
+    const onSubmit = (data: any) => {
+        onSave({ client: data });
+        // onOpenChange(false); // Handled in parent
     };
-    
-    onSave({client: finalClient});
-    
-    toast({
-      title: client ? "Cliente actualizado" : "Cliente creado",
-      description: `Se han guardado los datos de ${finalClient.fullName}.`,
-    });
-    
-    onOpenChange(false);
-  };
-  
-  const documentType = form.watch("documentType");
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
-        <DialogHeader className="flex flex-row justify-between items-center">
-          <DialogTitle>{client ? 'Editar Cliente' : 'Añadir Nuevo Cliente'}</DialogTitle>
-          <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={handleDownloadTemplate} title="Descargar Plantilla CSV">
-                    <Download className="h-4 w-4"/>
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} title="Importar desde CSV">
-                    <Upload className="h-4 w-4" />
-                </Button>
-                <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept=".csv"
-                    onChange={handleFileImport}
-                />
-            </div>
-        </DialogHeader>
-        <Form {...form}>
-          <div>
-            <ScrollArea className="h-[70vh] p-1">
-              <div className="p-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg bg-muted/30 shadow-sm">
-                    <FormField name="serviceStatus" control={form.control} render={({ field }: any) => (
-                        <FormItem>
-                            <FormLabel className="font-bold">Estado</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger className="bg-background border-primary/50"><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl>
-                            <SelectContent>{serviceStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                    <FormField name="entryDate" control={form.control} render={({ field }: any) => (
-                        <FormItem><FormLabel className="font-bold">Fecha Ingreso</FormLabel><FormControl><Input {...field} type="date" className="bg-background"/></FormControl></FormItem>
-                    )} />
-                    <FormField name="assignedAdvisor" control={form.control} render={({ field }: any) => (
-                        <FormItem>
-                            <FormLabel className="font-bold">Asesor Asignado</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger className="bg-background"><SelectValue placeholder="Sin asignar..." /></SelectTrigger></FormControl>
-                            <SelectContent>{advisors.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField name="documentType" control={form.control} render={({ field }: any) => (
-                        <FormItem>
-                            <FormLabel>Tipo Documento</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl>
-                            <SelectContent>{documentTypes.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </FormItem>
-                    )} />
-                    <FormField name="documentId" control={form.control} render={({ field }: any) => (
-                        <FormItem>
-                        <FormLabel>Número (ID)</FormLabel>
-                        <FormControl>
-                            <Input 
-                                {...field} 
-                                readOnly={!!client} 
-                                className={!!client ? "bg-muted text-muted-foreground opacity-100 cursor-not-allowed" : ""} 
-                                placeholder="Ej: 12345678" 
-                            />
-                        </FormControl>
-                        </FormItem>
-                    )} />
-                    <FormField name="fullName" control={form.control} render={({ field }: any) => (
-                        <FormItem>
-                        <FormLabel>Nombre Completo</FormLabel>
-                        <FormControl><Input {...field} placeholder="Nombre del cliente" /></FormControl>
-                        </FormItem>
-                    )} />
-                </div>
-
-                <Accordion className="w-full" defaultValue="item-1">
-                  
-                  <AccordionItem value="item-1">
-                    <AccordionTrigger className="font-bold text-base">Datos de Contacto Adicionales</AccordionTrigger>
-                    <AccordionContent>
-                      {documentType === 'NIT' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-md bg-muted/50 mb-4">
-                           <FormField name="legalRepName" control={form.control} render={({ field }: any) => (
-                              <FormItem><FormLabel>Nombre Rep. Legal</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                           )} />
-                           <FormField name="legalRepId" control={form.control} render={({ field }: any) => (
-                              <FormItem><FormLabel>C.C. Rep. Legal</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                           )} />
-                        </div>
-                      )}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                         <FormField name="whatsapp" control={form.control} render={({ field }: any) => (
-                            <FormItem><FormLabel>WhatsApp</FormLabel><FormControl><Input {...field} type="tel"/></FormControl></FormItem>
-                         )} />
-                         <FormField name="email" control={form.control} render={({ field }: any) => (
-                            <FormItem><FormLabel>Email</FormLabel><FormControl><Input {...field} type="email" /></FormControl></FormItem>
-                         )} />
-                         <FormField name="referredBy" control={form.control} render={({ field }: any) => (
-                            <FormItem><FormLabel>Referido por</FormLabel><FormControl><Input {...field} placeholder="Ej: TikTok" /></FormControl></FormItem>
-                         )} />
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  <AccordionItem value="item-2">
-                    <AccordionTrigger className="font-bold text-base text-amber-600">Servicios Contratados</AccordionTrigger>
-                    <AccordionContent>
-                       <FormField
-                          name="contractedServices"
-                          control={form.control}
-                          render={() => (
-                            <FormItem>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 rounded-md border p-4 bg-background">
-                                {allServices.map((service) => (
-                                  <FormField
-                                    key={service.id}
-                                    control={form.control}
-                                    name="contractedServices"
-                                    render={({ field }: any) => (
-                                      <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                                        <FormControl>
-                                          <Checkbox
-                                            checked={field.value?.includes(service.id)}
-                                            onCheckedChange={(checked: boolean) => {
-                                                let newValue = field.value || [];
-                                                if (checked) {
-                                                    newValue = [...newValue, service.id];
-                                                } else {
-                                                    newValue = newValue.filter((val: string) => val !== service.id);
-                                                }
-                                                field.onChange(newValue);
-                                            }}
-                                          />
-                                        </FormControl>
-                                        <FormLabel className="text-sm font-normal cursor-pointer">{service.name}</FormLabel>
-                                      </FormItem>
-                                    )}
-                                  />
-                                ))}
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-                    </AccordionContent>
-                  </AccordionItem>
-                  
-                  <AccordionItem value="item-3">
-                    <AccordionTrigger className="font-medium">Beneficiarios</AccordionTrigger>
-                    <AccordionContent>
-                      {beneficiaryFields.map((field, index) => (
-                        <div key={field.id} className="p-3 border rounded-md space-y-2 relative mb-2">
-                            <div className="grid grid-cols-2 gap-2">
-                                <FormField name={`beneficiaries.${index}.name`} control={form.control} render={({ field }: any) => (
-                                    <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                                )}/>
-                                 <FormField name={`beneficiaries.${index}.documentId`} control={form.control} render={({ field }: any) => (
-                                    <FormItem><FormLabel>Documento</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                                )}/>
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+                <DialogHeader className="px-6 py-4 border-b">
+                    <DialogTitle>{client ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
+                    <DialogDescription>Completa la información requerida.</DialogDescription>
+                </DialogHeader>
+                
+                <Form {...form}>
+                    <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-hidden flex flex-col">
+                        <Tabs defaultValue="personal" className="flex-1 flex flex-col overflow-hidden">
+                            <div className="px-6 py-2 bg-muted/30 border-b">
+                                <TabsList className="grid w-full grid-cols-4">
+                                    <TabsTrigger value="personal">Personal</TabsTrigger>
+                                    <TabsTrigger value="services">Servicios</TabsTrigger>
+                                    <TabsTrigger value="beneficiaries">Beneficiarios</TabsTrigger>
+                                    <TabsTrigger value="credentials">Credenciales</TabsTrigger>
+                                </TabsList>
                             </div>
-                           <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => removeBeneficiary(index)}><Trash2 className="h-4 w-4"/></Button>
-                        </div>
-                      ))}
-                      {beneficiaryFields.length < 5 && (
-                        <Button type="button" variant="outline" size="sm" onClick={() => appendBeneficiary({ id: crypto.randomUUID(), name: '', documentId: '' })}>
-                          <PlusCircle className="mr-2 h-4 w-4" /> Añadir Beneficiario
-                        </Button>
-                      )}
-                    </AccordionContent>
-                  </AccordionItem>
-
-                  <AccordionItem value="item-4">
-                    <AccordionTrigger className="font-medium">Costos y Comisiones</AccordionTrigger>
-                    <AccordionContent>
-                       <div className="p-4 bg-muted/50 rounded-lg space-y-2 mb-4">
-                          <h4 className="font-semibold text-center">Resumen Financiero</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
-                              <div><p className="text-xs text-muted-foreground">Costo Trámite</p><p className="font-bold">{totalProcedureCost.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}</p></div>
-                              <div>
-                                <p className="text-xs text-muted-foreground">Comisión Asesor</p>
-                                <p className="font-bold">{advisorCommissionValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}</p>
-                                <p className="text-[10px] text-blue-500">({commissionSummary})</p>
-                              </div>
-                              <div><p className="text-xs text-muted-foreground">Descuento</p><p className="font-bold">{discountValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}</p></div>
-                              <div><p className="text-xs text-muted-foreground">Valor Neto</p><p className="font-bold text-primary">{netOperationValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}</p></div>
-                          </div>
-                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                  
-                  <AccordionItem value="item-5">
-                    <AccordionTrigger className="font-bold text-base text-blue-600">Credenciales y Accesos</AccordionTrigger>
-                    <AccordionContent>
-                       <div className="space-y-4 pt-2">
-                         {credentialFields.map((field, index) => {
-                           const currentEntityId = watchedCredentials?.[index]?.entityId;
-                           const linkedEntity = entities.find(e => e.id === currentEntityId);
-                           const primaryLink = linkedEntity?.links?.[0]?.url;
-
-                           return (
-                           <div key={field.id} className="p-4 border rounded-xl bg-muted/20 relative space-y-3">
-                              <FormField name={`credentials.${index}.entityId`} control={form.control} render={({ field: selectField }: any) => (
-                                <FormItem>
-                                    <FormLabel className="text-xs font-bold uppercase text-muted-foreground">Entidad / Portal</FormLabel>
-                                    <Select onValueChange={(val) => {
-                                        selectField.onChange(val);
-                                        const selectedEntity = entities.find(e => e.id === val);
-                                        if (selectedEntity) {
-                                            form.setValue(`credentials.${index}.entityName`, selectedEntity.name);
-                                            form.setValue(`credentials.${index}.entityType`, selectedEntity.type);
-                                        }
-                                    }} defaultValue={selectField.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar entidad..." /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            {entities.map(ent => (
-                                                <SelectItem key={ent.id} value={ent.id}>{ent.name} ({ent.type})</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    
-                                    {/* Visual Link Feedback - Phase 3 Requirement */}
-                                    {primaryLink && (
-                                        <div className="flex items-center gap-2 mt-1.5 p-2 bg-blue-50/80 border border-blue-100 rounded-md text-xs text-blue-700 animate-in fade-in">
-                                            <LinkIcon className="h-3 w-3 shrink-0" />
-                                            <span className="truncate max-w-[200px] md:max-w-xs">{primaryLink}</span>
-                                            <a 
-                                                href={primaryLink} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
-                                                className="ml-auto font-semibold hover:underline flex items-center gap-1"
-                                                title="Abrir Oficina Virtual"
-                                            >
-                                                Ir a Portal <ExternalLink className="h-3 w-3" />
-                                            </a>
+                            
+                            <ScrollArea className="flex-1 p-6">
+                                <TabsContent value="personal" className="space-y-4 mt-0">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <FormField name="fullName" control={control} render={({ field }) => (
+                                            <FormItem><FormLabel>Nombre Completo</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <FormField name="documentType" control={control} render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Tipo Doc</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                                        <SelectContent>{documentTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                            <FormField name="documentId" control={control} render={({ field }) => (
+                                                <FormItem><FormLabel>Número Doc</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                            )} />
                                         </div>
-                                    )}
-                                    
-                                    <FormMessage />
-                                </FormItem>
-                              )} />
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <FormField name={`credentials.${index}.username`} control={form.control} render={({ field }: any) => (
-                                      <FormItem><FormLabel className="text-xs">Usuario</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                                  )} />
-                                  <FormField name={`credentials.${index}.password`} control={form.control} render={({ field }: any) => (
-                                      <FormItem><FormLabel className="text-xs">Contraseña</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                                  )} />
-                              </div>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  <FormField name={`credentials.${index}.registeredEmail`} control={form.control} render={({ field }: any) => (
-                                      <FormItem><FormLabel className="text-xs">Correo Registrado</FormLabel><FormControl><Input {...field} type="email" placeholder="ejemplo@email.com" /></FormControl></FormItem>
-                                  )} />
-                                   <FormField name={`credentials.${index}.notes`} control={form.control} render={({ field }: any) => (
-                                      <FormItem><FormLabel className="text-xs">Notas de Acceso</FormLabel><FormControl><Input {...field} placeholder="Ej: Clave temporal..." /></FormControl></FormItem>
-                                  )} />
-                              </div>
+                                        <FormField name="email" control={control} render={({ field }) => (
+                                            <FormItem><FormLabel>Correo Electrónico</FormLabel><FormControl><Input {...field} type="email" /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField name="whatsapp" control={control} render={({ field }) => (
+                                            <FormItem><FormLabel>Celular / WhatsApp</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField name="address" control={control} render={({ field }) => (
+                                            <FormItem className="md:col-span-2"><FormLabel>Dirección</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                    </div>
+                                </TabsContent>
 
-                              <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => removeCredential(index)}>
-                                <Trash2 className="h-4 w-4"/>
-                              </Button>
-                           </div>
-                         )})}
+                                <TabsContent value="services" className="space-y-4 mt-0">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <FormField name="serviceStatus" control={control} render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Estado del Servicio</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                                    <SelectContent>{serviceStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField name="assignedAdvisor" control={control} render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Asesor Asignado</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger></FormControl>
+                                                    <SelectContent>{advisors.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}</SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField name="entryDate" control={control} render={({ field }) => (
+                                            <FormItem><FormLabel>Fecha Ingreso</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                         <FormField name="adminCost" control={control} render={({ field }) => (
+                                            <FormItem><FormLabel>Costo Administración</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Servicios Contratados</Label>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border p-3 rounded-lg">
+                                            {servicesCatalog.filter(s => s.active).map(service => (
+                                                <div key={service.id} className="flex items-center space-x-2">
+                                                    <Checkbox 
+                                                        id={`srv-${service.id}`} 
+                                                        checked={(watch('contractedServices') || []).includes(service.id)}
+                                                        onCheckedChange={(checked) => {
+                                                            const current = watch('contractedServices') || [];
+                                                            if (checked) setValue('contractedServices', [...current, service.id]);
+                                                            else setValue('contractedServices', current.filter((id: string) => id !== service.id));
+                                                        }}
+                                                    />
+                                                    <label htmlFor={`srv-${service.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                                                        {service.name}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <FormField name="notes" control={control} render={({ field }) => (
+                                        <FormItem><FormLabel>Notas Internas</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                </TabsContent>
+                                
+                                <TabsContent value="beneficiaries" className="space-y-4 mt-0">
+                                    <div className="flex justify-end">
+                                        <Button type="button" variant="outline" size="sm" onClick={() => appendBen({ id: crypto.randomUUID(), name: '', documentId: '', documentImageUrl: '' })}>
+                                            <PlusCircle className="mr-2 h-4 w-4"/> Añadir Beneficiario
+                                        </Button>
+                                    </div>
+                                    {beneficiaryFields.map((field, index) => (
+                                        <div key={field.id} className="flex gap-4 items-end border p-3 rounded-lg relative">
+                                            <FormField name={`beneficiaries.${index}.name`} control={control} render={({ field }) => (
+                                                <FormItem className="flex-1"><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                                            )} />
+                                            <FormField name={`beneficiaries.${index}.documentId`} control={control} render={({ field }) => (
+                                                <FormItem className="flex-1"><FormLabel>Documento</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                                            )} />
+                                            <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removeBen(index)}><Trash2 className="h-4 w-4"/></Button>
+                                        </div>
+                                    ))}
+                                    {beneficiaryFields.length === 0 && <p className="text-center text-muted-foreground py-8">No hay beneficiarios registrados.</p>}
+                                </TabsContent>
 
-                         <Button type="button" variant="outline" size="sm" onClick={() => appendCredential({ id: crypto.randomUUID(), entityId: '', entityType: '', entityName: '', username: '', password: '', registeredEmail: '', notes: '' })}>
-                            <KeyRound className="mr-2 h-4 w-4" /> Añadir Credencial
-                         </Button>
-                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-
-                <div className="space-y-2">
-                    <FormField name="notes" control={form.control} render={({ field }: any) => (
-                        <FormItem><FormLabel>Notas Adicionales</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
-                    )} />
-                </div>
-              </div>
-            </ScrollArea>
-            <DialogFooter className="mt-4 pt-4 border-t">
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button type="button" onClick={handleDirectSubmit}>Guardar Cliente</Button>
-            </DialogFooter>
-          </div>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
+                                <TabsContent value="credentials" className="space-y-4 mt-0">
+                                    <div className="flex justify-end">
+                                        <Button type="button" variant="outline" size="sm" onClick={() => appendCred({ id: crypto.randomUUID(), entityId: '', entityType: '', entityName: '', username: '', password: '', notes: '' })}>
+                                            <PlusCircle className="mr-2 h-4 w-4"/> Añadir Credencial
+                                        </Button>
+                                    </div>
+                                    {credentialFields.map((field, index) => (
+                                        <Card key={field.id} className="relative">
+                                            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <FormField name={`credentials.${index}.entityName`} control={control} render={({ field }) => (
+                                                     <FormItem className="md:col-span-2">
+                                                        <FormLabel>Entidad</FormLabel>
+                                                        <FormControl><Input {...field} placeholder="Nombre de la entidad (ej: EPS Sura)" /></FormControl>
+                                                     </FormItem>
+                                                )} />
+                                                 {/* Note: Simplified Entity selection for speed, ideal implementation links to EntityManager */}
+                                                <FormField name={`credentials.${index}.username`} control={control} render={({ field }) => (
+                                                    <FormItem><FormLabel>Usuario</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                                                )} />
+                                                <FormField name={`credentials.${index}.password`} control={control} render={({ field }) => (
+                                                    <FormItem><FormLabel>Contraseña</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                                                )} />
+                                                <FormField name={`credentials.${index}.notes`} control={control} render={({ field }) => (
+                                                    <FormItem className="md:col-span-2"><FormLabel>Notas</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                                                )} />
+                                                <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => removeCred(index)}><Trash2 className="h-4 w-4"/></Button>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                    {credentialFields.length === 0 && <p className="text-center text-muted-foreground py-8">No hay credenciales registradas.</p>}
+                                </TabsContent>
+                            </ScrollArea>
+                        </Tabs>
+                        
+                        <div className="p-6 border-t bg-muted/10 flex justify-end gap-2">
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                            <Button type="submit">Guardar Cliente</Button>
+                        </div>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
 }

@@ -114,8 +114,11 @@ export function InvoicePreview({ client, additionalItems, totalAmount: _unusedTo
                             <h3 className="font-semibold text-gray-700 print:font-semibold print:text-sm">Detalles de los servicios prestados</h3>
                             {allItems.map((item, index) => (
                                 <div key={index} className='flex items-stretch print:flex print:items-stretch'>
-                                    <div className='bg-[#3A2E27] text-white font-semibold text-sm px-4 py-2 flex-grow rounded-l-md flex items-center print:text-xs'>{item.name}</div>
-                                    <div className={`bg-[#F8EDD2] ${item.price < 0 ? 'text-red-600' : 'text-[#3A2E27]'} font-bold text-xl px-4 py-1.5 w-40 text-right rounded-r-md flex items-center justify-end print:text-base print:w-32`}>
+                                    {/* Adjusted styles to allow wrapping for long names (e.g. Beneficiary - Service) */}
+                                    <div className='bg-[#3A2E27] text-white font-semibold text-sm px-4 py-2 flex-grow rounded-l-md flex items-center print:text-xs whitespace-normal leading-tight'>
+                                        {item.name}
+                                    </div>
+                                    <div className={`bg-[#F8EDD2] ${item.price < 0 ? 'text-red-600' : 'text-[#3A2E27]'} font-bold text-xl px-4 py-1.5 w-40 text-right rounded-r-md flex items-center justify-end print:text-base print:w-32 flex-shrink-0`}>
                                         <span className={`text-base align-middle mr-2 print:text-sm ${item.price < 0 ? 'text-red-500' : ''}`}>$</span>
                                         {formatCurrency(item.price).replace('$', '')}
                                     </div>
