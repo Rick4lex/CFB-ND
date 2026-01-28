@@ -337,7 +337,15 @@ export const ClientsView = () => {
             )}
         </Card>
 
-        <ClientFormDialog isOpen={isClientModalOpen} onOpenChange={setIsClientModalOpen} onSave={handleSaveClientWrapper} client={editingClient} advisors={advisors} />
+        {/* Pass entities to ClientFormDialog */}
+        <ClientFormDialog 
+            isOpen={isClientModalOpen} 
+            onOpenChange={setIsClientModalOpen} 
+            onSave={handleSaveClientWrapper} 
+            client={editingClient} 
+            advisors={advisors} 
+            entities={entities} 
+        />
         <AdvisorManagerDialog isOpen={isAdvisorModalOpen} onOpenChange={setIsAdvisorModalOpen} advisors={advisors} onSave={handleSaveAdvisors} />
         <EntityManagerDialog isOpen={isEntityModalOpen} onOpenChange={setIsEntityModalOpen} onSave={handleSaveEntities} allEntities={entities} />
         <ClientCredentialsDialog isOpen={isCredentialsModalOpen} onOpenChange={setIsCredentialsModalOpen} client={credentialsClient} entities={entities} />

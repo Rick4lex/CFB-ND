@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useMemo, useContext, type ChangeEvent, type MouseEvent } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -892,9 +893,10 @@ interface ClientFormDialogProps {
   onSave: (saveData: ClientWithMultiple) => void;
   client: Client | null;
   advisors: Advisor[];
+  entities?: Entity[]; // Added prop
 }
 
-export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisors }: ClientFormDialogProps) {
+export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisors, entities = [] }: ClientFormDialogProps) {
     const { toast } = useToast();
     const { config } = useAppStore();
     const servicesCatalog = config.servicesCatalog;
@@ -1072,13 +1074,46 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                                     {credentialFields.map((field, index) => (
                                         <Card key={field.id} className="relative">
                                             <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <FormField name={`credentials.${index}.entityName`} control={control} render={({ field }) => (
-                                                     <FormItem className="md:col-span-2">
-                                                        <FormLabel>Entidad</FormLabel>
-                                                        <FormControl><Input {...field} placeholder="Nombre de la entidad (ej: EPS Sura)" /></FormControl>
-                                                     </FormItem>
-                                                )} />
-                                                 {/* Note: Simplified Entity selection for speed, ideal implementation links to EntityManager */}
+                                                {/* ENTITY SELECTION - LINKED TO DATABASE */}
+                                                <div className="md:col-span-2">
+                                                    <FormField name={`credentials.${index}.entityId`} control={control} render={({ field }) => (
+                                                        <FormItem>
+                                                            <div className="flex justify-between">
+                                                                <FormLabel>Entidad</FormLabel>
+                                                                {/* Display Badge of Type if selected */}
+                                                                {watch(`credentials.${index}.entityType`) && (
+                                                                    <Badge variant="outline" className="text-[10px]">{watch(`credentials.${index}.entityType`)}</Badge>
+                                                                )}
+                                                            </div>
+                                                            <Select 
+                                                                value={field.value} 
+                                                                onValueChange={(val: string) => {
+                                                                    field.onChange(val);
+                                                                    // Auto-fill related fields based on selection
+                                                                    const selectedEntity = entities.find(e => e.id === val);
+                                                                    if (selectedEntity) {
+                                                                        setValue(`credentials.${index}.entityName`, selectedEntity.name);
+                                                                        setValue(`credentials.${index}.entityType`, selectedEntity.type);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar entidad..." /></SelectTrigger></FormControl>
+                                                                <SelectContent>
+                                                                    {entities.map(e => (
+                                                                        <SelectItem key={e.id} value={e.id}>
+                                                                            {e.name} <span className="text-xs text-muted-foreground">({e.type})</span>
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )} />
+                                                    {/* Hidden fields to store denormalized data for display if entity is deleted later */}
+                                                    <input type="hidden" {...form.register(`credentials.${index}.entityName`)} />
+                                                    <input type="hidden" {...form.register(`credentials.${index}.entityType`)} />
+                                                </div>
+
                                                 <FormField name={`credentials.${index}.username`} control={control} render={({ field }) => (
                                                     <FormItem><FormLabel>Usuario</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                                                 )} />
