@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useMemo, useContext, type ChangeEvent, type MouseEvent, type ReactNode } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -921,10 +922,17 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
     const { fields: beneficiaryFields, append: appendBen, remove: removeBen } = useFieldArray({ control, name: 'beneficiaries' });
     const { fields: credentialFields, append: appendCred, remove: removeCred } = useFieldArray({ control, name: 'credentials' });
 
+    // MODIFICADO: Sanitize legacy data (null arrays) when loading a client
     useEffect(() => {
         if (isOpen) {
             if (client) {
-                reset({ ...client });
+                // Ensure arrays are initialized, handling legacy null values
+                reset({
+                    ...client,
+                    contractedServices: client.contractedServices || [],
+                    beneficiaries: client.beneficiaries || [],
+                    credentials: client.credentials || []
+                });
             } else {
                 reset({
                     id: crypto.randomUUID(),

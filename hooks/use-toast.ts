@@ -9,7 +9,8 @@ export function useToast() {
     
     // Quick custom toast visualization
     const div = document.createElement('div');
-    div.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-50 animate-in slide-in-from-bottom-5 duration-300 ${variant === 'destructive' ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`;
+    // MODIFICADO: z-50 cambiado a z-[9999] para asegurar que se vea sobre los modales (Dialog tiene z-1000)
+    div.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg z-[9999] animate-in slide-in-from-bottom-5 duration-300 ${variant === 'destructive' ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`;
     div.innerHTML = `<h4 class="font-bold">${title}</h4><p class="text-sm">${description || ''}</p>`;
     document.body.appendChild(div);
     setTimeout(() => {
