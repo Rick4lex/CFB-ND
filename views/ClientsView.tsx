@@ -1,6 +1,6 @@
 
 import { useState, useMemo, useCallback, type ChangeEvent } from 'react';
-import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, KeyRound } from 'lucide-react';
+import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, KeyRound, Wrench } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../lib/store';
 import { useClientOperations } from '../hooks/useClientOperations';
@@ -33,7 +33,7 @@ export const ClientsView = () => {
   const { clients, advisors, entities, setAdvisors, setEntities } = useAppStore();
 
   // Hook Controlador
-  const { saveClient, deleteClient } = useClientOperations();
+  const { saveClient, deleteClient, migrateClient } = useClientOperations();
   
   // Modals
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -120,6 +120,12 @@ export const ClientsView = () => {
   const handleDeleteWrapper = (clientId: string) => {
       if (window.confirm('¿Estás seguro de eliminar este cliente?\n\nEsta acción es irreversible.')) {
           deleteClient(clientId);
+      }
+  };
+
+  const handleMigrateWrapper = (client: Client) => {
+      if (window.confirm('¿Deseas reparar este registro?\n\nEsto creará una copia limpia con un nuevo ID y eliminará el anterior. Útil si tienes problemas para editar.')) {
+          migrateClient(client);
       }
   };
 
@@ -296,6 +302,9 @@ export const ClientsView = () => {
                                         </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30" onClick={() => handleEdit(c)} title="Editar">
                                             <Edit className="h-4 w-4"/>
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30" onClick={() => handleMigrateWrapper(c)} title="Reparar Registro">
+                                            <Wrench className="h-4 w-4"/>
                                         </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => handleDeleteWrapper(c.id)} title="Eliminar">
                                             <Trash2 className="h-4 w-4"/>

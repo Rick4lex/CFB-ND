@@ -2,7 +2,7 @@
 import { useAppStore } from '../lib/store';
 import { useToast } from './use-toast';
 import { clientSchema } from '../lib/schemas';
-import { ClientWithMultiple } from '../lib/types';
+import { ClientWithMultiple, Client } from '../lib/types';
 
 export const useClientOperations = () => {
   const { 
@@ -61,12 +61,10 @@ export const useClientOperations = () => {
         // Validación de Unicidad de Documento - Lógica Mejorada
         
         // 1. Identificar si estamos editando un cliente existente
-        const originalClient = clients.find(c => c.id === clientData.id);
+        // Usamos conversión a String para asegurar compatibilidad con IDs numéricos antiguos
+        const originalClient = clients.find(c => String(c.id) === String(clientData.id));
         
         // 2. Determinar si es necesario verificar duplicados
-        // Solo verificamos si:
-        // A) Es un cliente nuevo (no existe original)
-        // B) Es una edición PERO se cambió el número de documento
         let shouldCheckDuplicate = true;
         
         if (originalClient) {
@@ -76,8 +74,6 @@ export const useClientOperations = () => {
             
             if (originalDoc === newDoc) {
                 // Si el documento es el mismo, no verificamos duplicados contra la base de datos.
-                // Esto permite guardar cambios en otros campos (ej. credenciales) incluso si 
-                // existen duplicados históricos en la BD.
                 shouldCheckDuplicate = false;
             }
         }
@@ -87,7 +83,7 @@ export const useClientOperations = () => {
                 // Coincidencia de documento (normalizado)
                 const sameDoc = String(c.documentId).trim() === String(clientData.documentId).trim();
                 
-                // Excluirse a sí mismo de la búsqueda (por si acaso el ID coincide)
+                // Excluirse a sí mismo de la búsqueda
                 const isSelf = c.id && clientData.id && String(c.id) === String(clientData.id);
                 
                 return sameDoc && !isSelf;
@@ -104,7 +100,7 @@ export const useClientOperations = () => {
             }
         }
 
-        const exists = clients.some(c => c.id === clientData.id);
+        const exists = clients.some(c => String(c.id) === String(clientData.id));
         console.log(`6. [Hook] Verificación de existencia para ID ${clientData.id}: ${exists}`);
         
         if (exists) {
@@ -152,5 +148,33 @@ export const useClientOperations = () => {
     });
   };
 
-  return { saveClient, deleteClient };
+  /**
+   * Duplica un cliente existente, le asigna un nuevo ID y borra el anterior.
+   * Útil para corregir registros corruptos o migrar datos antiguos.
+   */
+  const migrateClient = (client: Client) => {
+      try {
+          // 1. Crear copia con nuevo ID
+          const newId = crypto.randomUUID();
+          const newClient = { ...client, id: newId };
+          
+          // 2. Eliminar antiguo
+          removeClient(client.id);
+          
+          // 3. Añadir nuevo
+          addClient(newClient);
+          
+          toast({ 
+              title: "Registro Reparado", 
+              description: `Se ha regenerado el registro de ${client.fullName} con éxito.` 
+          });
+          return true;
+      } catch (e) {
+          console.error("Error migrando cliente", e);
+          toast({ variant: "destructive", title: "Error", description: "No se pudo reparar el registro." });
+          return false;
+      }
+  };
+
+  return { saveClient, deleteClient, migrateClient };
 };
