@@ -58,26 +58,50 @@ export const useClientOperations = () => {
         }
         console.log("5. [Hook] Validación Zod exitosa.");
 
-        // Validación de Unicidad de Documento
-        // MODIFICADO: Relajamos la verificación para permitir editar clientes antiguos que podrían no tener ID o tener conflictos de tipo.
-        const duplicate = clients.find(c => {
-            // Coincidencia de documento
-            const sameDoc = c.documentId === clientData.documentId;
-            // Coincidencia de ID (ignorando tipos string/number)
-            const sameId = c.id && clientData.id && String(c.id) === String(clientData.id);
-            // Es duplicado SI: Tiene mismo documento, PERO diferente ID, Y el registro existente TIENE un ID válido.
-            // Si el registro existente no tiene ID (legacy), asumimos que es el mismo que estamos editando.
-            return sameDoc && !sameId && (c.id !== undefined && c.id !== null && c.id !== '');
-        });
+        // Validación de Unicidad de Documento - Lógica Mejorada
+        
+        // 1. Identificar si estamos editando un cliente existente
+        const originalClient = clients.find(c => c.id === clientData.id);
+        
+        // 2. Determinar si es necesario verificar duplicados
+        // Solo verificamos si:
+        // A) Es un cliente nuevo (no existe original)
+        // B) Es una edición PERO se cambió el número de documento
+        let shouldCheckDuplicate = true;
+        
+        if (originalClient) {
+            // Normalizamos a string y trim para comparar de forma segura
+            const originalDoc = String(originalClient.documentId).trim();
+            const newDoc = String(clientData.documentId).trim();
+            
+            if (originalDoc === newDoc) {
+                // Si el documento es el mismo, no verificamos duplicados contra la base de datos.
+                // Esto permite guardar cambios en otros campos (ej. credenciales) incluso si 
+                // existen duplicados históricos en la BD.
+                shouldCheckDuplicate = false;
+            }
+        }
 
-        if (duplicate) {
-            console.warn(`6. [Hook] Bloqueo por duplicado. ID entrante: ${clientData.id}, ID existente: ${duplicate.id}`);
-            toast({ 
-                variant: "destructive", 
-                title: "Documento Duplicado", 
-                description: `El documento ${clientData.documentId} ya pertenece a ${duplicate.fullName}.` 
+        if (shouldCheckDuplicate) {
+            const duplicate = clients.find(c => {
+                // Coincidencia de documento (normalizado)
+                const sameDoc = String(c.documentId).trim() === String(clientData.documentId).trim();
+                
+                // Excluirse a sí mismo de la búsqueda (por si acaso el ID coincide)
+                const isSelf = c.id && clientData.id && String(c.id) === String(clientData.id);
+                
+                return sameDoc && !isSelf;
             });
-            return false;
+
+            if (duplicate) {
+                console.warn(`6. [Hook] Bloqueo por duplicado. ID entrante: ${clientData.id}, ID existente: ${duplicate.id}`);
+                toast({ 
+                    variant: "destructive", 
+                    title: "Documento Duplicado", 
+                    description: `El documento ${clientData.documentId} ya pertenece a ${duplicate.fullName}.` 
+                });
+                return false;
+            }
         }
 
         const exists = clients.some(c => c.id === clientData.id);
