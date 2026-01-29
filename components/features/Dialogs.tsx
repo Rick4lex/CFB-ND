@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef, useMemo, useContext, type ChangeEvent, type MouseEvent, type ReactNode } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import Papa from 'papaparse';
 import { 
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
     Button, Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -17,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { 
     PlusCircle, Trash2, Edit, Save, X, Phone, Mail, MapPin, 
     MessageSquare, LayoutGrid, List, ExternalLink, Upload, Download, FileText, UserPlus, KeyRound, Link as LinkIcon,
-    Copy, Eye, EyeOff, Shield, Check
+    Copy, Eye, EyeOff, Shield, Check, FileJson
 } from 'lucide-react';
 import { 
     advisorSchema, managerSchema as entityManagerStateSchema, clientSchema, 
@@ -239,32 +238,45 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
     setEditingId(newId);
   }
 
+  // --- JSON EXPORT ---
   const handleExport = () => {
       const data = getValues().advisors;
       if (data.length === 0) {
           toast({ variant: "destructive", title: "Sin datos", description: "No hay asesores para exportar." });
           return;
       }
-      const csv = Papa.unparse(data);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      
+      const exportObject = {
+          type: 'advisors_backup',
+          version: '1.0',
+          exportedAt: new Date().toISOString(),
+          data: data
+      };
+
+      const jsonString = JSON.stringify(exportObject, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `asesores_export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `asesores_export_${new Date().toISOString().split('T')[0]}.json`;
       link.click();
   };
 
+  // --- JSON IMPORT ---
   const handleImport = (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      Papa.parse(file, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-              const importedData = results.data as any[];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          try {
+              const content = event.target?.result as string;
+              const parsed = JSON.parse(content);
+              
+              // Validación básica: soporta array directo o objeto con propiedad 'data'
+              const importedData = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.data) ? parsed.data : null);
+
               if (!importedData || importedData.length === 0) {
-                  toast({ variant: "destructive", title: "Error", description: "Archivo vacío o inválido." });
-                  return;
+                  throw new Error("Formato inválido o vacío");
               }
 
               const currentAdvisors = getValues().advisors || [];
@@ -273,19 +285,11 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
               let addedCount = 0;
               let updatedCount = 0;
 
-              importedData.forEach((row) => {
-                  if (!row.name) return; // Validación básica
+              importedData.forEach((row: any) => {
+                  if (!row.name) return;
                   
-                  // Normalización de valores numéricos (manejo de comas y símbolos)
-                  let commVal = 0;
-                  if (row.commissionValue) {
-                      // Reemplazar comas por puntos si existen, eliminar símbolos no numéricos
-                      const cleanVal = String(row.commissionValue).replace(/[^0-9.,]/g, '').replace(',', '.');
-                      commVal = parseFloat(cleanVal) || 0;
-                  }
-
                   // Intentar encontrar por ID o Nombre Normalizado
-                  const safeName = row.name ? normalizeString(row.name) : '';
+                  const safeName = normalizeString(row.name);
                   const existingIndex = mergedAdvisors.findIndex(
                       a => a.id === row.id || normalizeString(a.name) === safeName
                   );
@@ -293,15 +297,15 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
                   const newAdvisor: Advisor = {
                       id: row.id || crypto.randomUUID(),
                       name: row.name,
-                      commissionType: row.commissionType?.toLowerCase() === 'fixed' ? 'fixed' : 'percentage',
-                      commissionValue: commVal,
+                      commissionType: row.commissionType === 'fixed' ? 'fixed' : 'percentage',
+                      commissionValue: Number(row.commissionValue) || 0,
                       phone: row.phone || '',
                       email: row.email || '',
                       paymentDetails: row.paymentDetails || ''
                   };
 
                   if (existingIndex >= 0) {
-                      // Actualizar existente preservando ID original
+                      // Actualizar existente preservando ID original si no viene en el JSON
                       mergedAdvisors[existingIndex] = { 
                           ...mergedAdvisors[existingIndex], 
                           ...newAdvisor, 
@@ -316,15 +320,17 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
 
               reset({ advisors: mergedAdvisors });
               toast({ 
-                  title: "Importación Completada", 
+                  title: "Importación JSON Completada", 
                   description: `Se añadieron ${addedCount} y se actualizaron ${updatedCount} asesores.` 
               });
-          },
-          error: (error) => {
-              toast({ variant: "destructive", title: "Error de lectura", description: error.message });
+
+          } catch (error) {
+              console.error(error);
+              toast({ variant: "destructive", title: "Error de lectura", description: "El archivo JSON no es válido." });
           }
-      });
-      e.target.value = ''; // Reset input para permitir re-selección
+      };
+      reader.readAsText(file);
+      e.target.value = ''; // Reset input
   };
 
   return (
@@ -339,13 +345,13 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
                 </DialogDescription>
               </div>
               <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleExport} title="Exportar CSV">
-                      <Download className="h-4 w-4" />
+                  <Button variant="outline" size="sm" onClick={handleExport} title="Exportar JSON">
+                      <Download className="h-4 w-4 mr-1" /> JSON
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} title="Importar CSV">
-                      <Upload className="h-4 w-4" />
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} title="Importar JSON">
+                      <Upload className="h-4 w-4 mr-1" /> JSON
                   </Button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImport} />
+                  <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
               </div>
           </div>
         </DialogHeader>
@@ -662,6 +668,7 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
     }, {} as Record<string, EntityContact[]>);
   };
 
+  // --- JSON EXPORT ---
   const handleExport = () => {
       const data = getValues().entities;
       if (data.length === 0) {
@@ -669,33 +676,37 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
           return;
       }
       
-      // Transform nested objects to JSON strings
-      const exportData = data.map(e => ({
-          ...e,
-          links: JSON.stringify(e.links),
-          contacts: JSON.stringify(e.contacts)
-      }));
+      const exportObject = {
+          type: 'entities_backup',
+          version: '1.0',
+          exportedAt: new Date().toISOString(),
+          data: data
+      };
 
-      const csv = Papa.unparse(exportData);
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const jsonString = JSON.stringify(exportObject, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `entidades_export_${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `entidades_export_${new Date().toISOString().split('T')[0]}.json`;
       link.click();
   };
 
+  // --- JSON IMPORT ---
   const handleImport = (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      Papa.parse(file, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-              const importedData = results.data as any[];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          try {
+              const content = event.target?.result as string;
+              const parsed = JSON.parse(content);
+              
+              // Validación básica
+              const importedData = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.data) ? parsed.data : null);
+
               if (!importedData || importedData.length === 0) {
-                  toast({ variant: "destructive", title: "Error", description: "Archivo vacío o inválido." });
-                  return;
+                  throw new Error("Formato inválido o vacío");
               }
 
               const currentEntities = getValues().entities || [];
@@ -704,23 +715,14 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
               let addedCount = 0;
               let updatedCount = 0;
 
-              importedData.forEach(row => {
+              importedData.forEach((row: any) => {
                   if (!row.name) return;
 
-                  let parsedLinks = [];
-                  let parsedContacts = [];
-                  try {
-                      // Attempt to parse if exists, otherwise default to empty
-                      parsedLinks = (row.links && row.links !== '[]') ? JSON.parse(row.links) : [];
-                      parsedContacts = (row.contacts && row.contacts !== '[]') ? JSON.parse(row.contacts) : [];
-                  } catch (err) {
-                      console.warn("Aviso: Columnas complejas no válidas para entidad:", row.name);
-                      // Fallback: Si no es JSON, asumir vacío
-                      parsedLinks = [];
-                      parsedContacts = [];
-                  }
+                  // En JSON, links y contacts ya vienen como arrays, no hay que parsear strings
+                  const links = Array.isArray(row.links) ? row.links : [];
+                  const contacts = Array.isArray(row.contacts) ? row.contacts : [];
 
-                  const safeName = row.name ? normalizeString(row.name) : '';
+                  const safeName = normalizeString(row.name);
                   const existingIndex = mergedEntities.findIndex(
                       ent => ent.id === row.id || normalizeString(ent.name) === safeName
                   );
@@ -730,15 +732,15 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
                       name: row.name,
                       type: row.type || 'EPS',
                       code: row.code || '',
-                      links: Array.isArray(parsedLinks) ? parsedLinks : [],
-                      contacts: Array.isArray(parsedContacts) ? parsedContacts : []
+                      links: links,
+                      contacts: contacts
                   };
 
                   if (existingIndex >= 0) {
                       mergedEntities[existingIndex] = { 
                           ...mergedEntities[existingIndex], 
                           ...newEntity, 
-                          id: mergedEntities[existingIndex].id // Preservar ID original
+                          id: mergedEntities[existingIndex].id 
                       };
                       updatedCount++;
                   } else {
@@ -749,14 +751,15 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
 
               reset({ entities: mergedEntities });
               toast({ 
-                  title: "Importación Completada", 
+                  title: "Importación JSON Completada", 
                   description: `Se añadieron ${addedCount} y se actualizaron ${updatedCount} entidades.` 
               });
-          },
-          error: (error) => {
-              toast({ variant: "destructive", title: "Error de lectura", description: error.message });
+          } catch (error) {
+              console.error(error);
+              toast({ variant: "destructive", title: "Error de lectura", description: "El archivo JSON no es válido." });
           }
-      });
+      };
+      reader.readAsText(file);
       e.target.value = '';
   };
 
@@ -772,13 +775,13 @@ export function EntityManagerDialog({ isOpen, onOpenChange, onSave, allEntities 
                 </DialogDescription>
               </div>
               <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleExport} title="Exportar CSV">
-                      <Download className="h-4 w-4" />
+                  <Button variant="outline" size="sm" onClick={handleExport} title="Exportar JSON">
+                      <Download className="h-4 w-4 mr-1" /> JSON
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} title="Importar CSV">
-                      <Upload className="h-4 w-4" />
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} title="Importar JSON">
+                      <Upload className="h-4 w-4 mr-1" /> JSON
                   </Button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImport} />
+                  <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImport} />
               </div>
           </div>
         </DialogHeader>
