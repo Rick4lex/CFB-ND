@@ -59,8 +59,17 @@ export const useClientOperations = () => {
         console.log("5. [Hook] Validación Zod exitosa.");
 
         // Validación de Unicidad de Documento
-        // Verificamos si existe OTRO cliente con el mismo documentId pero diferente ID interno
-        const duplicate = clients.find(c => c.documentId === clientData.documentId && c.id !== clientData.id);
+        // MODIFICADO: Relajamos la verificación para permitir editar clientes antiguos que podrían no tener ID o tener conflictos de tipo.
+        const duplicate = clients.find(c => {
+            // Coincidencia de documento
+            const sameDoc = c.documentId === clientData.documentId;
+            // Coincidencia de ID (ignorando tipos string/number)
+            const sameId = c.id && clientData.id && String(c.id) === String(clientData.id);
+            // Es duplicado SI: Tiene mismo documento, PERO diferente ID, Y el registro existente TIENE un ID válido.
+            // Si el registro existente no tiene ID (legacy), asumimos que es el mismo que estamos editando.
+            return sameDoc && !sameId && (c.id !== undefined && c.id !== null && c.id !== '');
+        });
+
         if (duplicate) {
             console.warn(`6. [Hook] Bloqueo por duplicado. ID entrante: ${clientData.id}, ID existente: ${duplicate.id}`);
             toast({ 
