@@ -33,7 +33,7 @@ export const ClientsView = () => {
   const { clients, advisors, entities, setAdvisors, setEntities } = useAppStore();
 
   // Hook Controlador
-  const { saveClient, deleteClient, migrateClient } = useClientOperations();
+  const { saveClient, deleteClient, repairClient } = useClientOperations();
   
   // Modals
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -42,6 +42,9 @@ export const ClientsView = () => {
   const [isEntityModalOpen, setIsEntityModalOpen] = useState(false);
   const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
   const [credentialsClient, setCredentialsClient] = useState<Client | null>(null);
+  
+  // NEW: Repair Mode State
+  const [isRepairMode, setIsRepairMode] = useState(false);
 
   // Filters State
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,11 +99,19 @@ export const ClientsView = () => {
   // --- Handlers ---
   const handleCreate = () => {
       setEditingClient(null);
+      setIsRepairMode(false);
       setIsClientModalOpen(true);
   };
 
   const handleEdit = (client: Client) => {
       setEditingClient(client);
+      setIsRepairMode(false);
+      setIsClientModalOpen(true);
+  };
+
+  const handleRepairClick = (client: Client) => {
+      setEditingClient(client);
+      setIsRepairMode(true);
       setIsClientModalOpen(true);
   };
 
@@ -110,22 +121,26 @@ export const ClientsView = () => {
   };
 
   const handleSaveClientWrapper = (saveData: ClientWithMultiple) => {
-    const success = saveClient(saveData);
+    let success = false;
+    
+    if (isRepairMode && editingClient) {
+        // En modo reparación, llamamos a la función específica
+        success = repairClient(editingClient.id, saveData.client);
+    } else {
+        // Modo normal (Crear/Editar)
+        success = saveClient(saveData);
+    }
+
     if (success) {
         setIsClientModalOpen(false); 
         setEditingClient(null);
+        setIsRepairMode(false);
     }
   };
 
   const handleDeleteWrapper = (clientId: string) => {
       if (window.confirm('¿Estás seguro de eliminar este cliente?\n\nEsta acción es irreversible.')) {
           deleteClient(clientId);
-      }
-  };
-
-  const handleMigrateWrapper = (client: Client) => {
-      if (window.confirm('¿Deseas reparar este registro?\n\nEsto creará una copia limpia con un nuevo ID y eliminará el anterior. Útil si tienes problemas para editar.')) {
-          migrateClient(client);
       }
   };
 
@@ -303,7 +318,7 @@ export const ClientsView = () => {
                                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30" onClick={() => handleEdit(c)} title="Editar">
                                             <Edit className="h-4 w-4"/>
                                         </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30" onClick={() => handleMigrateWrapper(c)} title="Reparar Registro">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30" onClick={() => handleRepairClick(c)} title="Reparar Registro">
                                             <Wrench className="h-4 w-4"/>
                                         </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => handleDeleteWrapper(c.id)} title="Eliminar">
@@ -354,6 +369,7 @@ export const ClientsView = () => {
             client={editingClient} 
             advisors={advisors} 
             entities={entities} 
+            isRepairMode={isRepairMode}
         />
         <AdvisorManagerDialog isOpen={isAdvisorModalOpen} onOpenChange={setIsAdvisorModalOpen} advisors={advisors} onSave={handleSaveAdvisors} />
         <EntityManagerDialog isOpen={isEntityModalOpen} onOpenChange={setIsEntityModalOpen} onSave={handleSaveEntities} allEntities={entities} />

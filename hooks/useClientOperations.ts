@@ -149,32 +149,46 @@ export const useClientOperations = () => {
   };
 
   /**
-   * Duplica un cliente existente, le asigna un nuevo ID y borra el anterior.
-   * Útil para corregir registros corruptos o migrar datos antiguos.
+   * REPARACIÓN DE REGISTRO
+   * Elimina el registro corrupto/bloqueado antiguo y crea uno nuevo con los datos corregidos.
    */
-  const migrateClient = (client: Client) => {
+  const repairClient = (oldClientId: string, newClientData: Client) => {
       try {
-          // 1. Crear copia con nuevo ID
+          // 1. Validar los datos nuevos antes de borrar nada
+          const validationResult = clientSchema.safeParse(newClientData);
+          if (!validationResult.success) {
+              const errorMessage = validationResult.error.issues[0]?.message || "Datos inválidos para reparación";
+              toast({ variant: "destructive", title: "No se pudo reparar", description: errorMessage });
+              return false;
+          }
+
+          // 2. Eliminar registro corrupto anterior
+          removeClient(oldClientId);
+          
+          // 3. Crear nuevo registro con ID limpio
           const newId = crypto.randomUUID();
-          const newClient = { ...client, id: newId };
+          const cleanClient = { 
+              ...newClientData, 
+              id: newId,
+              // Aseguramos que arrays nulos se inicialicen
+              contractedServices: newClientData.contractedServices || [],
+              beneficiaries: newClientData.beneficiaries || [],
+              credentials: newClientData.credentials || []
+          };
           
-          // 2. Eliminar antiguo
-          removeClient(client.id);
-          
-          // 3. Añadir nuevo
-          addClient(newClient);
+          addClient(cleanClient);
           
           toast({ 
               title: "Registro Reparado", 
-              description: `Se ha regenerado el registro de ${client.fullName} con éxito.` 
+              description: `Se creó un registro limpio para ${newClientData.fullName} y se eliminó el anterior.` 
           });
           return true;
       } catch (e) {
-          console.error("Error migrando cliente", e);
-          toast({ variant: "destructive", title: "Error", description: "No se pudo reparar el registro." });
+          console.error("Error reparando cliente", e);
+          toast({ variant: "destructive", title: "Error Crítico", description: "Falló la reparación del registro." });
           return false;
       }
   };
 
-  return { saveClient, deleteClient, migrateClient };
+  return { saveClient, deleteClient, repairClient };
 };

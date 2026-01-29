@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { 
     PlusCircle, Trash2, Edit, Save, X, Phone, Mail, MapPin, 
     MessageSquare, LayoutGrid, List, ExternalLink, Upload, Download, FileText, UserPlus, KeyRound, Link as LinkIcon,
-    Copy, Eye, EyeOff, Shield, Check, FileJson
+    Copy, Eye, EyeOff, Shield, Check, FileJson, AlertTriangle, Wrench
 } from 'lucide-react';
 import { 
     advisorSchema, managerSchema as entityManagerStateSchema, clientSchema, 
@@ -902,10 +902,11 @@ interface ClientFormDialogProps {
   onSave: (saveData: ClientWithMultiple) => void;
   client: Client | null;
   advisors: Advisor[];
-  entities?: Entity[]; // Added prop
+  entities?: Entity[];
+  isRepairMode?: boolean; // Prop added for repair mode
 }
 
-export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisors, entities = [] }: ClientFormDialogProps) {
+export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisors, entities = [], isRepairMode = false }: ClientFormDialogProps) {
     const { toast } = useToast();
     const { config } = useAppStore();
     const servicesCatalog = config.servicesCatalog;
@@ -955,11 +956,27 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-                <DialogHeader className="px-6 py-4 border-b">
-                    <DialogTitle>{client ? 'Editar Cliente' : 'Nuevo Cliente'}</DialogTitle>
-                    <DialogDescription>Completa la información requerida.</DialogDescription>
+            <DialogContent className={`max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 ${isRepairMode ? 'border-2 border-amber-500' : ''}`}>
+                <DialogHeader className={`px-6 py-4 border-b ${isRepairMode ? 'bg-amber-50 dark:bg-amber-950/20' : ''}`}>
+                    <div className="flex items-center gap-2">
+                        {isRepairMode && <Wrench className="h-5 w-5 text-amber-600" />}
+                        <div>
+                            <DialogTitle>{isRepairMode ? 'Reparación de Registro' : (client ? 'Editar Cliente' : 'Nuevo Cliente')}</DialogTitle>
+                            <DialogDescription>
+                                {isRepairMode 
+                                    ? 'Corrige los datos a continuación. Al confirmar, se sustituirá el registro antiguo por uno nuevo y limpio.' 
+                                    : 'Completa la información requerida.'}
+                            </DialogDescription>
+                        </div>
+                    </div>
                 </DialogHeader>
+                
+                {isRepairMode && (
+                    <div className="bg-amber-100 dark:bg-amber-900/40 p-3 text-xs text-amber-800 dark:text-amber-200 flex gap-2 items-center px-6">
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        <span>Estás en modo reparación. Esto eliminará el registro corrupto actual y creará uno nuevo con estos datos.</span>
+                    </div>
+                )}
                 
                 <Form {...form}>
                     <form onSubmit={handleSubmit(onSubmit)} className="flex-1 overflow-hidden flex flex-col">
@@ -1159,7 +1176,12 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                         
                         <div className="p-6 border-t bg-muted/10 flex justify-end gap-2">
                             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                            <Button type="submit">Guardar Cliente</Button>
+                            <Button 
+                                type="submit" 
+                                className={isRepairMode ? "bg-amber-600 hover:bg-amber-700 text-white" : ""}
+                            >
+                                {isRepairMode ? "Confirmar Reparación" : "Guardar Cliente"}
+                            </Button>
                         </div>
                     </form>
                 </Form>
