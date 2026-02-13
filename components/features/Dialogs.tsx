@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { 
     PlusCircle, Trash2, Edit, Save, X, Phone, Mail, MapPin, 
     MessageSquare, LayoutGrid, List, ExternalLink, Upload, Download, FileText, UserPlus, KeyRound, Link as LinkIcon,
-    Copy, Eye, EyeOff, Shield, Check, FileJson, AlertTriangle, Wrench
+    Copy, Eye, EyeOff, Shield, Check, FileJson, AlertTriangle, Wrench, Share2
 } from 'lucide-react';
 import { 
     advisorSchema, managerSchema as entityManagerStateSchema, clientSchema, 
@@ -65,6 +65,31 @@ export function ClientCredentialsDialog({ isOpen, onOpenChange, client, entities
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast({ title: "Copiado", description: `${label} copiado al portapapeles.` });
+  };
+
+  const handleShareCredential = (cred: any, entity: Entity | undefined) => {
+      const url = entity?.links?.[0]?.url || '';
+      const name = entity?.name || cred.entityName || 'Servicio';
+      const type = entity?.type || cred.entityType || 'OPERADOR';
+      const user = cred.username || '---';
+      const pass = cred.password || '---';
+
+      // Construcción del mensaje estilo WhatsApp con formato de cita
+      const lines = [
+          url ? `> ${url}` : null,
+          `> *${type.toUpperCase()}* ${name}`,
+          `> *USUARIO* ${user}`,
+          `> *CLAVE* ${pass}`
+      ];
+
+      const textToCopy = lines.filter(Boolean).join('\n');
+
+      navigator.clipboard.writeText(textToCopy);
+      toast({ 
+          title: "Acceso Copiado", 
+          description: "Formato listo para pegar en WhatsApp.",
+          variant: "default" 
+      });
   };
 
   if (!client) return null;
@@ -118,11 +143,22 @@ export function ClientCredentialsDialog({ isOpen, onOpenChange, client, entities
                                         </div>
                                     )}
                                 </div>
-                                {entityUrl && (
-                                    <Button size="sm" variant="outline" className="gap-1 h-8 shadow-sm" onClick={() => window.open(entityUrl, '_blank')}>
-                                        <ExternalLink className="h-3.5 w-3.5" /> Portal
+                                <div className="flex items-center gap-2">
+                                    <Button 
+                                        size="sm" 
+                                        variant="ghost" 
+                                        className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" 
+                                        title="Copiar formato para compartir"
+                                        onClick={() => handleShareCredential(cred, entity)}
+                                    >
+                                        <Share2 className="h-4 w-4" />
                                     </Button>
-                                )}
+                                    {entityUrl && (
+                                        <Button size="sm" variant="outline" className="gap-1 h-8 shadow-sm" onClick={() => window.open(entityUrl, '_blank')}>
+                                            <ExternalLink className="h-3.5 w-3.5" /> Portal
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Credentials Grid */}
