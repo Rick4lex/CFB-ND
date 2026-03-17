@@ -8,7 +8,7 @@ import {
     Checkbox, Separator, ScrollArea
 } from '../components/ui/Shared';
 import { 
-    Wallet, Handshake, Briefcase, FileText, Eye, PlusCircle, Trash2, Bookmark, Settings, Download, Loader2, Save, Check
+    Wallet, Handshake, Briefcase, FileText, Eye, PlusCircle, Trash2, Bookmark, Settings, Download, Loader2, Save, Check, Building
 } from 'lucide-react';
 import { CotizacionSummaryImage, type CotizacionData } from '../components/features/CotizacionSummaryImage';
 import { useToast } from '../hooks/use-toast';
@@ -403,6 +403,49 @@ export function CotizadorView() {
                                                     <input type="range" min="1" max="5" value={arlRisk} onChange={e => setArlRisk(Number(e.target.value))} className="w-full h-1 bg-muted rounded-lg accent-orange-500"/>
                                                     <p className="text-xs text-right font-medium text-orange-600">Riesgo {arlRisk}</p>
                                                 </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="bg-card border rounded-lg p-3 space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <Label className="flex items-center gap-2 font-semibold">
+                                                <Building className="w-4 h-4 text-purple-500"/> Caja de Compensación
+                                            </Label>
+                                            <Switch checked={ccfRate > 0} onCheckedChange={(checked) => {
+                                                if (checked) {
+                                                    setCcfRate(modality === 'independent' ? 0.006 : 0.04);
+                                                } else {
+                                                    setCcfRate(0);
+                                                }
+                                            }}/>
+                                        </div>
+                                        {ccfRate > 0 && (
+                                            <div className="pl-6 space-y-3 animate-in slide-in-from-top-2">
+                                                <div className="text-xs flex gap-4">
+                                                    <label className="flex items-center gap-2 cursor-pointer hover:text-primary">
+                                                        <Checkbox checked={charges.ccfAffiliation} onCheckedChange={() => toggleCharge('ccfAffiliation')}/> Afiliación
+                                                    </label>
+                                                    <label className="flex items-center gap-2 cursor-pointer hover:text-primary">
+                                                        <Checkbox checked={charges.ccfPortal} onCheckedChange={() => toggleCharge('ccfPortal')}/> Portal
+                                                    </label>
+                                                </div>
+                                                {modality === 'independent' ? (
+                                                    <div className="flex gap-4 mt-2">
+                                                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                                                            <input type="radio" name="ccfRate" value="0.006" checked={ccfRate === 0.006} onChange={() => setCcfRate(0.006)} className="accent-primary" />
+                                                            0.6%
+                                                        </label>
+                                                        <label className="flex items-center gap-2 text-xs cursor-pointer">
+                                                            <input type="radio" name="ccfRate" value="0.02" checked={ccfRate === 0.02} onChange={() => setCcfRate(0.02)} className="accent-primary" />
+                                                            2%
+                                                        </label>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex gap-4 mt-2">
+                                                        <span className="text-xs font-medium text-muted-foreground">Porcentaje: 4%</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
