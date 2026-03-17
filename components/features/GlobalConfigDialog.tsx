@@ -29,7 +29,7 @@ export function GlobalConfigSidebar({ isOpen, onOpenChange }: { isOpen: boolean;
         toast({ title: "Catálogo de Servicios Actualizado", description: "Los cambios se han guardado exitosamente." });
     };
 
-    const handleServiceChange = (index: number, field: string, value: any) => {
+    const handleServiceChange = (index: number, field: string, value: string | number | boolean) => {
         const updated = [...tempServices];
         updated[index] = { ...updated[index], [field]: value };
         setTempServices(updated);

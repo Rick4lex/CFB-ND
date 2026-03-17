@@ -14,12 +14,7 @@ import {
 import { proceduralServices } from '../lib/constants';
 import { useToast } from '../hooks/use-toast';
 import { formatCurrency, parseCurrency } from '../lib/utils';
-
-interface AdditionalItem {
-  id: number;
-  description: string;
-  value: number;
-}
+import { useInvoiceBuilder, type InvoiceItem } from '../hooks/useInvoiceBuilder';
 
 export const DocumentsView = () => {
   const location = useLocation();
@@ -28,14 +23,12 @@ export const DocumentsView = () => {
   
   // Invoice state (Individual)
   const [selectedInvoiceClient, setSelectedInvoiceClient] = useState<string>('');
-  const [additionalInvoiceItems, setAdditionalInvoiceItems] = useState<AdditionalItem[]>([]);
-  const [newAdditionalItem, setNewAdditionalItem] = useState({ description: '', value: '' });
+  const individualInvoice = useInvoiceBuilder();
 
   // Group Invoice State
   const [groupPayerId, setGroupPayerId] = useState<string>('');
   const [groupBeneficiaryId, setGroupBeneficiaryId] = useState<string>('');
-  const [groupInvoiceItems, setGroupInvoiceItems] = useState<AdditionalItem[]>([]);
-  const [newGroupItem, setNewGroupItem] = useState({ description: '', value: '' });
+  const groupInvoice = useInvoiceBuilder();
 
   // Commission report state
   const [reportAdvisor, setReportAdvisor] = useState('');
@@ -65,7 +58,7 @@ export const DocumentsView = () => {
   
   // Reset additional items when client changes
   useEffect(() => {
-    setAdditionalInvoiceItems([]);
+    individualInvoice.clearItems();
   }, [selectedInvoiceClient]);
 
   // --- Logic for Individual Invoice ---
@@ -79,9 +72,9 @@ export const DocumentsView = () => {
       return acc + (service?.price || 0);
     }, 0) || 0;
     
-    const additionalCost = additionalInvoiceItems.reduce((acc, item) => acc + item.value, 0);
+    const additionalCost = individualInvoice.items.reduce((acc, item) => acc + item.value, 0);
     return servicesCost + additionalCost;
-  }, [clientForInvoice, additionalInvoiceItems, config.servicesCatalog]);
+  }, [clientForInvoice, individualInvoice.items, config.servicesCatalog]);
 
   // --- Logic for Group Invoice ---
   const groupPayerClient = useMemo(() => {
@@ -96,24 +89,12 @@ export const DocumentsView = () => {
       }, 0) || 0;
 
       // Group items (beneficiaries + extras)
-      const itemsCost = groupInvoiceItems.reduce((acc, item) => acc + item.value, 0);
+      const itemsCost = groupInvoice.items.reduce((acc, item) => acc + item.value, 0);
       
       return payerServicesCost + itemsCost;
-  }, [groupPayerClient, groupInvoiceItems, config.servicesCatalog]);
+  }, [groupPayerClient, groupInvoice.items, config.servicesCatalog]);
 
   // --- Handlers ---
-
-  const handleAddAdditionalItem = () => {
-    const val = parseCurrency(newAdditionalItem.value);
-    if (newAdditionalItem.description && val !== 0) {
-      setAdditionalInvoiceItems(prev => [...prev, {
-        id: Date.now(),
-        description: newAdditionalItem.description,
-        value: val,
-      }]);
-      setNewAdditionalItem({ description: '', value: '' });
-    }
-  };
 
   // Group Invoice Handlers
   const handleAddBeneficiaryToGroup = () => {
@@ -122,7 +103,7 @@ export const DocumentsView = () => {
       const beneficiary = clients.find(c => c.id === groupBeneficiaryId);
       if (!beneficiary) return;
 
-      const newItems: AdditionalItem[] = [];
+      const newItems: InvoiceItem[] = [];
       
       // Auto-import services
       if (beneficiary.contractedServices && beneficiary.contractedServices.length > 0) {
@@ -142,24 +123,8 @@ export const DocumentsView = () => {
            toast({ title: 'Sin Servicios', description: `${beneficiary.fullName} no tiene servicios contratados para importar.` });
       }
 
-      setGroupInvoiceItems(prev => [...prev, ...newItems]);
+      groupInvoice.addItemsBulk(newItems);
       setGroupBeneficiaryId(''); // Reset selector
-  };
-
-  const handleAddManualGroupItem = () => {
-      const val = parseCurrency(newGroupItem.value);
-      if (newGroupItem.description && val !== 0) {
-          setGroupInvoiceItems(prev => [...prev, {
-              id: Date.now(),
-              description: newGroupItem.description,
-              value: val
-          }]);
-          setNewGroupItem({ description: '', value: '' });
-      }
-  };
-
-  const removeGroupItem = (id: number) => {
-      setGroupInvoiceItems(prev => prev.filter(item => item.id !== id));
   };
 
   // Image Gen
@@ -276,7 +241,7 @@ export const DocumentsView = () => {
                 <div ref={imageRef} style={{ width: '816px' }}>
                     <InvoicePreview
                         client={clientForInvoice}
-                        additionalItems={additionalInvoiceItems}
+                        additionalItems={individualInvoice.items}
                         totalAmount={totalInvoiceAmount}
                     />
                 </div>
@@ -285,7 +250,7 @@ export const DocumentsView = () => {
                 <div ref={groupImageRef} style={{ width: '816px' }}>
                     <InvoicePreview
                         client={groupPayerClient}
-                        additionalItems={groupInvoiceItems}
+                        additionalItems={groupInvoice.items}
                         totalAmount={groupTotalAmount}
                     />
                 </div>
@@ -328,21 +293,26 @@ export const DocumentsView = () => {
                                 <CardHeader><CardTitle className="text-base">Ítems Adicionales y Descuentos</CardTitle></CardHeader>
                                 <CardContent>
                                         <div className="flex gap-2 mb-4">
-                                        <Input aria-label="Descripción" placeholder="Descripción (ej: Descuento Combo)" value={newAdditionalItem.description} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, description: e.target.value}))}/>
-                                        <Input aria-label="Valor" placeholder="Valor ($ -5000 para descuentos)" value={newAdditionalItem.value} onChange={(e: any) => setNewAdditionalItem(prev => ({...prev, value: formatCurrency(parseCurrency(e.target.value))}))}/>
-                                        <Button onClick={handleAddAdditionalItem} variant="secondary">Añadir</Button>
+                                        <Input aria-label="Descripción" placeholder="Descripción (ej: Descuento Combo)" value={individualInvoice.newItem.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => individualInvoice.setNewItem(prev => ({...prev, description: e.target.value}))}/>
+                                        <Input aria-label="Valor" placeholder="Valor ($ -5000 para descuentos)" value={individualInvoice.newItem.value} onChange={(e: React.ChangeEvent<HTMLInputElement>) => individualInvoice.setNewItem(prev => ({...prev, value: formatCurrency(parseCurrency(e.target.value))}))}/>
+                                        <Button onClick={individualInvoice.addItem} variant="secondary">Añadir</Button>
                                     </div>
-                                    {additionalInvoiceItems.length > 0 && (
+                                    {individualInvoice.items.length > 0 && (
                                         <div className="border rounded-md overflow-hidden">
                                             <table className="w-full text-sm text-left">
                                                 <thead className="bg-muted text-muted-foreground">
-                                                    <tr><th className="p-2">Descripción</th><th className="p-2 text-right">Valor</th></tr>
+                                                    <tr><th className="p-2">Descripción</th><th className="p-2 text-right">Valor</th><th className="p-2 w-10"></th></tr>
                                                 </thead>
                                                 <tbody>
-                                                    {additionalInvoiceItems.map(item => (
-                                                        <tr key={item.id} className="border-t">
+                                                    {individualInvoice.items.map(item => (
+                                                        <tr key={item.id} className="border-t hover:bg-muted/20">
                                                             <td className="p-2">{item.description}</td>
                                                             <td className={`p-2 text-right ${item.value < 0 ? 'text-red-500 font-medium' : ''}`}>{item.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
+                                                            <td className="p-2 text-center">
+                                                                <button onClick={() => individualInvoice.removeItem(item.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -409,7 +379,7 @@ export const DocumentsView = () => {
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
                                             <label className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Detalle de la Factura</label>
-                                            <Badge variant="outline">{groupInvoiceItems.length} ítems extra</Badge>
+                                            <Badge variant="outline">{groupInvoice.items.length} ítems extra</Badge>
                                         </div>
                                         
                                         <div className="border rounded-xl overflow-hidden bg-background">
@@ -438,14 +408,14 @@ export const DocumentsView = () => {
                                                     })}
 
                                                     {/* Added Items */}
-                                                    {groupInvoiceItems.map((item) => (
+                                                    {groupInvoice.items.map((item) => (
                                                         <tr key={item.id} className="border-b hover:bg-muted/20">
                                                             <td className="p-3">{item.description}</td>
                                                             <td className={`p-3 text-right font-mono ${item.value < 0 ? 'text-red-600' : ''}`}>
                                                                 {formatCurrency(item.value)}
                                                             </td>
                                                             <td className="p-3 text-center">
-                                                                <button onClick={() => removeGroupItem(item.id)} className="text-muted-foreground hover:text-destructive transition-colors">
+                                                                <button onClick={() => groupInvoice.removeItem(item.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                                                                     <Trash2 className="h-4 w-4" />
                                                                 </button>
                                                             </td>
@@ -457,21 +427,21 @@ export const DocumentsView = () => {
                                                         <td className="p-2">
                                                             <Input 
                                                                 placeholder="Ítem manual o descuento..." 
-                                                                value={newGroupItem.description} 
-                                                                onChange={(e) => setNewGroupItem({...newGroupItem, description: e.target.value})} 
+                                                                value={groupInvoice.newItem.description} 
+                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => groupInvoice.setNewItem(prev => ({...prev, description: e.target.value}))} 
                                                                 className="h-8 text-sm"
                                                             />
                                                         </td>
                                                         <td className="p-2">
                                                             <Input 
                                                                 placeholder="$0" 
-                                                                value={newGroupItem.value} 
-                                                                onChange={(e) => setNewGroupItem({...newGroupItem, value: formatCurrency(parseCurrency(e.target.value))})} 
+                                                                value={groupInvoice.newItem.value} 
+                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => groupInvoice.setNewItem(prev => ({...prev, value: formatCurrency(parseCurrency(e.target.value))}))} 
                                                                 className="h-8 text-sm text-right"
                                                             />
                                                         </td>
                                                         <td className="p-2 text-center">
-                                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={handleAddManualGroupItem}>
+                                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={groupInvoice.addItem}>
                                                                 <Plus className="h-4 w-4"/>
                                                             </Button>
                                                         </td>
