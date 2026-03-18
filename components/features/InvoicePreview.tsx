@@ -16,15 +16,16 @@ interface InvoicePreviewProps {
   client: Client;
   additionalItems: AdditionalItem[];
   totalAmount: number;
+  invoiceDate?: Date;
 }
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
-export function InvoicePreview({ client, additionalItems, totalAmount: _unusedTotalAmount }: InvoicePreviewProps) {
+export function InvoicePreview({ client, additionalItems, totalAmount: _unusedTotalAmount, invoiceDate = new Date() }: InvoicePreviewProps) {
   const { config } = useAppStore();
   const catalog = config.servicesCatalog;
   
-  const generationDate = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: es });
+  const generationDate = format(invoiceDate, "dd 'de' MMMM 'de' yyyy", { locale: es });
   
   // Mapeo dinámico: Buscamos cada servicio del cliente en el catálogo actual para obtener su precio vigente
   const allItems = [

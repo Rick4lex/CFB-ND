@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import * as htmlToImage from 'html-to-image';
 import { useLocation } from 'react-router-dom';
-import { Loader2, Eye, Printer, Download, FileText, DollarSign, Share2, Users, UserPlus, Trash2, Plus } from 'lucide-react';
+import { Loader2, Eye, Printer, Download, FileText, DollarSign, Share2, Users, UserPlus, Trash2, Plus, DownloadCloud } from 'lucide-react';
+import Papa from 'papaparse';
 import { useAppStore } from '../lib/store';
 import { PageLayout } from '../components/layout/Layout';
 import { InvoicePreview } from '../components/features/InvoicePreview';
@@ -23,11 +24,13 @@ export const DocumentsView = () => {
   
   // Invoice state (Individual)
   const [selectedInvoiceClient, setSelectedInvoiceClient] = useState<string>('');
+  const [individualInvoiceDate, setIndividualInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const individualInvoice = useInvoiceBuilder();
 
   // Group Invoice State
   const [groupPayerId, setGroupPayerId] = useState<string>('');
   const [groupBeneficiaryId, setGroupBeneficiaryId] = useState<string>('');
+  const [groupInvoiceDate, setGroupInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const groupInvoice = useInvoiceBuilder();
 
   // Commission report state
@@ -40,10 +43,10 @@ export const DocumentsView = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [captureTarget, setCaptureTarget] = useState<'individual' | 'group' | null>(null);
   
   // Refs for capture
-  const imageRef = useRef<HTMLDivElement>(null);
-  const groupImageRef = useRef<HTMLDivElement>(null);
+  const captureRef = useRef<HTMLDivElement>(null);
 
   // Active Preview logic
   const [activePreviewType, setActivePreviewType] = useState<'individual' | 'group'>('individual');
@@ -129,31 +132,54 @@ export const DocumentsView = () => {
 
   // Image Gen
   const handleOpenInvoicePreview = async (type: 'individual' | 'group') => {
-    const ref = type === 'individual' ? imageRef : groupImageRef;
-    
-    if (!ref.current) {
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo encontrar el componente de la factura.' });
-        return;
-    }
-    
-    setIsGenerating(true);
     setActivePreviewType(type);
+    setCaptureTarget(type);
+    setIsGenerating(true);
     setIsPreviewModalOpen(true);
     setGeneratedImage(null);
-    
-    try {
-        // Wait for render
-        await new Promise(resolve => setTimeout(resolve, 300));
-        const dataUrl = await htmlToImage.toPng(ref.current, { quality: 1, pixelRatio: 2, backgroundColor: '#ffffff' });
-        setGeneratedImage(dataUrl);
-    } catch(error) {
-        console.error("Error generating image:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo generar la imagen de la factura.' });
-        setIsPreviewModalOpen(false);
-    } finally {
-        setIsGenerating(false);
-    }
   };
+
+  useEffect(() => {
+    if (isGenerating && captureTarget && captureRef.current) {
+      const generateImage = async () => {
+        try {
+          // 1. Wait for fonts to be ready
+          await document.fonts.ready;
+          
+          // 2. Wait for all images inside the capture container to load
+          const images = Array.from(captureRef.current?.querySelectorAll('img') || []);
+          await Promise.all(images.map(img => {
+            if (img.complete) return Promise.resolve();
+            return new Promise(resolve => {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+          }));
+
+          // 3. Small delay to ensure React has painted the DOM
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+          // 4. Capture the image
+          const dataUrl = await htmlToImage.toPng(captureRef.current!, { 
+            quality: 1, 
+            pixelRatio: 2, 
+            backgroundColor: '#ffffff' 
+          });
+          
+          setGeneratedImage(dataUrl);
+        } catch(error) {
+          console.error("Error generating image:", error);
+          toast({ variant: 'destructive', title: 'Error', description: 'No se pudo generar la imagen de la factura.' });
+          setIsPreviewModalOpen(false);
+        } finally {
+          setIsGenerating(false);
+          setCaptureTarget(null);
+        }
+      };
+      
+      generateImage();
+    }
+  }, [isGenerating, captureTarget, toast]);
 
   const handleShare = async () => {
       if (!generatedImage) return;
@@ -229,34 +255,77 @@ export const DocumentsView = () => {
     window.print();
   };
 
+  const handleExportCSV = () => {
+    if (commissionReportData.length === 0) {
+      toast({ variant: 'destructive', title: 'Sin Datos', description: 'No hay datos para exportar.' });
+      return;
+    }
+
+    const csvData = commissionReportData.map(client => {
+      const servicesCost = client.contractedServices?.reduce((acc, serviceIdentifier) => {
+          const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
+          return acc + (service?.price || 0);
+      }, 0) || 0;
+      
+      let commission = 0;
+      let commissionDisplay = "N/A";
+
+      if (typeof client.advisorCommissionAmount === 'number') {
+          commission = client.advisorCommissionAmount;
+          if (client.advisorCommissionPercentage) {
+              commissionDisplay = `${client.advisorCommissionPercentage}% (Histórico)`;
+          } else {
+              commissionDisplay = "Valor Fijo (Histórico)";
+          }
+      } 
+      else {
+          const advisorDetails = advisors.find(a => a.name === client.assignedAdvisor);
+          if(advisorDetails){
+              if(advisorDetails.commissionType === 'percentage'){
+                  commission = servicesCost * ((advisorDetails.commissionValue || 0) / 100);
+                  commissionDisplay = `${advisorDetails.commissionValue}% (Estimado)`;
+              } else {
+                  const affiliationServiceCount = client.contractedServices?.filter(s => {
+                      const name = config.servicesCatalog.find(cat => cat.id === s)?.name || s;
+                      return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
+                  }).length || 0;
+                  commission = affiliationServiceCount * (advisorDetails.commissionValue || 0);
+                  commissionDisplay = "Valor Fijo (Estimado)";
+              }
+          }
+      }
+
+      return {
+        'Asesor': reportAdvisor,
+        'Periodo': `${new Date(reportYear, reportMonth).toLocaleString('es-CO', { month: 'long' })} ${reportYear}`,
+        'Cliente': client.fullName,
+        'Costo Total Trámites': servicesCost,
+        'Tipo de Comisión': commissionDisplay,
+        'Valor a Pagar': commission,
+        'Estado': reportStatus
+      };
+    });
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Comisiones_${reportAdvisor}_${reportMonth + 1}_${reportYear}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: 'Exportación Exitosa', description: 'El archivo CSV se ha descargado correctamente.' });
+  };
+
   return (
     <PageLayout 
         title="Generador de Documentos" 
         subtitle="Crea cuentas de cobro y reportes de comisiones."
         onBackRoute="/app/dashboard"
     >
-        {/* Hidden Elements for Capture */}
-        <div className="absolute -left-[9999px] top-0">
-            {clientForInvoice && (
-                <div ref={imageRef} style={{ width: '816px' }}>
-                    <InvoicePreview
-                        client={clientForInvoice}
-                        additionalItems={individualInvoice.items}
-                        totalAmount={totalInvoiceAmount}
-                    />
-                </div>
-            )}
-            {groupPayerClient && (
-                <div ref={groupImageRef} style={{ width: '816px' }}>
-                    <InvoicePreview
-                        client={groupPayerClient}
-                        additionalItems={groupInvoice.items}
-                        totalAmount={groupTotalAmount}
-                    />
-                </div>
-            )}
-        </div>
-      
         <section className="max-w-5xl mx-auto">
             <Accordion className="w-full space-y-4" defaultValue="group-invoice">
                 
@@ -281,6 +350,14 @@ export const DocumentsView = () => {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className='w-full md:w-48'>
+                                <label className="text-sm font-medium mb-1 block">Fecha de Facturación</label>
+                                <Input 
+                                    type="date" 
+                                    value={individualInvoiceDate} 
+                                    onChange={(e) => setIndividualInvoiceDate(e.target.value)} 
+                                />
                             </div>
                             <Button className="w-full md:w-auto" onClick={() => handleOpenInvoicePreview('individual')} disabled={!clientForInvoice || isGenerating}>
                                 {isGenerating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Generando...</> : <><Eye className="mr-2 h-4 w-4"/>Previsualizar</>}
@@ -338,16 +415,27 @@ export const DocumentsView = () => {
                     <AccordionContent>
                         <div className="p-6 bg-card rounded-lg border space-y-6 mt-2">
                             {/* Payer Selection */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-primary uppercase tracking-wider">1. Seleccionar Pagador (Deudor Principal)</label>
-                                <Select value={groupPayerId} onValueChange={setGroupPayerId}>
-                                    <SelectTrigger className="h-12 text-lg"><SelectValue placeholder="Quién va a pagar..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {clients.map(client => (
-                                            <SelectItem key={client.id} value={client.id}>{client.fullName}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <div className="flex flex-col md:flex-row gap-4 items-end">
+                                <div className="space-y-2 flex-grow w-full">
+                                    <label className="text-sm font-bold text-primary uppercase tracking-wider">1. Seleccionar Pagador (Deudor Principal)</label>
+                                    <Select value={groupPayerId} onValueChange={setGroupPayerId}>
+                                        <SelectTrigger className="h-12 text-lg"><SelectValue placeholder="Quién va a pagar..." /></SelectTrigger>
+                                        <SelectContent>
+                                            {clients.map(client => (
+                                                <SelectItem key={client.id} value={client.id}>{client.fullName}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className='w-full md:w-48 space-y-2'>
+                                    <label className="text-sm font-bold text-primary uppercase tracking-wider">Fecha</label>
+                                    <Input 
+                                        type="date" 
+                                        value={groupInvoiceDate} 
+                                        onChange={(e) => setGroupInvoiceDate(e.target.value)} 
+                                        className="h-12 text-lg"
+                                    />
+                                </div>
                             </div>
 
                             {groupPayerId && (
@@ -483,7 +571,10 @@ export const DocumentsView = () => {
                                 <Input aria-label="Año del reporte" type="number" value={reportYear} onChange={(e: any) => setReportYear(Number(e.target.value))} placeholder="Año"/>
                                 <Select onValueChange={setReportStatus} defaultValue={reportStatus}><SelectTrigger><SelectValue placeholder="Estado..." /></SelectTrigger><SelectContent><SelectItem value="Liquidado">Liquidado</SelectItem><SelectItem value="Pendiente">Pendiente</SelectItem></SelectContent></Select>
                             </div>
-                            <Button className="w-full" onClick={handleGenerateCommissionReport}><Printer className="mr-2 h-4 w-4"/>Imprimir Reporte</Button>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <Button className="w-full sm:w-1/2" onClick={handleGenerateCommissionReport}><Printer className="mr-2 h-4 w-4"/>Imprimir Reporte</Button>
+                                <Button className="w-full sm:w-1/2" variant="secondary" onClick={handleExportCSV}><DownloadCloud className="mr-2 h-4 w-4"/>Exportar a Excel (CSV)</Button>
+                            </div>
 
                             {commissionReportData.length > 0 && (
                                 <div id="printable-commission">
@@ -571,27 +662,60 @@ export const DocumentsView = () => {
           }
         }
       `}</style>
-        <Dialog open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
+        <Dialog open={isPreviewModalOpen} onOpenChange={(open) => {
+            if (!open) {
+                setIsPreviewModalOpen(false);
+                setCaptureTarget(null);
+                setIsGenerating(false);
+            }
+        }}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Previsualización de Cuenta de Cobro</DialogTitle>
                 </DialogHeader>
-                <div className="p-4 flex justify-center items-center bg-gray-100 rounded-md my-4">
-                    {generatedImage ? (
+                <div className="p-4 flex justify-center items-center bg-gray-100 rounded-md my-4 relative overflow-hidden">
+                    {isGenerating ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                            <p className="text-sm text-muted-foreground animate-pulse">Renderizando documento de alta calidad...</p>
+                            
+                            {/* Hidden container for capture, but in the DOM and visible to html-to-image */}
+                            <div className="absolute top-0 left-0 opacity-0 pointer-events-none" style={{ zIndex: -1 }}>
+                                <div ref={captureRef} style={{ width: '816px' }}>
+                                    {captureTarget === 'individual' && clientForInvoice && (
+                                        <InvoicePreview
+                                            client={clientForInvoice}
+                                            additionalItems={individualInvoice.items}
+                                            totalAmount={totalInvoiceAmount}
+                                            invoiceDate={new Date(individualInvoiceDate + 'T12:00:00')}
+                                        />
+                                    )}
+                                    {captureTarget === 'group' && groupPayerClient && (
+                                        <InvoicePreview
+                                            client={groupPayerClient}
+                                            additionalItems={groupInvoice.items}
+                                            totalAmount={groupTotalAmount}
+                                            invoiceDate={new Date(groupInvoiceDate + 'T12:00:00')}
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : generatedImage ? (
                         <img src={generatedImage} alt="Cuenta de Cobro" className="w-full h-auto shadow-lg"/>
                     ) : (
                         <div className="h-96 flex items-center justify-center">
-                            <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+                            <p className="text-muted-foreground">No se pudo generar la imagen.</p>
                         </div>
                     )}
                 </div>
                 <DialogFooter className="sm:justify-between gap-2">
                     <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>Cerrar</Button>
                     <div className="flex gap-2">
-                        <Button onClick={handleShare} disabled={!generatedImage}>
+                        <Button onClick={handleShare} disabled={!generatedImage || isGenerating}>
                             <Share2 className="mr-2 h-4 w-4" /> Compartir
                         </Button>
-                        <Button onClick={handleDownload} disabled={!generatedImage}>
+                        <Button onClick={handleDownload} disabled={!generatedImage || isGenerating}>
                             <Download className="mr-2 h-4 w-4" /> Descargar
                         </Button>
                     </div>
