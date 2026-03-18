@@ -1,11 +1,12 @@
 
-import { useState, useMemo, useCallback, type ChangeEvent } from 'react';
-import { UserCog, Building, PlusCircle, Search, FileText, Edit, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, KeyRound, Wrench } from 'lucide-react';
+import { useState, useMemo, useCallback, useRef, type ChangeEvent } from 'react';
+import { UserCog, Building, PlusCircle, Search, FileText, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, Upload, KeyRound, Wrench } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Papa from 'papaparse';
 import { useAppStore } from '../lib/store';
 import { useClientOperations } from '../hooks/useClientOperations';
 import { PageLayout } from '../components/layout/Layout';
-import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Shared';
+import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/Shared';
 import { EntityManagerDialog, AdvisorManagerDialog, ClientFormDialog, ClientCredentialsDialog } from '../components/features/Dialogs';
 import { Client, Advisor, Entity, ClientWithMultiple } from '../lib/types';
 import { serviceStatuses } from '../lib/constants';
@@ -35,6 +36,9 @@ export const ClientsView = () => {
   // Hook Controlador
   const { saveClient, deleteClient, repairClient } = useClientOperations();
   
+  // Hooks
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Modals
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -103,12 +107,6 @@ export const ClientsView = () => {
       setIsClientModalOpen(true);
   };
 
-  const handleEdit = (client: Client) => {
-      setEditingClient(client);
-      setIsRepairMode(false);
-      setIsClientModalOpen(true);
-  };
-
   const handleRepairClick = (client: Client) => {
       setEditingClient(client);
       setIsRepairMode(true);
@@ -127,7 +125,7 @@ export const ClientsView = () => {
         // En modo reparación, llamamos a la función específica
         success = repairClient(editingClient.id, saveData.client);
     } else {
-        // Modo normal (Crear/Editar)
+        // Modo normal (Crear)
         success = saveClient(saveData);
     }
 
@@ -159,18 +157,143 @@ export const ClientsView = () => {
         toast({ variant: "destructive", title: "Sin datos", description: "No hay datos para exportar con los filtros actuales." });
         return;
       }
-      const headers = ["ID", "Nombre", "Documento", "Tipo Doc", "Email", "Telefono", "Estado", "Asesor", "Fecha Ingreso", "Notas"];
-      const csvContent = [
-          headers.join(','),
-          ...filteredClients.map(c => [
-              c.id, `"${c.fullName}"`, c.documentId, c.documentType, c.email || '', c.phone || c.whatsapp || '', c.serviceStatus, c.assignedAdvisor || '', c.entryDate, `"${c.notes || ''}"`
-          ].join(','))
-      ].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      
+      const csvData = filteredClients.map(c => ({
+          ID: c.id,
+          Nombre: c.fullName,
+          Documento: c.documentId,
+          Tipo_Doc: c.documentType,
+          Email: c.email || '',
+          Telefono: c.phone || '',
+          Whatsapp: c.whatsapp || '',
+          Estado: c.serviceStatus,
+          Asesor: c.assignedAdvisor || '',
+          Fecha_Ingreso: c.entryDate,
+          Direccion: c.address || '',
+          Representante_Legal: c.legalRepName || '',
+          ID_Representante: c.legalRepId || '',
+          Referido_Por: c.referredBy || '',
+          Servicios_Contratados: c.contractedServices?.join(';') || '',
+          Costo_Admin: c.adminCost || 0,
+          Comision_Referido: c.referralCommissionAmount || 0,
+          Porcentaje_Descuento: c.discountPercentage || 0,
+          Monto_Comision_Asesor: c.advisorCommissionAmount ?? '',
+          Porcentaje_Comision_Asesor: c.advisorCommissionPercentage ?? '',
+          Notas: c.notes || ''
+      }));
+
+      const csvContent = Papa.unparse(csvData);
+      const bom = '\uFEFF';
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `clientes_cfbnd_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
+  };
+
+  const handleImportCSV = (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+              try {
+                  const importedClients: Client[] = results.data.map((row: any) => ({
+                      id: row.ID || crypto.randomUUID(),
+                      fullName: row.Nombre,
+                      documentId: row.Documento,
+                      documentType: row.Tipo_Doc || 'CC',
+                      email: row.Email || '',
+                      phone: row.Telefono || '',
+                      whatsapp: row.Whatsapp || '',
+                      serviceStatus: row.Estado || 'Contacto inicial',
+                      assignedAdvisor: row.Asesor || '',
+                      entryDate: row.Fecha_Ingreso || new Date().toISOString().split('T')[0],
+                      address: row.Direccion || '',
+                      legalRepName: row.Representante_Legal || '',
+                      legalRepId: row.ID_Representante || '',
+                      referredBy: row.Referido_Por || '',
+                      contractedServices: row.Servicios_Contratados ? row.Servicios_Contratados.split(';') : [],
+                      adminCost: Number(row.Costo_Admin) || 0,
+                      referralCommissionAmount: Number(row.Comision_Referido) || 0,
+                      discountPercentage: Number(row.Porcentaje_Descuento) || 0,
+                      advisorCommissionAmount: row.Monto_Comision_Asesor ? Number(row.Monto_Comision_Asesor) : undefined,
+                      advisorCommissionPercentage: row.Porcentaje_Comision_Asesor ? Number(row.Porcentaje_Comision_Asesor) : undefined,
+                      notes: row.Notas || '',
+                      beneficiaries: [],
+                      credentials: []
+                  }));
+
+                  // Usar el hook para guardar masivamente
+                  saveClient({
+                      client: importedClients[0], // Dummy para cumplir la firma
+                      addMultiple: (currentClients, currentAdvisors) => {
+                          const mergedClients = [...currentClients];
+                          const mergedAdvisors = [...currentAdvisors];
+                          let added = 0;
+                          let updated = 0;
+                          let newAdvisorsCount = 0;
+
+                          importedClients.forEach(newClient => {
+                              if (!newClient.fullName || !newClient.documentId) return;
+                              
+                              // Check and create advisor if needed
+                              if (newClient.assignedAdvisor) {
+                                  const advisorExists = mergedAdvisors.some(a => a.name.toLowerCase() === newClient.assignedAdvisor.toLowerCase());
+                                  if (!advisorExists) {
+                                      mergedAdvisors.push({
+                                          id: crypto.randomUUID(),
+                                          name: newClient.assignedAdvisor,
+                                          commissionType: 'percentage',
+                                          commissionValue: 0,
+                                          phone: '',
+                                          email: '',
+                                          paymentDetails: ''
+                                      });
+                                      newAdvisorsCount++;
+                                  }
+                              }
+
+                              const existingIndex = mergedClients.findIndex(c => String(c.documentId).trim() === String(newClient.documentId).trim());
+                              
+                              if (existingIndex >= 0) {
+                                  // Mantener ID original y datos complejos (beneficiarios, credenciales)
+                                  mergedClients[existingIndex] = {
+                                      ...mergedClients[existingIndex],
+                                      ...newClient,
+                                      id: mergedClients[existingIndex].id,
+                                      beneficiaries: mergedClients[existingIndex].beneficiaries || [],
+                                      credentials: mergedClients[existingIndex].credentials || []
+                                  };
+                                  updated++;
+                              } else {
+                                  mergedClients.push(newClient);
+                                  added++;
+                              }
+                          });
+
+                          if (newAdvisorsCount > 0) {
+                              toast({ title: "Asesores creados", description: `Se crearon ${newAdvisorsCount} nuevos asesores a partir del CSV.` });
+                          }
+
+                          return { updatedClients: mergedClients, updatedAdvisors: mergedAdvisors };
+                      }
+                  });
+
+              } catch (error) {
+                  console.error("Error importando CSV:", error);
+                  toast({ variant: "destructive", title: "Error de importación", description: "El archivo CSV no tiene el formato correcto." });
+              }
+          },
+          error: (error) => {
+              console.error("PapaParse error:", error);
+              toast({ variant: "destructive", title: "Error de lectura", description: "No se pudo leer el archivo CSV." });
+          }
+      });
+      
+      e.target.value = ''; // Reset input
   };
 
   const clearFilters = () => {
@@ -190,7 +313,24 @@ export const ClientsView = () => {
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsAdvisorModalOpen(true)}><UserCog className="mr-2 h-4 w-4"/> Asesores</Button>
                 <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsEntityModalOpen(true)}><Building className="mr-2 h-4 w-4"/> Entidades</Button>
-                <Button variant="outline" className="w-full sm:w-auto" onClick={handleExportCSV} title="Descargar CSV"><Download className="mr-2 h-4 w-4"/> Exportar</Button>
+                
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full sm:w-auto" title="Importar/Exportar CSV">
+                            <Download className="mr-2 h-4 w-4"/> CSV
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={handleExportCSV} className="cursor-pointer">
+                            <Download className="mr-2 h-4 w-4" /> Exportar CSV
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
+                            <Upload className="mr-2 h-4 w-4" /> Importar CSV
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleImportCSV} />
+
                 <Button className="w-full sm:w-auto shadow-lg shadow-primary/20" onClick={handleCreate}><PlusCircle className="mr-2 h-4 w-4"/> Nuevo Cliente</Button>
             </div>
         }
@@ -314,9 +454,6 @@ export const ClientsView = () => {
                                         </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30" onClick={() => navigate('/app/documentos', { state: { clientId: c.id } })} title="Generar Documentos">
                                             <FileText className="h-4 w-4"/>
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30" onClick={() => handleEdit(c)} title="Editar">
-                                            <Edit className="h-4 w-4"/>
                                         </Button>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30" onClick={() => handleRepairClick(c)} title="Reparar Registro">
                                             <Wrench className="h-4 w-4"/>

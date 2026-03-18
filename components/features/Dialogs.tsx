@@ -231,6 +231,7 @@ interface AdvisorManagerDialogProps {
 
 export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAdvisors, onSave }: AdvisorManagerDialogProps) {
   const { toast } = useToast();
+  const { clients } = useAppStore();
   const [editingId, setEditingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -398,6 +399,9 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
                 {fields.map((field, index) => {
                   const isEditing = editingId === field.id;
                   const currentCommissionValue = form.getValues(`advisors.${index}.commissionValue`);
+                  const advisorId = form.getValues(`advisors.${index}.id`);
+                  const advisorName = form.getValues(`advisors.${index}.name`);
+                  const clientCount = clients.filter(c => c.assignedAdvisor === advisorName).length;
 
                   return (
                     <div key={field.id} className="p-4 border rounded-lg space-y-4 relative bg-card">
@@ -443,7 +447,12 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
                       ) : (
                         <div className="flex justify-between items-start">
                            <div>
-                                <p className="font-semibold">{form.getValues(`advisors.${index}.name`) || 'Nuevo Asesor'}</p>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <p className="font-semibold">{form.getValues(`advisors.${index}.name`) || 'Nuevo Asesor'}</p>
+                                    <Badge style={{ backgroundColor: '#E03C79', color: 'white' }} className="text-[10px] font-bold">
+                                        {clientCount} {clientCount === 1 ? 'cliente' : 'clientes'}
+                                    </Badge>
+                                </div>
                                 <p className="text-sm text-muted-foreground">{form.getValues(`advisors.${index}.email`)}</p>
                                 <p className="text-sm text-muted-foreground">
                                     Comisión: {form.getValues(`advisors.${index}.commissionType`) === 'percentage' 
@@ -986,6 +995,30 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
     }, [isOpen, client, reset]);
 
     const onSubmit = (data: any) => {
+        if (data.assignedAdvisor) {
+            const advisor = advisors.find(a => a.name === data.assignedAdvisor);
+            if (advisor) {
+                const servicesCost = (data.contractedServices || []).reduce((acc: number, serviceIdentifier: string) => {
+                    const service = servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
+                    return acc + (service?.price || 0);
+                }, 0);
+                
+                if (advisor.commissionType === 'percentage') {
+                    data.advisorCommissionPercentage = advisor.commissionValue;
+                    data.advisorCommissionAmount = servicesCost * (advisor.commissionValue / 100);
+                } else {
+                    const affiliationServiceCount = (data.contractedServices || []).filter((s: string) => {
+                        const name = servicesCatalog.find(cat => cat.id === s)?.name || s;
+                        return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
+                    }).length;
+                    data.advisorCommissionPercentage = undefined;
+                    data.advisorCommissionAmount = affiliationServiceCount * advisor.commissionValue;
+                }
+            }
+        } else {
+            data.advisorCommissionPercentage = undefined;
+            data.advisorCommissionAmount = undefined;
+        }
         onSave({ client: data });
         // onOpenChange(false); // Handled in parent
     };
@@ -997,7 +1030,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                     <div className="flex items-center gap-2">
                         {isRepairMode && <Wrench className="h-5 w-5 text-amber-600" />}
                         <div>
-                            <DialogTitle>{isRepairMode ? 'Reparación de Registro' : (client ? 'Editar Cliente' : 'Nuevo Cliente')}</DialogTitle>
+                            <DialogTitle>{isRepairMode ? 'Reparación de Registro' : 'Nuevo Cliente'}</DialogTitle>
                             <DialogDescription>
                                 {isRepairMode 
                                     ? 'Corrige los datos a continuación. Al confirmar, se sustituirá el registro antiguo por uno nuevo y limpio.' 

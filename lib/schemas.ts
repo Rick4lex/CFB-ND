@@ -49,6 +49,7 @@ export const clientSchema = z.object({
   
   // Snapshot fields
   advisorCommissionAmount: z.coerce.number().optional(),
+  advisorCommissionPercentage: z.coerce.number().optional(),
 
   beneficiaries: z.array(z.object({
     id: z.string(),
