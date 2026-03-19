@@ -31,7 +31,7 @@ export const ImageCell: FC<ImageCellProps> = ({ element, onClick, className, sty
                 <img 
                     src={element.data.url} 
                     alt={element.label}
-                    className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${loading ? 'opacity-0' : 'opacity-100'}`}
+                    className={`h-full w-full transition-transform duration-500 group-hover:scale-105 ${loading ? 'opacity-0' : 'opacity-100'} ${element.id === 'logo' ? 'object-contain p-4' : 'object-cover'}`}
                     onLoad={() => setLoading(false)}
                     onError={() => { setLoading(false); setError(true); }}
                 />

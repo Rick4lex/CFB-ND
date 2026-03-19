@@ -36,6 +36,7 @@ export const EditModal = ({ isOpen, onClose, element, onSave }: EditModalProps) 
     if (!element) return null;
 
     const isImage = element.type === 'image';
+    const isTypography = element.type === 'typography';
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -45,7 +46,9 @@ export const EditModal = ({ isOpen, onClose, element, onSave }: EditModalProps) 
                     <DialogDescription>
                         {isImage 
                             ? "Ingresa la URL de la imagen que deseas mostrar."
-                            : "Configura el código de color y el estilo visual."
+                            : isTypography
+                                ? "Selecciona las fuentes principales y secundarias."
+                                : "Configura el código de color y el estilo visual."
                         }
                     </DialogDescription>
                 </DialogHeader>
@@ -79,6 +82,65 @@ export const EditModal = ({ isOpen, onClose, element, onSave }: EditModalProps) 
                                     </FormItem>
                                 )}
                             />
+                        ) : isTypography ? (
+                            <>
+                                <FormField
+                                    control={form.control}
+                                    name="fontFamily"
+                                    render={({ field }: any) => (
+                                        <FormItem>
+                                            <FormLabel>Fuente Principal</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value || 'Inter'}>
+                                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="Inter">Inter</SelectItem>
+                                                    <SelectItem value="Roboto">Roboto</SelectItem>
+                                                    <SelectItem value="Open Sans">Open Sans</SelectItem>
+                                                    <SelectItem value="Montserrat">Montserrat</SelectItem>
+                                                    <SelectItem value="Poppins">Poppins</SelectItem>
+                                                    <SelectItem value="Playfair Display">Playfair Display</SelectItem>
+                                                    <SelectItem value="Merriweather">Merriweather</SelectItem>
+                                                    <SelectItem value="Lora">Lora</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="secondaryFontFamily"
+                                    render={({ field }: any) => (
+                                        <FormItem>
+                                            <FormLabel>Fuente Secundaria</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value || 'Playfair Display'}>
+                                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="Inter">Inter</SelectItem>
+                                                    <SelectItem value="Roboto">Roboto</SelectItem>
+                                                    <SelectItem value="Open Sans">Open Sans</SelectItem>
+                                                    <SelectItem value="Montserrat">Montserrat</SelectItem>
+                                                    <SelectItem value="Poppins">Poppins</SelectItem>
+                                                    <SelectItem value="Playfair Display">Playfair Display</SelectItem>
+                                                    <SelectItem value="Merriweather">Merriweather</SelectItem>
+                                                    <SelectItem value="Lora">Lora</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="text"
+                                    render={({ field }: any) => (
+                                        <FormItem>
+                                            <FormLabel>Texto de Muestra (Opcional)</FormLabel>
+                                            <FormControl>
+                                                <Input {...field} placeholder="Ingresa un texto para previsualizar..." />
+                                            </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                            </>
                         ) : (
                             <>
                                 <div className="grid grid-cols-2 gap-4">

@@ -6,9 +6,10 @@ export const LAYOUTS = [
     name: 'Enfoque Hero',
     // CSS Grid Template Areas representation
     areas: [
-      "logo logo color1 color2",
-      "hero hero color3 color4",
-      "hero hero texture lifestyle"
+      "logo color1 color2 color3",
+      "hero hero texture color4",
+      "hero hero lifestyle color5",
+      "typography typography typography typography"
     ],
     // Mobile fallback (stacked) handled in CSS
     icon: 'LayoutTemplate'
@@ -19,7 +20,8 @@ export const LAYOUTS = [
     areas: [
       "logo color1 color2 color3",
       "hero hero texture texture",
-      "lifestyle lifestyle color4 color5"
+      "lifestyle lifestyle color4 color5",
+      "typography typography typography typography"
     ],
     icon: 'Grid'
   },
@@ -29,9 +31,54 @@ export const LAYOUTS = [
     areas: [
       "logo color1 color2 texture",
       "hero hero lifestyle lifestyle",
-      "color3 color4 color5 color6"
+      "color3 color4 color5 color6",
+      "typography typography typography typography"
     ],
     icon: 'LayoutGrid'
+  },
+  {
+    id: 'asymmetric',
+    name: 'Asimétrico',
+    areas: [
+      "logo hero hero color1",
+      "texture hero hero color2",
+      "lifestyle lifestyle typography typography",
+      "color3 color4 typography typography"
+    ],
+    icon: 'LayoutGrid'
+  },
+  {
+    id: 'typography-focus',
+    name: 'Tipografía',
+    areas: [
+      "logo color1 color2 color3",
+      "typography typography typography typography",
+      "typography typography typography typography",
+      "hero hero lifestyle texture"
+    ],
+    icon: 'LayoutTemplate'
+  },
+  {
+    id: 'minimalist',
+    name: 'Minimalista',
+    areas: [
+      "logo hero hero hero",
+      "color1 hero hero hero",
+      "color2 typography typography typography",
+      "color3 typography typography typography"
+    ],
+    icon: 'LayoutGrid'
+  },
+  {
+    id: 'gallery',
+    name: 'Galería',
+    areas: [
+      "hero hero lifestyle lifestyle",
+      "hero hero texture texture",
+      "logo color1 color2 color3",
+      "typography typography typography typography"
+    ],
+    icon: 'Grid'
   }
 ];
 
@@ -47,4 +94,6 @@ export const INITIAL_ELEMENTS: BrandingElement[] = [
   { id: 'color4', type: 'color', label: 'Neutro Claro', data: { color1: '#F8EDD2', style: 'solid' } },
   { id: 'color5', type: 'color', label: 'Neutro Oscuro', data: { color1: '#2A2A2A', style: 'diagonal', color2: '#000000' } },
   { id: 'color6', type: 'color', label: 'Extra', data: { color1: '#FFFFFF', style: 'central-circle', color2: '#E08C79' } },
+  
+  { id: 'typography', type: 'typography', label: 'Tipografía', data: { fontFamily: 'Inter', secondaryFontFamily: 'Playfair Display' } },
 ];
