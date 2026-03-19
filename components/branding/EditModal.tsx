@@ -140,6 +140,34 @@ export const EditModal = ({ isOpen, onClose, element, onSave }: EditModalProps) 
                                         </FormItem>
                                     )}
                                 />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="textColor"
+                                        render={({ field }: any) => (
+                                            <FormItem>
+                                                <FormLabel>Color de Texto</FormLabel>
+                                                <div className="flex gap-2">
+                                                    <div className="h-10 w-10 shrink-0 rounded border" style={{backgroundColor: field.value || '#000000'}}></div>
+                                                    <FormControl><Input {...field} placeholder="#000000" /></FormControl>
+                                                </div>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="bgColor"
+                                        render={({ field }: any) => (
+                                            <FormItem>
+                                                <FormLabel>Color de Fondo</FormLabel>
+                                                <div className="flex gap-2">
+                                                    <div className="h-10 w-10 shrink-0 rounded border" style={{backgroundColor: field.value || '#FFFFFF'}}></div>
+                                                    <FormControl><Input {...field} placeholder="#FFFFFF" /></FormControl>
+                                                </div>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </>
                         ) : (
                             <>

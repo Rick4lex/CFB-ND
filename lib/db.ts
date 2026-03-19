@@ -13,5 +13,7 @@ export interface BrandingElement {
     fontFamily?: string; // Para tipografía principal
     secondaryFontFamily?: string; // Para tipografía secundaria
     text?: string; // Texto de muestra opcional
+    textColor?: string; // Color de texto para tipografía (opcional)
+    bgColor?: string; // Color de fondo para tipografía (opcional)
   };
 }

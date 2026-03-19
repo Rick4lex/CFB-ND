@@ -2,15 +2,28 @@ import { BrandingElement } from './db';
 
 export const LAYOUTS = [
   {
+    id: 'panoramic',
+    name: 'Panorámico',
+    areas: [
+      "hero hero texture texture color1 color2",
+      "hero hero lifestyle lifestyle color3 color4",
+      "logo logo typography typography typography color5",
+      "logo logo typography typography typography color6"
+    ],
+    colTemplate: "1fr 1fr 1fr 1fr 0.6fr 0.6fr",
+    icon: 'Monitor'
+  },
+  {
     id: 'hero-focus',
     name: 'Enfoque Hero',
     // CSS Grid Template Areas representation
     areas: [
-      "logo color1 color2 color3",
-      "hero hero texture color4",
-      "hero hero lifestyle color5",
-      "typography typography typography typography"
+      "hero hero texture color1 color2",
+      "hero hero lifestyle color3 color4",
+      "logo typography typography typography color5",
+      "logo typography typography typography color6"
     ],
+    colTemplate: "1fr 1fr 1fr 0.6fr 0.6fr",
     // Mobile fallback (stacked) handled in CSS
     icon: 'LayoutTemplate'
   },
@@ -18,55 +31,64 @@ export const LAYOUTS = [
     id: 'balanced',
     name: 'Balanceado',
     areas: [
-      "logo color1 color2 color3",
-      "hero hero texture texture",
-      "lifestyle lifestyle color4 color5",
-      "typography typography typography typography"
+      "typography typography typography logo color1",
+      "typography typography typography logo color2",
+      "hero hero texture texture color3",
+      "hero hero lifestyle lifestyle color4",
+      "color5 color6 . . ."
     ],
+    colTemplate: "1fr 1fr 1fr 1fr 0.8fr",
     icon: 'Grid'
   },
   {
     id: 'mosaic',
     name: 'Mosaico',
     areas: [
-      "logo color1 color2 texture",
-      "hero hero lifestyle lifestyle",
-      "color3 color4 color5 color6",
-      "typography typography typography typography"
+      "logo logo typography typography typography",
+      "logo logo typography typography typography",
+      "hero hero texture color1 color2",
+      "hero hero lifestyle color3 color4",
+      "color5 color6 . . ."
     ],
+    colTemplate: "1fr 1fr 1fr 0.8fr 0.8fr",
     icon: 'LayoutGrid'
   },
   {
     id: 'asymmetric',
     name: 'Asimétrico',
     areas: [
-      "logo hero hero color1",
-      "texture hero hero color2",
-      "lifestyle lifestyle typography typography",
-      "color3 color4 typography typography"
+      "logo typography typography typography",
+      "logo typography typography typography",
+      "hero hero color1 color2",
+      "texture hero color3 color4",
+      "lifestyle color5 color6 ."
     ],
+    colTemplate: "1fr 1fr 1fr 1fr",
     icon: 'LayoutGrid'
   },
   {
     id: 'typography-focus',
     name: 'Tipografía',
     areas: [
-      "logo color1 color2 color3",
-      "typography typography typography typography",
-      "typography typography typography typography",
-      "hero hero lifestyle texture"
+      "typography typography typography logo",
+      "typography typography typography logo",
+      "hero hero lifestyle texture",
+      "hero hero color1 color2",
+      "color3 color4 color5 color6"
     ],
+    colTemplate: "1fr 1fr 1fr 1fr",
     icon: 'LayoutTemplate'
   },
   {
     id: 'minimalist',
     name: 'Minimalista',
     areas: [
-      "logo hero hero hero",
-      "color1 hero hero hero",
-      "color2 typography typography typography",
-      "color3 typography typography typography"
+      "logo logo typography typography typography",
+      "color1 color2 typography typography typography",
+      "hero hero hero color3 color4",
+      "hero hero hero color5 color6"
     ],
+    colTemplate: "1fr 1fr 1fr 1fr 1fr",
     icon: 'LayoutGrid'
   },
   {
@@ -75,9 +97,12 @@ export const LAYOUTS = [
     areas: [
       "hero hero lifestyle lifestyle",
       "hero hero texture texture",
-      "logo color1 color2 color3",
-      "typography typography typography typography"
+      "logo typography typography typography",
+      "logo typography typography typography",
+      "color1 color2 color3 color4",
+      "color5 color6 . ."
     ],
+    colTemplate: "1fr 1fr 1fr 1fr",
     icon: 'Grid'
   }
 ];

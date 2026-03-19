@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { LayoutTemplate, Grid, LayoutGrid, Shuffle, RefreshCw, Download, Smartphone, Square, Monitor } from 'lucide-react';
+import { LayoutTemplate, Grid, LayoutGrid, Shuffle, RefreshCw, Download, Smartphone, Square, Monitor, Upload } from 'lucide-react';
 import { PageLayout } from '../components/layout/Layout';
 import { BrandingElement } from '../lib/db';
 import { useAppStore } from '../lib/store';
@@ -35,6 +35,7 @@ export const ThemeView = () => {
   const [includeBackground, setIncludeBackground] = useState(true);
   
   const moodboardRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Seed Data if empty
   useEffect(() => {
@@ -70,6 +71,49 @@ export const ThemeView = () => {
   const handleRandomLayout = () => {
     const random = LAYOUTS[Math.floor(Math.random() * LAYOUTS.length)];
     setActiveLayoutId(random.id);
+  };
+
+  const handleExportJson = () => {
+    const data = {
+      version: 1,
+      brandingElements,
+      config: { aspectRatio, gap, borderRadius, bgColor, activeLayoutId, roundColors }
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'moodboard-propuesta.json';
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Exportado', description: 'Propuesta guardada como JSON.' });
+  };
+
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (data.brandingElements) {
+          setBrandingElements(data.brandingElements);
+        }
+        if (data.config) {
+          if (data.config.aspectRatio) setAspectRatio(data.config.aspectRatio);
+          if (data.config.gap !== undefined) setGap(data.config.gap);
+          if (data.config.borderRadius !== undefined) setBorderRadius(data.config.borderRadius);
+          if (data.config.bgColor) setBgColor(data.config.bgColor);
+          if (data.config.activeLayoutId) setActiveLayoutId(data.config.activeLayoutId);
+          if (data.config.roundColors !== undefined) setRoundColors(data.config.roundColors);
+        }
+        toast({ title: 'Importado', description: 'Propuesta cargada correctamente.' });
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Archivo JSON inválido.' });
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleExport = async () => {
@@ -216,6 +260,7 @@ export const ThemeView = () => {
                             {layout.icon === 'LayoutTemplate' && <LayoutTemplate className="h-5 w-5"/>}
                             {layout.icon === 'Grid' && <Grid className="h-5 w-5"/>}
                             {layout.icon === 'LayoutGrid' && <LayoutGrid className="h-5 w-5"/>}
+                            {layout.icon === 'Monitor' && <Monitor className="h-5 w-5"/>}
                             <span className="text-[10px] text-center leading-tight">{layout.name}</span>
                           </Button>
                         ))}
@@ -313,7 +358,26 @@ export const ThemeView = () => {
                       {isExporting ? 'Generando...' : 'Descargar Imagen'}
                     </Button>
 
-                    <div className="pt-4 border-t">
+                    <div className="pt-4 border-t space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold">Datos del Moodboard (JSON)</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button variant="outline" onClick={handleExportJson}>
+                            <Download className="mr-2 h-4 w-4" /> Exportar
+                          </Button>
+                          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                            <Upload className="mr-2 h-4 w-4" /> Importar
+                          </Button>
+                          <input 
+                            type="file" 
+                            accept=".json" 
+                            className="hidden" 
+                            ref={fileInputRef} 
+                            onChange={handleImportJson} 
+                          />
+                        </div>
+                      </div>
+
                       <Button variant="ghost" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleReset}>
                         <RefreshCw className="mr-2 h-4 w-4" /> Restablecer Todo
                       </Button>
@@ -363,8 +427,8 @@ export const ThemeView = () => {
                 style={{ 
                     gap: `${gap}px`,
                     gridTemplateAreas: gridTemplateAreas,
-                    gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
-                    gridTemplateRows: `repeat(${gridRows}, 1fr)`
+                    gridTemplateColumns: (activeLayout as any).colTemplate || `repeat(${gridColumns}, 1fr)`,
+                    gridTemplateRows: (activeLayout as any).rowTemplate || `repeat(${gridRows}, 1fr)`
                 }}
              >
                 {areaNames.map(area => renderCell(area))}
