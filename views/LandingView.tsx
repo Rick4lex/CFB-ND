@@ -4,13 +4,13 @@ import { Lock, Calculator, ArrowRight, CheckCircle2, AlertTriangle, MessageCircl
 
 export const LandingView = () => {
     // Cotizador Lite State
-    const [income, setIncome] = useState<string>('');
+    const [income, setIncome] = useState<string>('1.750.905');
     const [risk, setRisk] = useState<string>('1');
     const [ccf, setCcf] = useState<string>('0');
     const [apply40, setApply40] = useState<boolean>(true);
 
     // Basic calculation logic for Lite Cotizador
-    const smlv = 1423500;
+    const smlv = 1750905;
     const calculateAportes = () => {
         const numIncome = parseFloat(income.replace(/\D/g, '')) || 0;
         const ibc = apply40 ? Math.max(numIncome * 0.4, smlv) : Math.max(numIncome, smlv);
@@ -223,7 +223,7 @@ export const LandingView = () => {
                                         />
                                         <label htmlFor="apply40" className="text-sm text-white/80 leading-tight cursor-pointer">
                                             Aplicar base de cotización del 40% <br/>
-                                            <span className="text-xs opacity-70">(Aplica para independientes por prestación de servicios)</span>
+                                            <span className="text-xs opacity-70">(Aplica para independientes Voluntarios)</span>
                                         </label>
                                     </div>
                                 </div>
