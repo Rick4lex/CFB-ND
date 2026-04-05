@@ -1,14 +1,42 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Lock, Calculator, ArrowRight, CheckCircle2, AlertTriangle, MessageCircle, Info } from 'lucide-react';
+import { Lock, Calculator, ArrowRight, CheckCircle2, AlertTriangle, MessageCircle, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { carouselImages } from '../data/landingContent';
 
 export const LandingView = () => {
     // Cotizador Lite State
     const [income, setIncome] = useState<string>('1.750.905');
-    const [risk, setRisk] = useState<string>('1');
+    const [risk, setRisk] = useState<string>('0');
     const [ccf, setCcf] = useState<string>('0');
     const [apply40, setApply40] = useState<boolean>(true);
     const [days, setDays] = useState<number>(30);
+
+    // Carousel State
+    const [currentSlide, setCurrentSlide] = useState(0);
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentSlide((prev) => (prev === carouselImages.length - 1 ? 0 : prev + 1));
+        }, 30000); // 30 seconds
+        return () => clearInterval(timer);
+    }, []);
+
+    const nextSlide = () => {
+        setCurrentSlide((prev) => (prev === carouselImages.length - 1 ? 0 : prev + 1));
+    };
+
+    const prevSlide = () => {
+        setCurrentSlide((prev) => (prev === 0 ? carouselImages.length - 1 : prev - 1));
+    };
+
+    // Smooth Scroll Helper
+    const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+        e.preventDefault();
+        const element = document.getElementById(id);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
 
     // Basic calculation logic for Lite Cotizador
     const smlv = 1750905;
@@ -67,10 +95,10 @@ export const LandingView = () => {
                         <span className="font-bold text-xl" style={{ color: '#641E1E' }}>CFBra!nd</span>
                     </div>
                     <nav className="hidden md:flex items-center gap-6 font-medium text-sm">
-                        <a href="#inicio" className="hover:text-[#641E1E] transition-colors">Inicio</a>
-                        <a href="#servicios" className="hover:text-[#641E1E] transition-colors">Servicios</a>
-                        <a href="#cotizador" className="hover:text-[#641E1E] transition-colors">Cotizador</a>
-                        <a href="#novedades" className="hover:text-[#641E1E] transition-colors">Novedades</a>
+                        <a href="#inicio" onClick={(e) => scrollToSection(e, 'inicio')} className="hover:text-[#641E1E] transition-colors">Inicio</a>
+                        <a href="#servicios" onClick={(e) => scrollToSection(e, 'servicios')} className="hover:text-[#641E1E] transition-colors">Servicios</a>
+                        <a href="#cotizador" onClick={(e) => scrollToSection(e, 'cotizador')} className="hover:text-[#641E1E] transition-colors">Cotizador</a>
+                        <a href="#novedades" onClick={(e) => scrollToSection(e, 'novedades')} className="hover:text-[#641E1E] transition-colors">Novedades</a>
                     </nav>
                     <div className="flex items-center gap-4">
                         <Link to="/login" className="p-2 hover:bg-[#641E1E]/10 rounded-full transition-colors text-[#641E1E]" title="Acceso Staff">
@@ -92,7 +120,7 @@ export const LandingView = () => {
                             Gestión experta de liquidación y aportes en Planilla PILA, ARL Express y Afiliaciones para independientes y empresas en Colombia.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4">
-                            <a href="#cotizador" className="inline-flex items-center justify-center px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105" style={{ backgroundColor: '#641E1E' }}>
+                            <a href="#cotizador" onClick={(e) => scrollToSection(e, 'cotizador')} className="inline-flex items-center justify-center px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105" style={{ backgroundColor: '#641E1E' }}>
                                 Cotizar mi Planilla <ArrowRight className="ml-2 w-5 h-5" />
                             </a>
                             <a href="https://wa.me/573157513325?text=Hola,%20vengo%20de%20la%20p%C3%A1gina%20web%20y%20me%20gustar%C3%ADa%20asesor%C3%ADa%20con%20mi%20Seguridad%20Social" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center px-6 py-3 rounded-xl font-bold transition-colors hover:bg-[#641E1E]/10" style={{ color: '#641E1E', border: '2px solid #641E1E' }}>
@@ -100,14 +128,38 @@ export const LandingView = () => {
                             </a>
                         </div>
                     </div>
-                    <div className="flex-1 relative">
-                        {/* Abstract/Trust visual representation */}
-                        <div className="aspect-square max-w-md mx-auto relative">
-                            <div className="absolute inset-0 bg-[#641E1E]/10 rounded-full blur-3xl"></div>
-                            <div className="relative h-full w-full bg-white/60 backdrop-blur-sm border border-white/40 rounded-3xl shadow-2xl p-8 flex flex-col justify-center items-center text-center">
-                                <CheckCircle2 className="w-24 h-24 mb-6" style={{ color: '#641E1E' }} />
-                                <h3 className="text-3xl font-bold mb-4" style={{ color: '#641E1E' }}>Tranquilidad Total</h3>
-                                <p className="text-gray-700 text-lg">Nos encargamos de los trámites para que tú te enfoques en tu trabajo.</p>
+                    <div className="flex-1 relative w-full max-w-md mx-auto">
+                        {/* Carousel */}
+                        <div className="aspect-[4/5] relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white/40 group">
+                            {carouselImages.map((img, index) => (
+                                <img 
+                                    key={img.id}
+                                    src={img.url} 
+                                    alt={img.alt}
+                                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}
+                                    referrerPolicy="no-referrer"
+                                />
+                            ))}
+                            
+                            {/* Carousel Controls */}
+                            <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={prevSlide} className="p-2 rounded-full bg-white/80 text-[#641E1E] hover:bg-white transition-colors shadow-lg">
+                                    <ChevronLeft className="w-6 h-6" />
+                                </button>
+                                <button onClick={nextSlide} className="p-2 rounded-full bg-white/80 text-[#641E1E] hover:bg-white transition-colors shadow-lg">
+                                    <ChevronRight className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            {/* Carousel Indicators */}
+                            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+                                {carouselImages.map((_, index) => (
+                                    <button 
+                                        key={index}
+                                        onClick={() => setCurrentSlide(index)}
+                                        className={`w-2.5 h-2.5 rounded-full transition-all ${index === currentSlide ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/80'}`}
+                                    />
+                                ))}
                             </div>
                         </div>
                     </div>
