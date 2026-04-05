@@ -222,7 +222,7 @@ export const LandingView = () => {
                         <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 transform transition-transform hover:-translate-y-2">
                             <h3 className="text-2xl font-bold mb-2">Afiliaciones Nuevas</h3>
                             <p className="text-gray-500 mb-6">El paquete completo para iniciar</p>
-                            <div className="text-4xl font-extrabold mb-6" style={{ color: '#641E1E' }}>$15.000<span className="text-lg text-gray-400 font-normal">/entidad</span></div>
+                            <div className="text-4xl font-extrabold mb-6" style={{ color: '#641E1E' }}>$45.000<span className="text-lg text-gray-400 font-normal">/entidad</span></div>
                             <ul className="space-y-3 mb-8">
                                 <li className="flex items-center"><CheckCircle2 className="w-5 h-5 mr-3 text-green-500" /> Afiliación EPS</li>
                                 <li className="flex items-center"><CheckCircle2 className="w-5 h-5 mr-3 text-green-500" /> Afiliación ARL</li>
