@@ -8,17 +8,20 @@ export const LandingView = () => {
     const [risk, setRisk] = useState<string>('1');
     const [ccf, setCcf] = useState<string>('0');
     const [apply40, setApply40] = useState<boolean>(true);
+    const [days, setDays] = useState<number>(30);
 
     // Basic calculation logic for Lite Cotizador
     const smlv = 1750905;
     const calculateAportes = () => {
         const numIncome = parseFloat(income.replace(/\D/g, '')) || 0;
-        const ibc = apply40 ? Math.max(numIncome * 0.4, smlv) : Math.max(numIncome, smlv);
+        const baseIbc = apply40 ? Math.max(numIncome * 0.4, smlv) : Math.max(numIncome, smlv);
+        const ibc = (baseIbc / 30) * days;
         
         const eps = ibc * 0.125;
         const pension = ibc * 0.16;
         
-        let arlRate = 0.00522;
+        let arlRate = 0;
+        if (risk === '1') arlRate = 0.00522;
         if (risk === '2') arlRate = 0.01044;
         if (risk === '3') arlRate = 0.02436;
         if (risk === '4') arlRate = 0.04350;
@@ -51,7 +54,7 @@ export const LandingView = () => {
     };
 
     const calc = calculateAportes();
-    const whatsappMessage = `Hola, vengo de la página web y me gustaría asesoría con mi Seguridad Social. Calculé mis aportes por ${formatCurrency(calc.total)} y quiero gestionar mi planilla.`;
+    const whatsappMessage = `Hola, vengo de la página web y me gustaría asesoría con mi Seguridad Social. Calculé mis aportes por ${days} ${days === 1 ? 'día' : 'días'} con un total de ${formatCurrency(calc.total)} y quiero gestionar mi planilla.`;
     const whatsappLink = `https://wa.me/573157513325?text=${encodeURIComponent(whatsappMessage)}`;
 
     return (
@@ -227,19 +230,34 @@ export const LandingView = () => {
                                         </label>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-2 text-white/90">Nivel de Riesgo (ARL)</label>
-                                    <select 
-                                        value={risk}
-                                        onChange={(e) => setRisk(e.target.value)}
-                                        className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/50 [&>option]:text-black"
-                                    >
-                                        <option value="1">Riesgo I (0.522%)</option>
-                                        <option value="2">Riesgo II (1.044%)</option>
-                                        <option value="3">Riesgo III (2.436%)</option>
-                                        <option value="4">Riesgo IV (4.350%)</option>
-                                        <option value="5">Riesgo V (6.960%)</option>
-                                    </select>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2 text-white/90">Días cotizados</label>
+                                        <select 
+                                            value={days}
+                                            onChange={(e) => setDays(parseInt(e.target.value))}
+                                            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/50 [&>option]:text-black"
+                                        >
+                                            {Array.from({ length: 30 }, (_, i) => i + 1).map(day => (
+                                                <option key={day} value={day}>{day} {day === 1 ? 'día' : 'días'}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-2 text-white/90">Nivel de Riesgo (ARL)</label>
+                                        <select 
+                                            value={risk}
+                                            onChange={(e) => setRisk(e.target.value)}
+                                            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-white/50 [&>option]:text-black"
+                                        >
+                                            <option value="0">No aportar (0%)</option>
+                                            <option value="1">Riesgo I (0.522%)</option>
+                                            <option value="2">Riesgo II (1.044%)</option>
+                                            <option value="3">Riesgo III (2.436%)</option>
+                                            <option value="4">Riesgo IV (4.350%)</option>
+                                            <option value="5">Riesgo V (6.960%)</option>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-2 text-white/90">Caja de Compensación (CCF)</label>
@@ -265,7 +283,7 @@ export const LandingView = () => {
                             </div>
                         </div>
                         <div className="p-10 md:w-1/2 bg-white flex flex-col justify-center">
-                            <h3 className="text-xl font-bold mb-6 text-gray-800">Resumen Estimado</h3>
+                            <h3 className="text-xl font-bold mb-6 text-gray-800">Resumen Estimado <span className="text-sm font-normal text-gray-500 ml-2">({days} {days === 1 ? 'día' : 'días'})</span></h3>
                             
                             <div className="space-y-4 mb-8">
                                 <div className="flex justify-between items-center">
@@ -344,7 +362,7 @@ export const LandingView = () => {
                         <div className="h-8 w-8 bg-[#641E1E] rounded-lg flex items-center justify-center text-white font-bold">CF</div>
                         <span className="font-bold text-xl">CFBra!nd</span>
                     </div>
-                    <p className="text-gray-400 mb-6">Gestión experta de Seguridad Social en Colombia.</p>
+                    <p className="text-gray-400 mb-6">Gestión de Seguridad Social en Colombia.</p>
                     <div className="text-sm text-gray-500">
                         &copy; {new Date().getFullYear()} CFBra!nd. Todos los derechos reservados.
                     </div>

@@ -1,6 +1,7 @@
 
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 export const TokenView = () => {
   const [token, setToken] = useState("");
@@ -19,6 +20,12 @@ export const TokenView = () => {
 
   return (
     <div className="min-h-[100svh] flex items-center justify-center bg-background p-4 relative overflow-hidden">
+       {/* Back to Home Button */}
+       <Link to="/" className="absolute top-6 left-6 flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors z-20 group">
+           <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+           Volver al inicio
+       </Link>
+
        {/* Background Elements */}
        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[120px] pointer-events-none opacity-50"></div>
        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-secondary/20 rounded-full blur-[120px] pointer-events-none opacity-50"></div>

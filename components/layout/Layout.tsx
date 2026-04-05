@@ -1,6 +1,6 @@
 
 import { type ReactNode } from 'react';
-import { LogOut, ArrowLeft, Sun, Moon, Settings } from 'lucide-react';
+import { LogOut, ArrowLeft, Sun, Moon, Settings, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -10,7 +10,7 @@ export const AppHeader = () => {
     const handleLogout = () => {
         if(window.confirm('¿Cerrar sesión?')) {
             localStorage.removeItem('cfbnd_token');
-            navigate('/');
+            navigate('/login');
         }
     };
 
@@ -25,6 +25,14 @@ export const AppHeader = () => {
                     </div>
                 </div>
                 <nav className="flex items-center gap-2 md:gap-4">
+                    <button 
+                        onClick={() => navigate('/')}
+                        className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2 hover:bg-secondary/50 px-3 py-2 rounded-lg"
+                        title="Ver Landing Page"
+                    >
+                        <Globe className="w-5 h-5 md:w-4 md:h-4" /> 
+                        <span className="hidden md:inline">Ver Landing</span>
+                    </button>
                     <button 
                         onClick={() => navigate('/app/config')}
                         className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-2 hover:bg-secondary/50 px-3 py-2 rounded-lg"
