@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 import { useAppStore } from './lib/store';
 
 // --- Lazy Load Views ---
+const LandingView = lazy(() => import('./views/LandingView').then(module => ({ default: module.LandingView })));
 const ServicesView = lazy(() => import('./views/ServicesView').then(module => ({ default: module.ServicesView })));
 const ClientsView = lazy(() => import('./views/ClientsView').then(module => ({ default: module.ClientsView })));
 const DocumentsView = lazy(() => import('./views/DocumentsView').then(module => ({ default: module.DocumentsView })));
@@ -28,7 +29,7 @@ const ProtectedLayout = ({ children }: { children?: ReactNode }) => {
   const isAuthenticated = !!localStorage.getItem('cfbnd_token');
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   return (
@@ -61,7 +62,12 @@ const App = () => {
         <HashRouter>
             <Routes>
                 {/* Public Route */}
-                <Route path="/" element={<TokenView />} />
+                <Route path="/" element={
+                    <Suspense fallback={<LoadingScreen />}>
+                        <LandingView />
+                    </Suspense>
+                } />
+                <Route path="/login" element={<TokenView />} />
 
                 {/* Protected Routes */}
                 <Route path="/app/*" element={
