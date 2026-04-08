@@ -159,7 +159,7 @@ export const ClientsView = () => {
       }
       
       const csvData = filteredClients.map(c => ({
-          ID: c.id,
+          ID: (c.id && String(c.id) !== 'undefined') ? c.id : crypto.randomUUID(),
           Nombre: c.fullName,
           Documento: c.documentId,
           Tipo_Doc: c.documentType,
@@ -201,7 +201,7 @@ export const ClientsView = () => {
           complete: (results) => {
               try {
                   const importedClients: Client[] = results.data.map((row: any) => ({
-                      id: row.ID || crypto.randomUUID(),
+                      id: (row.ID && String(row.ID).trim() !== '' && String(row.ID) !== 'undefined') ? row.ID : crypto.randomUUID(),
                       fullName: row.Nombre,
                       documentId: row.Documento,
                       documentType: row.Tipo_Doc || 'CC',

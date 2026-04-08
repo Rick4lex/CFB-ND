@@ -25,6 +25,7 @@ export const entitySchema = z.object({
 });
 
 export const clientSchema = z.object({
+  id: z.string().optional(),
   documentType: z.string().min(1, "El tipo de documento es requerido"),
   documentId: z.string().min(1, "El número de documento es requerido"),
   fullName: z.string().min(3, "El nombre es requerido"),

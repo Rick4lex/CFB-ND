@@ -124,6 +124,23 @@ export const useAppStore = create<AppState>()(
       })),
 
       initStore: async () => {
+        const state = get();
+        let needsUpdate = false;
+        
+        // FASE 2: Sanar clientes sin ID (o con ID 'undefined')
+        const healedClients = state.clients.map(client => {
+            if (!client.id || String(client.id) === 'undefined') {
+                needsUpdate = true;
+                return { ...client, id: crypto.randomUUID() };
+            }
+            return client;
+        });
+
+        if (needsUpdate) {
+            set({ clients: healedClients });
+            console.log('Fase 2: Clientes sanados (IDs asignados)');
+        }
+
         // La inicialización es automática con persist, pero mantenemos el flag
         // para controlar la UI de carga si fuera necesario.
         set({ isInitialized: true });
