@@ -182,7 +182,7 @@ export const ClientsView = () => {
           Notas: c.notes || ''
       }));
 
-      const csvContent = Papa.unparse(csvData);
+      const csvContent = Papa.unparse(csvData, { delimiter: ";" });
       const bom = '\uFEFF';
       const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
@@ -195,16 +195,32 @@ export const ClientsView = () => {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      Papa.parse(file, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-              try {
-                  const importedClients: Client[] = results.data.map((row: any) => ({
-                      id: (row.ID && String(row.ID).trim() !== '' && String(row.ID) !== 'undefined') ? row.ID : crypto.randomUUID(),
-                      fullName: row.Nombre || row.fullName || row.name || '',
-                      documentId: row.Documento || row.documentId || '',
-                      documentType: row.Tipo_Doc || row['Tipo Doc'] || 'CC',
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const csvText = event.target?.result as string;
+          
+          Papa.parse(csvText, {
+              header: true,
+              skipEmptyLines: true,
+              complete: (results) => {
+                  let parsedData = results.data;
+                  
+                  // Reparación automática si Excel guardó todo en una sola columna
+                  if (results.meta.fields && results.meta.fields.length === 1 && (results.meta.fields[0].includes(',') || results.meta.fields[0].includes(';'))) {
+                      console.log("Detectado CSV de 1 columna (formato Excel). Reparando...");
+                      const header = results.meta.fields[0];
+                      const rows = parsedData.map((row: any) => row[header]);
+                      const repairedCsvText = [header, ...rows].join('\n');
+                      const repairedResults = Papa.parse(repairedCsvText, { header: true, skipEmptyLines: true });
+                      parsedData = repairedResults.data;
+                  }
+
+                  try {
+                      const importedClients: Client[] = parsedData.map((row: any) => ({
+                          id: (row.ID && String(row.ID).trim() !== '' && String(row.ID) !== 'undefined') ? row.ID : crypto.randomUUID(),
+                          fullName: row.Nombre || row.fullName || row.name || '',
+                          documentId: String(row.Documento || row.documentId || '').trim(),
+                          documentType: row.Tipo_Doc || row['Tipo Doc'] || 'CC',
                       email: row.Email || row.email || '',
                       phone: row.Telefono || row.phone || '',
                       whatsapp: row.Whatsapp || row.whatsapp || '',
@@ -291,11 +307,13 @@ export const ClientsView = () => {
                   toast({ variant: "destructive", title: "Error de importación", description: "El archivo CSV no tiene el formato correcto." });
               }
           },
-          error: (error) => {
+          error: (error: any) => {
               console.error("PapaParse error:", error);
               toast({ variant: "destructive", title: "Error de lectura", description: "No se pudo leer el archivo CSV." });
           }
       });
+      };
+      reader.readAsText(file);
       
       e.target.value = ''; // Reset input
   };
