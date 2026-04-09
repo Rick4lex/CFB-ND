@@ -202,26 +202,26 @@ export const ClientsView = () => {
               try {
                   const importedClients: Client[] = results.data.map((row: any) => ({
                       id: (row.ID && String(row.ID).trim() !== '' && String(row.ID) !== 'undefined') ? row.ID : crypto.randomUUID(),
-                      fullName: row.Nombre,
-                      documentId: row.Documento,
-                      documentType: row.Tipo_Doc || 'CC',
-                      email: row.Email || '',
-                      phone: row.Telefono || '',
-                      whatsapp: row.Whatsapp || '',
-                      serviceStatus: row.Estado || 'Contacto inicial',
-                      assignedAdvisor: row.Asesor || '',
-                      entryDate: row.Fecha_Ingreso || new Date().toISOString().split('T')[0],
-                      address: row.Direccion || '',
-                      legalRepName: row.Representante_Legal || '',
-                      legalRepId: row.ID_Representante || '',
-                      referredBy: row.Referido_Por || '',
-                      contractedServices: row.Servicios_Contratados ? row.Servicios_Contratados.split(';') : [],
-                      adminCost: Number(row.Costo_Admin) || 0,
-                      referralCommissionAmount: Number(row.Comision_Referido) || 0,
-                      discountPercentage: Number(row.Porcentaje_Descuento) || 0,
-                      advisorCommissionAmount: row.Monto_Comision_Asesor ? Number(row.Monto_Comision_Asesor) : undefined,
-                      advisorCommissionPercentage: row.Porcentaje_Comision_Asesor ? Number(row.Porcentaje_Comision_Asesor) : undefined,
-                      notes: row.Notas || '',
+                      fullName: row.Nombre || row.fullName || row.name || '',
+                      documentId: row.Documento || row.documentId || '',
+                      documentType: row.Tipo_Doc || row['Tipo Doc'] || 'CC',
+                      email: row.Email || row.email || '',
+                      phone: row.Telefono || row.phone || '',
+                      whatsapp: row.Whatsapp || row.whatsapp || '',
+                      serviceStatus: row.Estado || row.serviceStatus || 'Contacto inicial',
+                      assignedAdvisor: row.Asesor || row.assignedAdvisor || '',
+                      entryDate: row.Fecha_Ingreso || row['Fecha Ingreso'] || new Date().toISOString().split('T')[0],
+                      address: row.Direccion || row.address || '',
+                      legalRepName: row.Representante_Legal || row['Representante Legal'] || '',
+                      legalRepId: row.ID_Representante || row['ID Representante'] || '',
+                      referredBy: row.Referido_Por || row['Referido Por'] || '',
+                      contractedServices: (row.Servicios_Contratados || row['Servicios Contratados']) ? String(row.Servicios_Contratados || row['Servicios Contratados']).split(';') : [],
+                      adminCost: Number(row.Costo_Admin || row['Costo Admin']) || 0,
+                      referralCommissionAmount: Number(row.Comision_Referido || row['Comision Referido']) || 0,
+                      discountPercentage: Number(row.Porcentaje_Descuento || row['Porcentaje Descuento']) || 0,
+                      advisorCommissionAmount: (row.Monto_Comision_Asesor || row['Monto Comision Asesor']) ? Number(row.Monto_Comision_Asesor || row['Monto Comision Asesor']) : undefined,
+                      advisorCommissionPercentage: (row.Porcentaje_Comision_Asesor || row['Porcentaje Comision Asesor']) ? Number(row.Porcentaje_Comision_Asesor || row['Porcentaje Comision Asesor']) : undefined,
+                      notes: row.Notas || row.notes || '',
                       beneficiaries: [],
                       credentials: []
                   }));
@@ -260,10 +260,14 @@ export const ClientsView = () => {
                               
                               if (existingIndex >= 0) {
                                   // Mantener ID original y datos complejos (beneficiarios, credenciales)
+                                  // Si el original no tenía ID válido, usar el nuevo
+                                  const existingId = mergedClients[existingIndex].id;
+                                  const validId = (existingId && String(existingId) !== 'undefined') ? existingId : newClient.id;
+                                  
                                   mergedClients[existingIndex] = {
                                       ...mergedClients[existingIndex],
                                       ...newClient,
-                                      id: mergedClients[existingIndex].id,
+                                      id: validId,
                                       beneficiaries: mergedClients[existingIndex].beneficiaries || [],
                                       credentials: mergedClients[existingIndex].credentials || []
                                   };
