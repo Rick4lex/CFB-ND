@@ -163,7 +163,13 @@ export const DocumentsView = () => {
           const dataUrl = await htmlToImage.toPng(captureRef.current!, { 
             quality: 1, 
             pixelRatio: 2, 
-            backgroundColor: '#ffffff' 
+            backgroundColor: '#ffffff',
+            filter: (node) => {
+                if (node.tagName === 'LINK' && (node as HTMLLinkElement).href && (node as HTMLLinkElement).href.includes('font-awesome')) {
+                    return false;
+                }
+                return true;
+            }
           });
           
           setGeneratedImage(dataUrl);

@@ -45,6 +45,15 @@ export function InvoicePreview({ client, additionalItems, totalAmount: _unusedTo
   // Recalculamos el total real sumando los precios vigentes del catálogo + ítems adicionales
   const realTotal = allItems.reduce((acc, item) => acc + item.price, 0);
 
+  // Lógica para ajustar el tamaño del texto del deudor
+  const nameLength = (client.fullName || '').length;
+  let debtorTextSize = "text-xl print:text-lg";
+  if (nameLength > 45) {
+      debtorTextSize = "text-sm print:text-xs";
+  } else if (nameLength > 30) {
+      debtorTextSize = "text-base print:text-sm";
+  }
+
   return (
     <div className="w-full bg-white text-[#3A2E27] font-sans p-4 shadow-lg rounded-lg border print:p-2 print:shadow-none print:border-none box-border">
         
@@ -79,7 +88,7 @@ export function InvoicePreview({ client, additionalItems, totalAmount: _unusedTo
 
                 <div className='flex items-stretch print:flex print:items-stretch'>
                     <div className='bg-[#3A2E27] text-white font-bold text-lg px-4 py-2 rounded-l-md whitespace-nowrap print:text-base flex items-center' style={{flexBasis: '33.3333%'}}>DEUDOR</div>
-                    <div className='bg-[#E08C79]/30 text-[#3A2E27] font-semibold text-xl px-4 py-1.5 flex-grow rounded-r-md border border-[#3A2E27]/30 whitespace-nowrap overflow-hidden text-ellipsis print:text-lg flex items-center justify-center'>{client.fullName}</div>
+                    <div className={`bg-[#E08C79]/30 text-[#3A2E27] font-semibold ${debtorTextSize} px-4 py-1.5 flex-grow rounded-r-md border border-[#3A2E27]/30 whitespace-nowrap overflow-hidden text-ellipsis flex items-center justify-center`}>{client.fullName}</div>
                 </div>
                 
                 <div className="grid grid-cols-9 gap-6 print:grid print:grid-cols-9 print:gap-4">

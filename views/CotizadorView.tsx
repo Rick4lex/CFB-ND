@@ -166,7 +166,13 @@ export function CotizadorView() {
         const dataUrl = await htmlToImage.toPng(imageRef.current, { 
             quality: 1, 
             pixelRatio: 2, 
-            backgroundColor: '#ffffff' 
+            backgroundColor: '#ffffff',
+            filter: (node) => {
+                if (node.tagName === 'LINK' && (node as HTMLLinkElement).href && (node as HTMLLinkElement).href.includes('font-awesome')) {
+                    return false;
+                }
+                return true;
+            }
         });
         const link = document.createElement('a');
         link.download = `cotizacion_${new Date().getTime()}.png`;

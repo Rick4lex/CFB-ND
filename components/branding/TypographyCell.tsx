@@ -26,7 +26,7 @@ export function TypographyCell({ element, onClick, style, className = '', aspect
       style={{ ...style, backgroundColor: bgColor || undefined, color: textColor || undefined }}
       className={`relative overflow-hidden rounded-xl border ${!bgColor ? 'bg-card' : ''} ${isShort ? 'p-4 md:p-6' : 'p-6 md:p-8'} shadow-sm transition-all hover:ring-2 hover:ring-primary/50 cursor-pointer flex flex-col justify-center ${className}`}
     >
-      <link href={fontLink} rel="stylesheet" />
+      <link href={fontLink} rel="stylesheet" crossOrigin="anonymous" />
       
       <div className="absolute top-2 right-2 rounded-md bg-background/80 px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground backdrop-blur-sm z-10">
         {element.label}
