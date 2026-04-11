@@ -205,7 +205,7 @@ export const LandingView = () => {
                                     <span className="font-bold">$10.000</span>
                                 </div>
                                 <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                                    <span className="text-gray-600">16 a 28 días</span>
+                                    <span className="text-gray-600">16 a 30 días</span>
                                     <span className="font-bold">$15.000</span>
                                 </div>
                             </div>
@@ -222,12 +222,13 @@ export const LandingView = () => {
                         <div className="bg-white rounded-3xl p-8 shadow-xl border border-gray-100 transform transition-transform hover:-translate-y-2">
                             <h3 className="text-2xl font-bold mb-2">Afiliaciones Nuevas</h3>
                             <p className="text-gray-500 mb-6">El paquete completo para iniciar</p>
-                            <div className="text-4xl font-extrabold mb-6" style={{ color: '#641E1E' }}>$45.000<span className="text-lg text-gray-400 font-normal">/entidad</span></div>
+                            <div className="text-4xl font-extrabold mb-6" style={{ color: '#641E1E' }}>$50.000<span className="text-lg text-gray-400 font-normal">/entidad</span></div>
                             <ul className="space-y-3 mb-8">
                                 <li className="flex items-center"><CheckCircle2 className="w-5 h-5 mr-3 text-green-500" /> Afiliación EPS</li>
                                 <li className="flex items-center"><CheckCircle2 className="w-5 h-5 mr-3 text-green-500" /> Afiliación ARL</li>
                                 <li className="flex items-center"><CheckCircle2 className="w-5 h-5 mr-3 text-green-500" /> Afiliación CCF</li>
                                 <li className="flex items-center"><CheckCircle2 className="w-5 h-5 mr-3 text-green-500" /> Afiliación Pensión</li>
+                                <li className="flex items-center"><CheckCircle2 className="w-5 h-5 mr-3 text-green-500" /> Liquidación Planilla</li>
                             </ul>
                             <a href="https://wa.me/573157513325?text=Me%20interesan%20las%20Afiliaciones%20Nuevas" target="_blank" rel="noreferrer" className="block w-full py-3 rounded-xl font-bold text-center text-white transition-colors hover:bg-opacity-90" style={{ backgroundColor: '#641E1E' }}>Solicitar</a>
                         </div>
