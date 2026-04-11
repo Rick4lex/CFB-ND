@@ -28,5 +28,15 @@ export const carouselImages = [
         id: 6, 
         url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/q_auto/f_auto/v1775851187/CFB_Post_2_au1qzm.jpg', 
         alt: 'Planilla' 
+    },
+    { 
+        id: 7, 
+        url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/q_auto/f_auto/v1775884027/CFB_Post_12_tnujcc.jpg', 
+        alt: 'ARL IV PLANILLA Y' 
+    },
+    { 
+        id: 8, 
+        url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/q_auto/f_auto/v1775884027/CFB_Post_16_gcanuq.jpg', 
+        alt: 'ARL V PLANILLA Y' 
     }
 ];
