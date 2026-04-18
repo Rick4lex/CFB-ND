@@ -46,8 +46,10 @@ interface AdditionalProcedureItem {
 export function CotizadorView() {
   const imageRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { config, setConfig, cotizadorProfiles, setCotizadorProfiles } = useAppStore();
+  const { config, setConfig, cotizadorProfiles, setCotizadorProfiles, catalogServices } = useAppStore();
   const SMLV = config.financials.smlv;
+
+  const extraServices = catalogServices ? catalogServices.filter((s) => s.type === 'EXTRA_SERVICE' && s.displayInQuoter !== false) : [];
 
   // UI State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -466,6 +468,25 @@ export function CotizadorView() {
                                     <div className="flex justify-between items-center p-2 hover:bg-muted/50 rounded-lg transition-colors"><Label className="font-normal text-sm cursor-pointer">Liquidación Planilla</Label><Switch checked={charges.planillaLiquidation} onCheckedChange={() => toggleCharge('planillaLiquidation')}/></div>
                                     <div className="flex justify-between items-center p-2 hover:bg-muted/50 rounded-lg transition-colors"><Label className="font-normal text-sm cursor-pointer">Corrección Planilla</Label><Switch checked={charges.planillaCorrection} onCheckedChange={() => toggleCharge('planillaCorrection')}/></div>
                                 </div>
+                                {extraServices.length > 0 && (
+                                    <div className="flex gap-2">
+                                        <select 
+                                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                            onChange={(e) => {
+                                                const svc = extraServices.find(s => s.id === e.target.value);
+                                                if (svc) {
+                                                    setNewAdditionalItem({ description: svc.name, value: formatCurrency(svc.basePrice) });
+                                                }
+                                            }}
+                                            defaultValue=""
+                                        >
+                                            <option value="" disabled>Seleccionar extra del catálogo...</option>
+                                            {extraServices.map(svc => (
+                                                <option key={svc.id} value={svc.id}>{svc.name} - {formatCurrency(svc.basePrice)}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                                 <div className="flex gap-2">
                                     <Input aria-label="Descripción ítem adicional" placeholder="Descripción ítem..." value={newAdditionalItem.description} onChange={e => setNewAdditionalItem({...newAdditionalItem, description: e.target.value})} className="h-9 text-xs"/>
                                     <Input aria-label="Valor ítem adicional" placeholder="$0 (Use - para descuentos)" value={newAdditionalItem.value} onChange={e => setNewAdditionalItem({...newAdditionalItem, value: formatCurrency(parseCurrency(e.target.value))})} className="h-9 w-40 text-xs"/>

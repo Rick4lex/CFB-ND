@@ -73,6 +73,8 @@ export const clientSchema = z.object({
 
   notes: z.string().optional(),
   proofsLink: z.string().url().optional().or(z.literal('')),
+  ltv: z.coerce.number().optional().default(0),
+  balance: z.coerce.number().optional().default(0),
 });
 
 export const managerSchema = z.object({
@@ -92,3 +94,37 @@ export const advisorSchema = z.object({
 export const advisorManagerSchema = z.object({
   advisors: z.array(advisorSchema),
 });
+
+// ==========================================
+// Schemas Financieros
+// ==========================================
+
+export const accountSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, "El nombre de la cuenta es requerido"),
+  type: z.enum(['ASSET', 'LIABILITY', 'EQUITY']),
+  balance: z.coerce.number().default(0),
+  currency: z.string().default('COP'),
+});
+
+export const categorySchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, "El nombre de la categoría es requerido"),
+  type: z.enum(['INCOME', 'EXPENSE']),
+  parentId: z.string().optional(),
+  color: z.string().optional(),
+});
+
+export const transactionSchema = z.object({
+  id: z.string(),
+  date: z.coerce.number(),
+  type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER']),
+  amount: z.coerce.number().positive("El monto debe ser positivo"),
+  description: z.string().min(1, "La descripción es requerida"),
+  categoryId: z.string().optional(),
+  sourceAccountId: z.string().min(1, "La cuenta de origen es requerida"),
+  destinationAccountId: z.string().optional(),
+  clientId: z.string().optional(),
+  documentId: z.string().optional(),
+});
+

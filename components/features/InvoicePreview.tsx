@@ -22,8 +22,8 @@ interface InvoicePreviewProps {
 const formatCurrency = (amount: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
 export function InvoicePreview({ client, additionalItems, totalAmount: _unusedTotalAmount, invoiceDate = new Date() }: InvoicePreviewProps) {
-  const { config } = useAppStore();
-  const catalog = config.servicesCatalog;
+  const { catalogServices } = useAppStore();
+  const catalog = catalogServices || [];
   
   const generationDate = format(invoiceDate, "dd 'de' MMMM 'de' yyyy", { locale: es });
   
@@ -35,7 +35,7 @@ export function InvoicePreview({ client, additionalItems, totalAmount: _unusedTo
         
         // Si no existe en catálogo, mostramos el identificador guardado pero con precio 0 para evitar errores
         const name = service?.name || serviceIdentifier;
-        const price = service?.price || 0;
+        const price = service?.basePrice || 0;
 
         return { name, price };
     }),

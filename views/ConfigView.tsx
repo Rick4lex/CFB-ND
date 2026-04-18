@@ -2,25 +2,30 @@
 import { useState, useRef, type ChangeEvent } from 'react';
 import { useAppStore } from '../lib/store';
 import { PageLayout } from '../components/layout/Layout';
+import { CatalogService } from '../lib/types';
 import { 
     Tabs, TabsList, TabsTrigger, Button, Input, Switch, ScrollArea, 
-    Card, CardContent, CardHeader, CardTitle, CardDescription, Separator
+    Card, CardContent, CardHeader, CardTitle, CardDescription, Separator,
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from '../components/ui/Shared';
-import { Save, Download, Upload, PlusCircle, Trash2, Database, LifeBuoy, ShieldAlert } from 'lucide-react';
+import { Save, Download, Upload, PlusCircle, Trash2, Database, LifeBuoy, ShieldAlert, Code } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
 
 export const ConfigView = () => {
-    const { config, setConfig } = useAppStore();
+    const { config, setConfig, catalogServices, setCatalogServices } = useAppStore();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState('services');
+    
+    // UI state for modals
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
     // Local state for edits
-    const [tempServices, setTempServices] = useState(config.servicesCatalog);
+    const [tempServices, setTempServices] = useState<CatalogService[]>(catalogServices || []);
 
     const handleSaveServices = () => {
-        setConfig(prev => ({ ...prev, servicesCatalog: tempServices }));
-        toast({ title: "Catálogo de Servicios Actualizado", description: "Los cambios se han guardado exitosamente." });
+        setCatalogServices(tempServices);
+        toast({ title: "Catálogo Actualizado", description: "Los cambios se han guardado exitosamente." });
     };
 
     const handleServiceChange = (index: number, field: string, value: any) => {
@@ -30,8 +35,25 @@ export const ConfigView = () => {
     };
 
     const handleAddService = () => {
-        const newId = `svc_${Date.now()}`;
-        setTempServices([{ id: newId, name: 'Nuevo Servicio', price: 0, active: true }, ...tempServices]);
+        const newId = `extra_${Date.now()}`;
+        setTempServices([{ 
+            id: newId, 
+            name: 'Nuevo Servicio Extra', 
+            basePrice: 0, 
+            type: 'EXTRA_SERVICE',
+            category: 'Extras',
+            displayInQuoter: true
+        }, ...tempServices]);
+    };
+
+    const handleExportToCode = () => {
+        const codeString = `import { CatalogService } from './types';\n\nexport const DEFAULT_CATALOG: CatalogService[] = ${JSON.stringify(tempServices, null, 4)};`;
+        navigator.clipboard.writeText(codeString)
+            .then(() => {
+                toast({ title: "Código copiado", description: "El catálogo ha sido copiado al portapapeles." });
+                setIsExportModalOpen(true);
+            })
+            .catch(() => toast({ variant: "destructive", title: "Error al copiar", description: "No se pudo acceder al portapapeles." }));
     };
 
     const handleBackup = () => {
@@ -123,57 +145,80 @@ export const ConfigView = () => {
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 bg-primary/5">
                                     <div>
                                         <CardTitle className="text-2xl">Catálogo de Servicios</CardTitle>
-                                        <CardDescription>Define los servicios disponibles y sus precios base.</CardDescription>
+                                        <CardDescription>Gestión unificada de servicios base (Core) y extras.</CardDescription>
                                     </div>
-                                    <Button onClick={handleAddService} size="sm" className="rounded-full shadow-lg">
-                                        <PlusCircle className="mr-2 h-4 w-4"/> Nuevo Servicio
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleAddService} size="sm" className="rounded-full shadow-lg" variant="secondary">
+                                            <PlusCircle className="mr-2 h-4 w-4"/> Nuevo Extra
+                                        </Button>
+                                        <Button onClick={handleExportToCode} size="sm" className="rounded-full shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white">
+                                            <Code className="mr-2 h-4 w-4"/> 📋 Exportar a Código
+                                        </Button>
+                                    </div>
                                 </CardHeader>
                                 <Separator />
                                 <CardContent className="p-0">
                                     <ScrollArea className="h-[500px]">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6">
-                                            {tempServices.map((service, index) => (
-                                                <div key={service.id} className="group p-5 rounded-3xl border bg-card/50 hover:border-primary/40 hover:shadow-md transition-all relative overflow-hidden">
+                                            {tempServices.map((service, index) => {
+                                                const isCore = service.type === 'CORE_SYSTEM';
+                                                return (
+                                                <div key={service.id} className={`group p-5 rounded-3xl border bg-card/50 transition-all relative overflow-hidden ${isCore ? 'border-primary/10' : 'border-emerald-500/20 hover:border-emerald-500/40'}`}>
                                                     <div className="flex items-start justify-between gap-4 mb-4">
-                                                        <div className="flex-1">
+                                                        <div className="flex-1 space-y-1">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${isCore ? 'bg-primary/10 text-primary' : 'bg-emerald-500/10 text-emerald-600'}`}>
+                                                                    {isCore ? 'Sistema Base' : 'Servicio Extra'}
+                                                                </span>
+                                                                {!isCore && (
+                                                                    <Input
+                                                                        value={service.category || ''}
+                                                                        onChange={(e) => handleServiceChange(index, 'category', e.target.value)}
+                                                                        placeholder="Categoría"
+                                                                        className="h-6 text-xs w-32 bg-background border-dashed"
+                                                                    />
+                                                                )}
+                                                            </div>
                                                             <Input 
                                                                 value={service.name} 
                                                                 onChange={(e) => handleServiceChange(index, 'name', e.target.value)}
-                                                                className="h-10 border-transparent bg-transparent hover:bg-muted/50 focus:bg-background transition-colors font-bold text-lg p-0 px-2"
+                                                                readOnly={isCore}
+                                                                className={`h-10 border-transparent bg-transparent hover:bg-muted/50 focus:bg-background transition-colors font-bold text-lg p-0 px-2 ${isCore && 'opacity-80 pointer-events-none'}`}
                                                             />
                                                         </div>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full" 
-                                                            onClick={() => setTempServices(tempServices.filter((_, i) => i !== index))}
-                                                        >
-                                                            <Trash2 className="h-4 w-4"/>
-                                                        </Button>
+                                                        {!isCore && (
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full" 
+                                                                onClick={() => setTempServices(tempServices.filter((_, i) => i !== index))}
+                                                            >
+                                                                <Trash2 className="h-4 w-4"/>
+                                                            </Button>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center justify-between gap-4">
                                                         <div className="flex items-center gap-3 bg-muted/40 rounded-2xl px-4 py-2 flex-1">
                                                             <span className="text-sm font-black text-muted-foreground opacity-50">$</span>
                                                             <Input 
                                                                 type="number"
-                                                                value={service.price} 
-                                                                onChange={(e) => handleServiceChange(index, 'price', Number(e.target.value))}
+                                                                value={service.basePrice} 
+                                                                onChange={(e) => handleServiceChange(index, 'basePrice', Number(e.target.value))}
                                                                 className="h-8 border-none bg-transparent p-0 text-lg font-mono focus-visible:ring-0"
                                                             />
                                                         </div>
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">
-                                                                {service.active ? 'Activo' : 'Inactivo'}
+                                                                {service.displayInQuoter ? 'Visible' : 'Oculto'}
                                                             </span>
                                                             <Switch 
-                                                                checked={service.active} 
-                                                                onCheckedChange={(checked) => handleServiceChange(index, 'active', checked)}
+                                                                checked={service.displayInQuoter} 
+                                                                onCheckedChange={(checked) => handleServiceChange(index, 'displayInQuoter', checked)}
                                                             />
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            )})}
                                         </div>
                                     </ScrollArea>
                                 </CardContent>
@@ -228,6 +273,34 @@ export const ConfigView = () => {
                         </div>
                     )}
                 </Tabs>
+
+                <Dialog open={isExportModalOpen} onOpenChange={setIsExportModalOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Code className="w-5 h-5 text-primary" />
+                                Puente a Código Fuente
+                            </DialogTitle>
+                            <DialogDescription>
+                                Has copiado el array JSON actualizado. Para hacer estos cambios persistentes (hardcoded) y protegerlos contra reseteos del navegador:
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="text-sm text-muted-foreground space-y-2">
+                                <p>1. Ve a tu editor de código.</p>
+                                <p>2. Abre el archivo <code className="bg-muted px-1.5 py-0.5 rounded text-primary">lib/defaultCatalog.ts</code>.</p>
+                                <p>3. Reemplaza el contenido completo con lo que acabas de copiar de tu portapapeles.</p>
+                            </div>
+                            <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 text-xs font-mono text-primary/80">
+                                import {'{'} CatalogService {'}'} from './types';<br/><br/>
+                                export const DEFAULT_CATALOG: CatalogService[] = ...
+                            </div>
+                        </div>
+                        <div className="flex justify-end">
+                            <Button onClick={() => setIsExportModalOpen(false)}>¡Entendido!</Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </PageLayout>
     );

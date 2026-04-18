@@ -1,5 +1,5 @@
 
-import { useState, useMemo, useCallback, useRef, type ChangeEvent } from 'react';
+import { useState, useMemo, useCallback, useRef, type ChangeEvent, useEffect } from 'react';
 import { UserCog, Building, PlusCircle, Search, FileText, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, Upload, KeyRound, Wrench } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Papa from 'papaparse';
@@ -8,22 +8,46 @@ import { useClientOperations } from '../hooks/useClientOperations';
 import { PageLayout } from '../components/layout/Layout';
 import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/Shared';
 import { EntityManagerDialog, AdvisorManagerDialog, ClientFormDialog, ClientCredentialsDialog } from '../components/features/Dialogs';
+import { ClientProfileSheet } from '../components/features/ClientProfileSheet';
 import { Client, Advisor, Entity, ClientWithMultiple } from '../lib/types';
 import { serviceStatuses } from '../lib/constants';
+import { CLIENT_STATUS_META, CLIENT_STATUS } from '../lib/crm-states';
 import { useToast } from '../hooks/use-toast';
 import { debounce } from '../lib/utils'; 
 
 const ITEMS_PER_PAGE = 10;
 
 const getStatusBadgeVariant = (status: string) => {
+    const meta = CLIENT_STATUS_META[status];
+    if (meta) {
+        // Map the colors from meta to badge variants
+        switch (meta.color) {
+            case 'green': return 'success';
+            case 'teal': return 'success';
+            case 'amber': return 'warning';
+            case 'red': return 'destructive';
+            case 'coral': return 'destructive';
+            case 'blue': return 'info';
+            case 'purple': return 'default'; // or a custom VIP color if available
+            case 'pink': return 'secondary';
+            case 'gray': return 'secondary';
+            default: return 'secondary';
+        }
+    }
+    
+    // Legacy fallback
     switch (status.toLowerCase()) {
         case 'activo': return 'success';
         case 'en trámite': return 'info';
         case 'mora': return 'destructive';
         case 'documentación pendiente': return 'warning';
-        case 'retirado': return 'gray';
+        case 'retirado': return 'secondary';
         default: return 'secondary';
     }
+};
+
+const getStatusLabel = (status: string) => {
+    return CLIENT_STATUS_META[status]?.label || status;
 };
 
 export const ClientsView = () => {
@@ -31,10 +55,38 @@ export const ClientsView = () => {
   const { toast } = useToast();
   
   // Store Global
-  const { clients, advisors, entities, setAdvisors, setEntities } = useAppStore();
+  const { clients, advisors, entities, transactions, setAdvisors, setEntities, updateClient } = useAppStore();
+
+  // Calculate LTV and Balance automatically based on transactions
+  useEffect(() => {
+    let updatesCount = 0;
+    clients.forEach(client => {
+      
+      const clientTransactions = transactions.filter(t => t.clientId === client.id);
+      
+      let calculatedLtv = 0;
+      let calculatedBalance = 0;
+
+      clientTransactions.forEach(t => {
+         if (t.type === 'INCOME') {
+             calculatedLtv += t.amount;
+         }
+      });
+
+      const newLtv = clientTransactions.length > 0 ? calculatedLtv : client.ltv; 
+      const newBalance = client.balance; // We will use current functionality for balance, keeping ltv dynamically computed
+
+      if (newLtv !== client.ltv) {
+         updateClient({ ...client, ltv: newLtv });
+         updatesCount++;
+      }
+    });
+
+  }, [clients, transactions, updateClient]);
 
   // Hook Controlador
   const { saveClient, deleteClient, repairClient } = useClientOperations();
+
   
   // Hooks
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,6 +94,11 @@ export const ClientsView = () => {
   // Modals
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  
+  // Profile Sheet
+  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false);
+  const [profileClient, setProfileClient] = useState<Client | null>(null);
+
   const [isAdvisorModalOpen, setIsAdvisorModalOpen] = useState(false);
   const [isEntityModalOpen, setIsEntityModalOpen] = useState(false);
   const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
@@ -101,6 +158,11 @@ export const ClientsView = () => {
   }), [clients]);
 
   // --- Handlers ---
+  const handleOpenProfile = (client: Client) => {
+      setProfileClient(client);
+      setIsProfileSheetOpen(true);
+  };
+
   const handleCreate = () => {
       setEditingClient(null);
       setIsRepairMode(false);
@@ -108,12 +170,14 @@ export const ClientsView = () => {
   };
 
   const handleRepairClick = (client: Client) => {
+      setIsProfileSheetOpen(false);
       setEditingClient(client);
       setIsRepairMode(true);
       setIsClientModalOpen(true);
   };
 
   const handleShowCredentials = (client: Client) => {
+      setIsProfileSheetOpen(false);
       setCredentialsClient(client);
       setIsCredentialsModalOpen(true);
   };
@@ -166,7 +230,7 @@ export const ClientsView = () => {
           Email: c.email || '',
           Telefono: c.phone || '',
           Whatsapp: c.whatsapp || '',
-          Estado: c.serviceStatus,
+          Estado: getStatusLabel(c.serviceStatus),
           Asesor: c.assignedAdvisor || '',
           Fecha_Ingreso: c.entryDate,
           Direccion: c.address || '',
@@ -179,6 +243,8 @@ export const ClientsView = () => {
           Porcentaje_Descuento: c.discountPercentage || 0,
           Monto_Comision_Asesor: c.advisorCommissionAmount ?? '',
           Porcentaje_Comision_Asesor: c.advisorCommissionPercentage ?? '',
+          LTV: c.ltv || 0,
+          Saldo_Pendiente: c.balance || 0,
           Notas: c.notes || ''
       }));
 
@@ -189,6 +255,24 @@ export const ClientsView = () => {
       link.href = URL.createObjectURL(blob);
       link.download = `clientes_cfbnd_${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
+  };
+
+  const getStatusKeyFromLabel = (label: string) => {
+      const entry = Object.entries(CLIENT_STATUS_META).find(
+          ([key, meta]) => meta.label.toLowerCase() === label.toLowerCase() || key.toLowerCase() === label.toLowerCase()
+      );
+      if (entry) return entry[0];
+      
+      const lower = label.toLowerCase();
+      if (lower === 'contacto inicial') return CLIENT_STATUS.INITIAL_CONTACT;
+      if (lower === 'prospecto') return CLIENT_STATUS.PROSPECT;
+      if (lower === 'activo' || lower === 'activo - al día' || lower === 'activo — al día') return CLIENT_STATUS.ACTIVE_CURRENT;
+      if (lower === 'mora' || lower === 'con deuda / moroso') return CLIENT_STATUS.DEBTOR;
+      if (lower === 'suspendido') return CLIENT_STATUS.SUSPENDED;
+      if (lower === 'retirado') return CLIENT_STATUS.CHURNED;
+      if (lower.includes('trámite') || lower.includes('pendiente')) return CLIENT_STATUS.INITIAL_CONTACT;
+      
+      return CLIENT_STATUS.INITIAL_CONTACT;
   };
 
   const handleImportCSV = (e: ChangeEvent<HTMLInputElement>) => {
@@ -224,7 +308,7 @@ export const ClientsView = () => {
                       email: row.Email || row.email || '',
                       phone: row.Telefono || row.phone || '',
                       whatsapp: row.Whatsapp || row.whatsapp || '',
-                      serviceStatus: row.Estado || row.serviceStatus || 'Contacto inicial',
+                      serviceStatus: getStatusKeyFromLabel(row.Estado || row.serviceStatus || ''),
                       assignedAdvisor: row.Asesor || row.assignedAdvisor || '',
                       entryDate: row.Fecha_Ingreso || row['Fecha Ingreso'] || new Date().toISOString().split('T')[0],
                       address: row.Direccion || row.address || '',
@@ -237,6 +321,8 @@ export const ClientsView = () => {
                       discountPercentage: Number(row.Porcentaje_Descuento || row['Porcentaje Descuento']) || 0,
                       advisorCommissionAmount: (row.Monto_Comision_Asesor || row['Monto Comision Asesor']) ? Number(row.Monto_Comision_Asesor || row['Monto Comision Asesor']) : undefined,
                       advisorCommissionPercentage: (row.Porcentaje_Comision_Asesor || row['Porcentaje Comision Asesor']) ? Number(row.Porcentaje_Comision_Asesor || row['Porcentaje Comision Asesor']) : undefined,
+                      ltv: Number(row.LTV || row.ltv) || 0,
+                      balance: Number(row.Saldo_Pendiente || row['Saldo Pendiente'] || row.balance) || 0,
                       notes: row.Notas || row.notes || '',
                       beneficiaries: [],
                       credentials: []
@@ -446,6 +532,7 @@ export const ClientsView = () => {
                         <TableHead className="w-[250px]">Cliente</TableHead>
                         <TableHead>Documento</TableHead>
                         <TableHead>Estado</TableHead>
+                        <TableHead className="hidden md:table-cell">Finanzas</TableHead>
                         <TableHead className="hidden md:table-cell">Asesor</TableHead>
                         <TableHead className="hidden lg:table-cell">Fecha Ingreso</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
@@ -454,7 +541,7 @@ export const ClientsView = () => {
                 <TableBody>
                     {paginatedClients.length > 0 ? (
                         paginatedClients.map(c => (
-                            <TableRow key={c.id} className="group hover:bg-muted/30 transition-colors duration-200">
+                            <TableRow key={c.id} className="group hover:bg-muted/30 transition-colors duration-200 cursor-pointer" onClick={() => handleOpenProfile(c)}>
                                 <TableCell className="font-medium">
                                     <div className="flex flex-col">
                                         <span className="text-base font-semibold group-hover:text-primary transition-colors">{c.fullName}</span>
@@ -465,12 +552,26 @@ export const ClientsView = () => {
                                     <Badge variant="outline" className="font-mono text-xs bg-background/50 backdrop-blur-sm whitespace-nowrap">{c.documentType} {c.documentId}</Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant={getStatusBadgeVariant(c.serviceStatus)}>{c.serviceStatus}</Badge>
+                                    <Badge variant={getStatusBadgeVariant(c.serviceStatus)}>{getStatusLabel(c.serviceStatus)}</Badge>
+                                </TableCell>
+                                <TableCell className="hidden md:table-cell">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 block" title="Lifetime Value (Total Ingresado)">
+                                            LTV: ${c.ltv?.toLocaleString() || '0'}
+                                        </span>
+                                        {(c.balance && c.balance > 0) ? (
+                                            <span className="text-xs text-destructive flex items-center gap-1 font-semibold" title="Saldo Pendiente de Pago">
+                                                Deuda: ${c.balance.toLocaleString()}
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground/70" title="Cliente al día con sus pagos">Al día</span>
+                                        )}
+                                    </div>
                                 </TableCell>
                                 <TableCell className="hidden md:table-cell text-muted-foreground text-sm">{c.assignedAdvisor}</TableCell>
                                 <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">{c.entryDate}</TableCell>
                                 <TableCell className="text-right">
-                                    <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                    <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30" onClick={() => handleShowCredentials(c)} title="Ver Accesos">
                                             <KeyRound className="h-4 w-4"/>
                                         </Button>
@@ -521,6 +622,18 @@ export const ClientsView = () => {
         </Card>
 
         {/* Pass entities to ClientFormDialog */}
+        <ClientProfileSheet
+            isOpen={isProfileSheetOpen}
+            onOpenChange={setIsProfileSheetOpen}
+            client={profileClient}
+            onEdit={handleRepairClick}
+            onDocuments={(client) => {
+                setIsProfileSheetOpen(false);
+                navigate('/app/documentos', { state: { clientId: client.id } });
+            }}
+            onCredentials={handleShowCredentials}
+        />
+
         <ClientFormDialog 
             isOpen={isClientModalOpen} 
             onOpenChange={setIsClientModalOpen} 

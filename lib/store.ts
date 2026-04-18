@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { defaultGlobalConfig } from './constants';
-import type { Client, Advisor, Entity } from './types';
+import { DEFAULT_CATALOG } from './defaultCatalog';
+import type { Client, Advisor, Entity, CatalogService, Transaction, Account, Category, InvoiceRecord } from './types';
 import type { BrandingElement } from './db';
 
 interface AppState {
@@ -12,6 +13,11 @@ interface AppState {
   brandingElements: BrandingElement[];
   config: typeof defaultGlobalConfig;
   cotizadorProfiles: any[];
+  catalogServices: CatalogService[];
+  transactions: Transaction[];
+  accounts: Account[];
+  categories: Category[];
+  invoices: InvoiceRecord[];
   isInitialized: boolean;
   
   // --- Acciones de Clientes ---
@@ -31,6 +37,30 @@ interface AppState {
   updateEntity: (entity: Entity) => void;
   removeEntity: (id: string) => void;
   setEntities: (entities: Entity[]) => void; // Para edición en lote
+
+  // --- Acciones de Catálogo ---
+  setCatalogServices: (services: CatalogService[]) => void;
+
+  // --- Acciones Financieras ---
+  addTransaction: (transaction: Transaction) => void;
+  updateTransaction: (transaction: Transaction) => void;
+  removeTransaction: (id: string) => void;
+  setTransactions: (transactions: Transaction[]) => void;
+
+  addAccount: (account: Account) => void;
+  updateAccount: (account: Account) => void;
+  removeAccount: (id: string) => void;
+  setAccounts: (accounts: Account[]) => void;
+
+  addCategory: (category: Category) => void;
+  updateCategory: (category: Category) => void;
+  removeCategory: (id: string) => void;
+  setCategories: (categories: Category[]) => void;
+
+  addInvoice: (invoice: InvoiceRecord) => void;
+  updateInvoice: (invoice: InvoiceRecord) => void;
+  removeInvoice: (id: string) => void;
+  setInvoices: (invoices: InvoiceRecord[]) => void;
 
   // --- Acciones de Configuración y Sistema ---
   setConfig: (value: typeof defaultGlobalConfig | ((prev: typeof defaultGlobalConfig) => typeof defaultGlobalConfig)) => void;
@@ -52,6 +82,11 @@ export const useAppStore = create<AppState>()(
       brandingElements: [],
       config: defaultGlobalConfig,
       cotizadorProfiles: [],
+      catalogServices: DEFAULT_CATALOG,
+      transactions: [],
+      accounts: [],
+      categories: [],
+      invoices: [],
       isInitialized: false,
 
       // ------------------------------------------------------------------
@@ -105,6 +140,30 @@ export const useAppStore = create<AppState>()(
 
       setEntities: (entities) => set({ entities }),
 
+      // --- CATALOGO ---
+      setCatalogServices: (services) => set({ catalogServices: services }),
+
+      // --- FINANZAS ---
+      addTransaction: (transaction) => set((state) => ({ transactions: [...state.transactions, transaction] })),
+      updateTransaction: (updatedTransaction) => set((state) => ({ transactions: state.transactions.map((t) => t.id === updatedTransaction.id ? updatedTransaction : t) })),
+      removeTransaction: (id) => set((state) => ({ transactions: state.transactions.filter((t) => t.id !== id) })),
+      setTransactions: (transactions) => set({ transactions }),
+
+      addAccount: (account) => set((state) => ({ accounts: [...state.accounts, account] })),
+      updateAccount: (updatedAccount) => set((state) => ({ accounts: state.accounts.map((a) => a.id === updatedAccount.id ? updatedAccount : a) })),
+      removeAccount: (id) => set((state) => ({ accounts: state.accounts.filter((a) => a.id !== id) })),
+      setAccounts: (accounts) => set({ accounts }),
+
+      addCategory: (category) => set((state) => ({ categories: [...state.categories, category] })),
+      updateCategory: (updatedCategory) => set((state) => ({ categories: state.categories.map((c) => c.id === updatedCategory.id ? updatedCategory : c) })),
+      removeCategory: (id) => set((state) => ({ categories: state.categories.filter((c) => c.id !== id) })),
+      setCategories: (categories) => set({ categories }),
+
+      addInvoice: (invoice) => set((state) => ({ invoices: [...state.invoices, invoice] })),
+      updateInvoice: (updatedInvoice) => set((state) => ({ invoices: state.invoices.map((i) => i.id === updatedInvoice.id ? updatedInvoice : i) })),
+      removeInvoice: (id) => set((state) => ({ invoices: state.invoices.filter((i) => i.id !== id) })),
+      setInvoices: (invoices) => set({ invoices }),
+
       // --- BRANDING ---
       setBrandingElements: (elements) => set({ brandingElements: elements }),
       
@@ -155,8 +214,13 @@ export const useAppStore = create<AppState>()(
         clients: state.clients,
         advisors: state.advisors,
         entities: state.entities,
+        transactions: state.transactions,
+        accounts: state.accounts,
+        categories: state.categories,
+        invoices: state.invoices,
         brandingElements: state.brandingElements,
         config: state.config,
+        catalogServices: state.catalogServices,
         cotizadorProfiles: state.cotizadorProfiles,
       }),
       onRehydrateStorage: () => (state) => {

@@ -17,6 +17,7 @@ const DocumentsView = lazy(() => import('./views/DocumentsView').then(module => 
 const CotizadorView = lazy(() => import('./views/CotizadorView').then(module => ({ default: module.CotizadorView })));
 const ThemeView = lazy(() => import('./views/ThemeView').then(module => ({ default: module.ThemeView })));
 const ConfigView = lazy(() => import('./views/ConfigView').then(module => ({ default: module.ConfigView })));
+const FinanceView = lazy(() => import('./views/FinanceView').then(module => ({ default: module.FinanceView })));
 
 // --- Components ---
 const LoadingScreen = () => (
@@ -79,6 +80,7 @@ const App = () => {
                             <Route path="cotizador" element={<CotizadorView />} />
                             <Route path="theme" element={<ThemeView />} />
                             <Route path="config" element={<ConfigView />} />
+                            <Route path="finanzas" element={<FinanceView />} />
                             {/* Default Redirect within app */}
                             <Route path="*" element={<Navigate to="dashboard" replace />} />
                         </Routes>

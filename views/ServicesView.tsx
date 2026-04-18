@@ -6,6 +6,7 @@ export const ServicesView = () => {
   const navigate = useNavigate();
   const tools = [
     { id: 'clients', route: '/app/clientes', title: 'Gestión de Clientes', description: 'CRM, base de datos y perfiles detallados.', icon: 'fa-users', color: 'bg-blue-500/10 text-blue-600', gradient: 'from-blue-500/20 to-blue-500/5' },
+    { id: 'finance', route: '/app/finanzas', title: 'Control Financiero', description: 'Dashboard de cobros, LTV y saldo de clientes.', icon: 'fa-wallet', color: 'bg-emerald-500/10 text-emerald-600', gradient: 'from-emerald-500/20 to-emerald-500/5' },
     { id: 'documents', route: '/app/documentos', title: 'Generador Documentos', description: 'Cuentas de cobro automáticas y reportes.', icon: 'fa-file-invoice', color: 'bg-orange-500/10 text-orange-600', gradient: 'from-orange-500/20 to-orange-500/5' },
     { id: 'cotizador', route: '/app/cotizador', title: 'Cotizador', description: 'Calculadora rápida de seguridad social.', icon: 'fa-calculator', color: 'bg-green-500/10 text-green-600', gradient: 'from-green-500/20 to-green-500/5' },
     { id: 'theme', route: '/app/theme', title: 'Branding', description: 'Visualización de recursos de marca.', icon: 'fa-palette', color: 'bg-purple-500/10 text-purple-600', gradient: 'from-purple-500/20 to-purple-500/5' }

@@ -20,7 +20,7 @@ import { useInvoiceBuilder, type InvoiceItem } from '../hooks/useInvoiceBuilder'
 export const DocumentsView = () => {
   const location = useLocation();
   const { toast } = useToast();
-  const { clients, advisors, config } = useAppStore(); // Access config for service names
+  const { clients, advisors, config, catalogServices, addInvoice } = useAppStore(); // Access config for service names
   
   // Invoice state (Individual)
   const [selectedInvoiceClient, setSelectedInvoiceClient] = useState<string>('');
@@ -71,13 +71,13 @@ export const DocumentsView = () => {
 
   const totalInvoiceAmount = useMemo(() => {
     const servicesCost = clientForInvoice?.contractedServices?.reduce((acc, serviceIdentifier) => {
-      const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
-      return acc + (service?.price || 0);
+      const service = catalogServices?.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
+      return acc + (service?.basePrice || 0);
     }, 0) || 0;
     
     const additionalCost = individualInvoice.items.reduce((acc, item) => acc + item.value, 0);
     return servicesCost + additionalCost;
-  }, [clientForInvoice, individualInvoice.items, config.servicesCatalog]);
+  }, [clientForInvoice, individualInvoice.items, catalogServices]);
 
   // --- Logic for Group Invoice ---
   const groupPayerClient = useMemo(() => {
@@ -87,15 +87,15 @@ export const DocumentsView = () => {
   const groupTotalAmount = useMemo(() => {
       // Payer's own services
       const payerServicesCost = groupPayerClient?.contractedServices?.reduce((acc, serviceIdentifier) => {
-          const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
-          return acc + (service?.price || 0);
+          const service = catalogServices?.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
+          return acc + (service?.basePrice || 0);
       }, 0) || 0;
 
       // Group items (beneficiaries + extras)
       const itemsCost = groupInvoice.items.reduce((acc, item) => acc + item.value, 0);
       
       return payerServicesCost + itemsCost;
-  }, [groupPayerClient, groupInvoice.items, config.servicesCatalog]);
+  }, [groupPayerClient, groupInvoice.items, catalogServices]);
 
   // --- Handlers ---
 
@@ -111,12 +111,12 @@ export const DocumentsView = () => {
       // Auto-import services
       if (beneficiary.contractedServices && beneficiary.contractedServices.length > 0) {
           beneficiary.contractedServices.forEach(serviceId => {
-              const service = config.servicesCatalog.find(s => s.id === serviceId || s.name === serviceId);
+              const service = catalogServices?.find(s => s.id === serviceId || s.name === serviceId);
               if (service) {
                   newItems.push({
                       id: Date.now() + Math.random(),
                       description: `${beneficiary.fullName} - ${service.name}`,
-                      value: service.price
+                      value: service.basePrice
                   });
               }
           });
@@ -137,6 +137,69 @@ export const DocumentsView = () => {
     setIsGenerating(true);
     setIsPreviewModalOpen(true);
     setGeneratedImage(null);
+  };
+
+  const handleSaveInvoiceToStore = () => {
+      const isIndividual = captureTarget === 'individual';
+      const client = isIndividual ? clientForInvoice : groupPayerClient;
+      if (!client) return;
+
+      const totalAmount = isIndividual ? totalInvoiceAmount : groupTotalAmount;
+      const date = isIndividual ? individualInvoiceDate : groupInvoiceDate;
+      const additionalItems = isIndividual ? individualInvoice.items : groupInvoice.items;
+      
+      const invoiceId = `INV-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
+      
+      const mappedItems = additionalItems.map(i => ({
+          description: i.description,
+          quantity: 1,
+          unitPrice: i.value,
+          total: i.value
+      }));
+
+      // Add base services to items list
+      client.contractedServices?.forEach(sId => {
+          const s = catalogServices.find(c => c.id === sId || c.name === sId);
+          if (s) {
+              mappedItems.unshift({
+                  description: s.name,
+                  quantity: 1,
+                  unitPrice: s.basePrice,
+                  total: s.basePrice
+              });
+          }
+      });
+
+      addInvoice({
+          id: invoiceId,
+          clientId: client.id,
+          date: date,
+          dueDate: new Date(new Date(date).getTime() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +15 days
+          totalAmount: totalAmount,
+          status: 'Pendiente',
+          items: mappedItems
+      });
+
+      toast({
+          title: "Factura registrada",
+          description: `Se ha registrado la factura ${invoiceId} en el perfil del cliente.`,
+      });
+      setIsPreviewModalOpen(false);
+  };
+
+  const handleItemDescriptionChange = (e: React.ChangeEvent<HTMLInputElement>, invoiceHandler: typeof individualInvoice | typeof groupInvoice) => {
+    const val = e.target.value;
+    const matchedService = catalogServices.find(s => s.name.toLowerCase() === val.toLowerCase());
+    
+    if (matchedService) {
+        invoiceHandler.setNewItem(prev => ({
+            ...prev, 
+            description: matchedService.name, 
+            value: formatCurrency(matchedService.basePrice)
+        }));
+    } else {
+        invoiceHandler.setNewItem(prev => ({...prev, description: val}));
+    }
   };
 
   useEffect(() => {
@@ -232,8 +295,8 @@ export const DocumentsView = () => {
       if (!advisorDetails) return total;
 
       const servicesCost = client.contractedServices?.reduce((acc, serviceIdentifier) => {
-        const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
-        return acc + (service?.price || 0);
+        const service = catalogServices?.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
+        return acc + (service?.basePrice || 0);
       }, 0) || 0;
       
       if (advisorDetails.commissionType === 'percentage') {
@@ -243,7 +306,7 @@ export const DocumentsView = () => {
       
       if (advisorDetails.commissionType === 'fixed') {
         const affiliationServiceCount = client.contractedServices?.filter(s => {
-             const name = config.servicesCatalog.find(cat => cat.id === s)?.name || s;
+             const name = catalogServices?.find(cat => cat.id === s)?.name || s;
              return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
         }).length || 0;
         const commission = affiliationServiceCount * (advisorDetails.commissionValue || 0);
@@ -251,7 +314,7 @@ export const DocumentsView = () => {
       }
       return total;
     }, 0);
-  }, [commissionReportData, advisors, reportAdvisor, config.servicesCatalog]);
+  }, [commissionReportData, advisors, reportAdvisor, catalogServices]);
 
   const handleGenerateCommissionReport = () => {
      if (commissionReportData.length === 0) {
@@ -332,6 +395,12 @@ export const DocumentsView = () => {
         subtitle="Crea cuentas de cobro y reportes de comisiones."
         onBackRoute="/app/dashboard"
     >
+        <datalist id="catalog-services-list">
+            {catalogServices.map(s => (
+                <option key={s.id} value={s.name} />
+            ))}
+        </datalist>
+
         <section className="max-w-5xl mx-auto">
             <Accordion className="w-full space-y-4" defaultValue="group-invoice">
                 
@@ -376,7 +445,7 @@ export const DocumentsView = () => {
                                 <CardHeader><CardTitle className="text-base">Ítems Adicionales y Descuentos</CardTitle></CardHeader>
                                 <CardContent>
                                         <div className="flex gap-2 mb-4">
-                                        <Input aria-label="Descripción" placeholder="Descripción (ej: Descuento Combo)" value={individualInvoice.newItem.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => individualInvoice.setNewItem(prev => ({...prev, description: e.target.value}))}/>
+                                        <Input list="catalog-services-list" aria-label="Descripción" placeholder="Descripción (ej: Descuento Combo)" value={individualInvoice.newItem.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleItemDescriptionChange(e, individualInvoice)}/>
                                         <Input aria-label="Valor" placeholder="Valor ($ -5000 para descuentos)" value={individualInvoice.newItem.value} onChange={(e: React.ChangeEvent<HTMLInputElement>) => individualInvoice.setNewItem(prev => ({...prev, value: formatCurrency(parseCurrency(e.target.value))}))}/>
                                         <Button onClick={individualInvoice.addItem} variant="secondary">Añadir</Button>
                                     </div>
@@ -520,9 +589,10 @@ export const DocumentsView = () => {
                                                     <tr className="bg-muted/10">
                                                         <td className="p-2">
                                                             <Input 
+                                                                list="catalog-services-list"
                                                                 placeholder="Ítem manual o descuento..." 
                                                                 value={groupInvoice.newItem.description} 
-                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => groupInvoice.setNewItem(prev => ({...prev, description: e.target.value}))} 
+                                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleItemDescriptionChange(e, groupInvoice)} 
                                                                 className="h-8 text-sm"
                                                             />
                                                         </td>
@@ -595,8 +665,8 @@ export const DocumentsView = () => {
                                                 <tbody>
                                                     {commissionReportData.map(client => {
                                                         const servicesCost = client.contractedServices?.reduce((acc, serviceIdentifier) => {
-                                                            const service = config.servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
-                                                            return acc + (service?.price || 0);
+                                                            const service = catalogServices?.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
+                                                            return acc + (service?.basePrice || 0);
                                                         }, 0) || 0;
                                                         
                                                         let commission = 0;
@@ -618,7 +688,7 @@ export const DocumentsView = () => {
                                                                     commissionDisplay = `${advisorDetails.commissionValue}% (Estimado)`;
                                                                 } else {
                                                                     const affiliationServiceCount = client.contractedServices?.filter(s => {
-                                                                        const name = config.servicesCatalog.find(cat => cat.id === s)?.name || s;
+                                                                        const name = catalogServices?.find(cat => cat.id === s)?.name || s;
                                                                         return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
                                                                     }).length || 0;
                                                                     commission = affiliationServiceCount * (advisorDetails.commissionValue || 0);
@@ -718,6 +788,9 @@ export const DocumentsView = () => {
                 <DialogFooter className="sm:justify-between gap-2">
                     <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>Cerrar</Button>
                     <div className="flex gap-2">
+                        <Button variant="secondary" onClick={handleSaveInvoiceToStore} disabled={isGenerating}>
+                            <DollarSign className="mr-2 h-4 w-4" /> Registrar como Cuenta por Cobrar
+                        </Button>
                         <Button onClick={handleShare} disabled={!generatedImage || isGenerating}>
                             <Share2 className="mr-2 h-4 w-4" /> Compartir
                         </Button>

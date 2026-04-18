@@ -404,6 +404,16 @@ export const TabsTrigger = ({ value, children, className, disabled }: any) => {
     );
 };
 
+export const TabsContent = ({ value, className, children }: any) => {
+    const { activeTab } = useContext(TabsContext);
+    if (activeTab !== value) return null;
+    return (
+        <div className={`mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}>
+            {children}
+        </div>
+    );
+};
+
 // --- Accordion ---
 export const AccordionContext = createContext<any>(null);
 

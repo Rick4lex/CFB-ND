@@ -29,6 +29,7 @@ import {
 import { useAppStore } from '@/lib/store';
 import { normalizeString } from '@/lib/utils';
 import type { Advisor, Client, Entity, EntityContact, ClientWithMultiple } from '@/lib/types';
+import { CLIENT_STATUS, CLIENT_STATUS_META } from '@/lib/crm-states';
 
 // --- Helper Components ---
 
@@ -951,18 +952,18 @@ interface ClientFormDialogProps {
   isRepairMode?: boolean; // Prop added for repair mode
 }
 
-export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisors, entities = [], isRepairMode = false }: ClientFormDialogProps) {
-    const { toast } = useToast();
-    const { config } = useAppStore();
-    const servicesCatalog = config.servicesCatalog;
-
-    const form = useForm({
+    export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisors, entities = [], isRepairMode = false }: ClientFormDialogProps) {
+        const { toast } = useToast();
+        const { catalogServices } = useAppStore();
+    
+        const form = useForm({
         resolver: zodResolver(clientSchema),
         defaultValues: {
             id: '', fullName: '', documentType: 'CC', documentId: '', email: '', whatsapp: '',
-            address: '', serviceStatus: 'Contacto inicial', entryDate: new Date().toISOString().split('T')[0],
+            address: '', serviceStatus: CLIENT_STATUS.INITIAL_CONTACT, entryDate: new Date().toISOString().split('T')[0],
             assignedAdvisor: '', adminCost: 0, referralCommissionAmount: 0, discountPercentage: 0,
-            contractedServices: [], beneficiaries: [], credentials: [], notes: ''
+            contractedServices: [], beneficiaries: [], credentials: [], notes: '',
+            ltv: 0, balance: 0
         } as any
     });
 
@@ -986,9 +987,10 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                 reset({
                     id: crypto.randomUUID(),
                     fullName: '', documentType: 'CC', documentId: '', email: '', whatsapp: '',
-                    address: '', serviceStatus: 'Contacto inicial', entryDate: new Date().toISOString().split('T')[0],
+                    address: '', serviceStatus: CLIENT_STATUS.INITIAL_CONTACT, entryDate: new Date().toISOString().split('T')[0],
                     assignedAdvisor: '', adminCost: 0, referralCommissionAmount: 0, discountPercentage: 0,
-                    contractedServices: [], beneficiaries: [], credentials: [], notes: ''
+                    contractedServices: [], beneficiaries: [], credentials: [], notes: '',
+                    ltv: 0, balance: 0
                 });
             }
         }
@@ -999,8 +1001,8 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
             const advisor = advisors.find(a => a.name === data.assignedAdvisor);
             if (advisor) {
                 const servicesCost = (data.contractedServices || []).reduce((acc: number, serviceIdentifier: string) => {
-                    const service = servicesCatalog.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
-                    return acc + (service?.price || 0);
+                    const service = catalogServices?.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
+                    return acc + (service?.basePrice || 0);
                 }, 0);
                 
                 if (advisor.commissionType === 'percentage') {
@@ -1008,7 +1010,7 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                     data.advisorCommissionAmount = servicesCost * (advisor.commissionValue / 100);
                 } else {
                     const affiliationServiceCount = (data.contractedServices || []).filter((s: string) => {
-                        const name = servicesCatalog.find(cat => cat.id === s)?.name || s;
+                        const name = catalogServices?.find(cat => cat.id === s)?.name || s;
                         return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
                     }).length;
                     data.advisorCommissionPercentage = undefined;
@@ -1099,7 +1101,11 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                                                 <FormLabel>Estado del Servicio</FormLabel>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                                    <SelectContent>{serviceStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                                                    <SelectContent>
+                                                        {Object.entries(CLIENT_STATUS_META).map(([statusKey, meta]) => (
+                                                            <SelectItem key={statusKey} value={statusKey}>{meta.label || statusKey}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
                                                 </Select>
                                                 <FormMessage />
                                             </FormItem>
@@ -1120,11 +1126,17 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                                          <FormField name="adminCost" control={control} render={({ field }) => (
                                             <FormItem><FormLabel>Costo Administración</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                                         )} />
+                                        <FormField name="ltv" control={control} render={({ field }) => (
+                                            <FormItem><FormLabel>Valor de Vida (LTV) $</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
+                                        <FormField name="balance" control={control} render={({ field }) => (
+                                            <FormItem><FormLabel>Saldo Pendiente $</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )} />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Servicios Contratados</Label>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border p-3 rounded-lg">
-                                            {servicesCatalog.filter(s => s.active).map(service => (
+                                            {(catalogServices || []).filter(s => s.type === 'CORE_SYSTEM' || s.displayInQuoter).map(service => (
                                                 <div key={service.id} className="flex items-center space-x-2">
                                                     <Checkbox 
                                                         id={`srv-${service.id}`} 
@@ -1252,6 +1264,241 @@ export function ClientFormDialog({ isOpen, onOpenChange, onSave, client, advisor
                                 {isRepairMode ? "Confirmar Reparación" : "Guardar Cliente"}
                             </Button>
                         </div>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+export function TransactionFormDialog({ isOpen, onOpenChange, onSave, item, initialType = 'INCOME', categories, accounts, clients }: any) {
+    const isNew = !item;
+    const form = useForm({
+        defaultValues: item || {
+            id: crypto.randomUUID(),
+            date: Date.now(),
+            type: initialType,
+            amount: 0,
+            description: '',
+            categoryId: '',
+            sourceAccountId: '',
+            destinationAccountId: '',
+            clientId: '',
+            documentId: '',
+        }
+    });
+
+    const type = form.watch('type');
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{isNew ? 'Nueva Transacción' : 'Editar Transacción'}</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit((data) => { onSave(data); onOpenChange(false); })} className="space-y-4">
+                        <FormField name="type" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tipo</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="INCOME">Ingreso</SelectItem>
+                                        <SelectItem value="EXPENSE">Gasto</SelectItem>
+                                        <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                        
+                        <FormField name="description" control={form.control} render={({ field }) => (
+                            <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input {...field} required /></FormControl></FormItem>
+                        )} />
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField name="amount" control={form.control} render={({ field }) => (
+                                <FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" step="0.01" {...field} required onChange={e => field.onChange(Number(e.target.value))}/></FormControl></FormItem>
+                            )} />
+                            <FormField name="date" control={form.control} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Fecha</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" value={new Date(field.value).toISOString().split('T')[0]} onChange={e => field.onChange(new Date(e.target.value).getTime())} required />
+                                    </FormControl>
+                                </FormItem>
+                            )} />
+                        </div>
+
+                        <FormField name="sourceAccountId" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>{type === 'INCOME' ? 'Cuenta Destino' : type === 'TRANSFER' ? 'Cuenta Origen' : 'Cuenta Origen'}</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..."/></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {accounts?.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+
+                        {type === 'TRANSFER' && (
+                            <FormField name="destinationAccountId" control={form.control} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Cuenta Destino</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar..."/></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {accounts?.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                            )} />
+                        )}
+
+                        {type !== 'TRANSFER' && (
+                           <FormField name="categoryId" control={form.control} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Categoría</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Opcional..."/></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="">Ninguna</SelectItem>
+                                            {categories?.filter((c: any) => c.type === type).map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                            )} />
+                        )}
+
+                        <FormField name="clientId" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Vincular a Cliente (Opcional)</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value || undefined}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Opcional..."/></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="">Ninguno</SelectItem>
+                                        {clients?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.fullName}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                            <Button type="submit">Guardar</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// Account Form Dialog
+export function AccountFormDialog({ isOpen, onOpenChange, onSave, item }: any) {
+    const isNew = !item;
+    const form = useForm({
+        defaultValues: item || {
+            id: crypto.randomUUID(),
+            name: '',
+            type: 'ASSET',
+            balance: 0,
+            currency: 'COP',
+        }
+    });
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{isNew ? 'Nueva Cuenta' : 'Editar Cuenta'}</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit((data) => { onSave(data); onOpenChange(false); })} className="space-y-4">
+                        <FormField name="name" control={form.control} render={({ field }) => (
+                            <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} required /></FormControl></FormItem>
+                        )} />
+                        <FormField name="type" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tipo</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="ASSET">Activo / Banco</SelectItem>
+                                        <SelectItem value="LIABILITY">Pasivo / Deuda</SelectItem>
+                                        <SelectItem value="EQUITY">Patrimonio</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                        <div className="grid grid-cols-2 gap-4">
+                             <FormField name="balance" control={form.control} render={({ field }) => (
+                                <FormItem><FormLabel>Saldo Inicial</FormLabel><FormControl><Input type="number" step="0.01" {...field} onChange={e => field.onChange(Number(e.target.value))} required /></FormControl></FormItem>
+                            )} />
+                            <FormField name="currency" control={form.control} render={({ field }) => (
+                                <FormItem><FormLabel>Moneda</FormLabel><FormControl><Input {...field} required /></FormControl></FormItem>
+                            )} />
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                            <Button type="submit">Guardar</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// Category Form Dialog
+export function CategoryFormDialog({ isOpen, onOpenChange, onSave, item }: any) {
+    const isNew = !item;
+    const form = useForm({
+        defaultValues: item || {
+            id: crypto.randomUUID(),
+            name: '',
+            type: 'EXPENSE',
+            color: '#CBD5E1',
+        }
+    });
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>{isNew ? 'Nueva Categoría' : 'Editar Categoría'}</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit((data) => { onSave(data); onOpenChange(false); })} className="space-y-4">
+                        <FormField name="name" control={form.control} render={({ field }) => (
+                            <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} required /></FormControl></FormItem>
+                        )} />
+                        <FormField name="type" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tipo</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="INCOME">Ingreso</SelectItem>
+                                        <SelectItem value="EXPENSE">Gasto</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                        <FormField name="color" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Color Distintivo</FormLabel>
+                                <div className="flex gap-2 items-center">
+                                    <FormControl><Input type="color" {...field} className="w-12 h-10 p-1" /></FormControl>
+                                    <Input type="text" value={field.value} onChange={field.onChange} className="flex-1 uppercase font-mono text-sm" />
+                                </div>
+                            </FormItem>
+                        )} />
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                            <Button type="submit">Guardar</Button>
+                        </DialogFooter>
                     </form>
                 </Form>
             </DialogContent>
