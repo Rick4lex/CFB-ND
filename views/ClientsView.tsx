@@ -1,6 +1,6 @@
 
 import { useState, useMemo, useCallback, useRef, type ChangeEvent, useEffect } from 'react';
-import { UserCog, Building, PlusCircle, Search, FileText, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, Upload, KeyRound, Wrench } from 'lucide-react';
+import { UserCog, Building, PlusCircle, Search, FileText, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, Upload, KeyRound, Wrench, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Papa from 'papaparse';
 import { useAppStore } from '../lib/store';
@@ -9,9 +9,10 @@ import { PageLayout } from '../components/layout/Layout';
 import { Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/Shared';
 import { EntityManagerDialog, AdvisorManagerDialog, ClientFormDialog, ClientCredentialsDialog } from '../components/features/Dialogs';
 import { ClientProfileSheet } from '../components/features/ClientProfileSheet';
+import { QuickImportDialog } from '../components/features/QuickImportDialog';
 import { Client, Advisor, Entity, ClientWithMultiple } from '../lib/types';
 import { serviceStatuses } from '../lib/constants';
-import { CLIENT_STATUS_META, CLIENT_STATUS } from '../lib/crm-states';
+import { CLIENT_STATUS_META, CLIENT_STATUS, CLIENT_CSV_COLUMNS } from '../lib/crm-states';
 import { useToast } from '../hooks/use-toast';
 import { debounce } from '../lib/utils'; 
 
@@ -104,6 +105,9 @@ export const ClientsView = () => {
   const [isCredentialsModalOpen, setIsCredentialsModalOpen] = useState(false);
   const [credentialsClient, setCredentialsClient] = useState<Client | null>(null);
   
+  // NEW: Quick Import
+  const [isQuickImportOpen, setIsQuickImportOpen] = useState(false);
+
   // NEW: Repair Mode State
   const [isRepairMode, setIsRepairMode] = useState(false);
 
@@ -222,31 +226,23 @@ export const ClientsView = () => {
         return;
       }
       
-      const csvData = filteredClients.map(c => ({
-          ID: (c.id && String(c.id) !== 'undefined') ? c.id : crypto.randomUUID(),
-          Nombre: c.fullName,
-          Documento: c.documentId,
-          Tipo_Doc: c.documentType,
-          Email: c.email || '',
-          Telefono: c.phone || '',
-          Whatsapp: c.whatsapp || '',
-          Estado: getStatusLabel(c.serviceStatus),
-          Asesor: c.assignedAdvisor || '',
-          Fecha_Ingreso: c.entryDate,
-          Direccion: c.address || '',
-          Representante_Legal: c.legalRepName || '',
-          ID_Representante: c.legalRepId || '',
-          Referido_Por: c.referredBy || '',
-          Servicios_Contratados: c.contractedServices?.join(';') || '',
-          Costo_Admin: c.adminCost || 0,
-          Comision_Referido: c.referralCommissionAmount || 0,
-          Porcentaje_Descuento: c.discountPercentage || 0,
-          Monto_Comision_Asesor: c.advisorCommissionAmount ?? '',
-          Porcentaje_Comision_Asesor: c.advisorCommissionPercentage ?? '',
-          LTV: c.ltv || 0,
-          Saldo_Pendiente: c.balance || 0,
-          Notas: c.notes || ''
-      }));
+      const csvData = filteredClients.map(c => {
+          const row: any = {};
+          CLIENT_CSV_COLUMNS.forEach(col => {
+              if (col.key === 'serviceStatus') {
+                  row[col.label] = getStatusLabel(c.serviceStatus);
+              } else if (col.key === 'contractedServices') {
+                  row[col.label] = c.contractedServices?.join(';') || '';
+              } else if (col.key === 'id') {
+                  row[col.label] = (c.id && String(c.id) !== 'undefined') ? c.id : crypto.randomUUID();
+              } else if (col.key === 'entryDate') {
+                  row[col.label] = c.entryDate;
+              } else {
+                  row[col.label] = (c as any)[col.key] || '';
+              }
+          });
+          return row;
+      });
 
       const csvContent = Papa.unparse(csvData, { delimiter: ";" });
       const bom = '\uFEFF';
@@ -275,62 +271,59 @@ export const ClientsView = () => {
       return CLIENT_STATUS.INITIAL_CONTACT;
   };
 
-  const handleImportCSV = (e: ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const processCSVData = (csvText: string) => {
+      Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+              let parsedData = results.data;
+              
+              // Reparación automática si Excel guardó todo en una sola columna o el pegado es crudo
+              const hasHeaders = results.meta.fields && results.meta.fields.length > 2;
+              
+              if (!hasHeaders) {
+                // Si no hay cabeceras claras, intentar inyectarlas o reparar
+                if (results.meta.fields && results.meta.fields.length === 1 && (results.meta.fields[0].includes(',') || results.meta.fields[0].includes(';'))) {
+                    const header = results.meta.fields[0];
+                    const rows = parsedData.map((row: any) => row[header]);
+                    const repairedCsvText = [header, ...rows].join('\n');
+                    const repairedResults = Papa.parse(repairedCsvText, { header: true, skipEmptyLines: true });
+                    parsedData = repairedResults.data;
+                }
+              }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-          const csvText = event.target?.result as string;
-          
-          Papa.parse(csvText, {
-              header: true,
-              skipEmptyLines: true,
-              complete: (results) => {
-                  let parsedData = results.data;
-                  
-                  // Reparación automática si Excel guardó todo en una sola columna
-                  if (results.meta.fields && results.meta.fields.length === 1 && (results.meta.fields[0].includes(',') || results.meta.fields[0].includes(';'))) {
-                      console.log("Detectado CSV de 1 columna (formato Excel). Reparando...");
-                      const header = results.meta.fields[0];
-                      const rows = parsedData.map((row: any) => row[header]);
-                      const repairedCsvText = [header, ...rows].join('\n');
-                      const repairedResults = Papa.parse(repairedCsvText, { header: true, skipEmptyLines: true });
-                      parsedData = repairedResults.data;
-                  }
-
-                  try {
-                      const importedClients: Client[] = parsedData.map((row: any) => ({
-                          id: (row.ID && String(row.ID).trim() !== '' && String(row.ID) !== 'undefined') ? row.ID : crypto.randomUUID(),
-                          fullName: row.Nombre || row.fullName || row.name || '',
-                          documentId: String(row.Documento || row.documentId || '').trim(),
-                          documentType: row.Tipo_Doc || row['Tipo Doc'] || 'CC',
-                      email: row.Email || row.email || '',
-                      phone: row.Telefono || row.phone || '',
-                      whatsapp: row.Whatsapp || row.whatsapp || '',
-                      serviceStatus: getStatusKeyFromLabel(row.Estado || row.serviceStatus || ''),
-                      assignedAdvisor: row.Asesor || row.assignedAdvisor || '',
-                      entryDate: row.Fecha_Ingreso || row['Fecha Ingreso'] || new Date().toISOString().split('T')[0],
-                      address: row.Direccion || row.address || '',
-                      legalRepName: row.Representante_Legal || row['Representante Legal'] || '',
-                      legalRepId: row.ID_Representante || row['ID Representante'] || '',
-                      referredBy: row.Referido_Por || row['Referido Por'] || '',
-                      contractedServices: (row.Servicios_Contratados || row['Servicios Contratados']) ? String(row.Servicios_Contratados || row['Servicios Contratados']).split(';') : [],
-                      adminCost: Number(row.Costo_Admin || row['Costo Admin']) || 0,
-                      referralCommissionAmount: Number(row.Comision_Referido || row['Comision Referido']) || 0,
-                      discountPercentage: Number(row.Porcentaje_Descuento || row['Porcentaje Descuento']) || 0,
-                      advisorCommissionAmount: (row.Monto_Comision_Asesor || row['Monto Comision Asesor']) ? Number(row.Monto_Comision_Asesor || row['Monto Comision Asesor']) : undefined,
-                      advisorCommissionPercentage: (row.Porcentaje_Comision_Asesor || row['Porcentaje Comision Asesor']) ? Number(row.Porcentaje_Comision_Asesor || row['Porcentaje Comision Asesor']) : undefined,
-                      ltv: Number(row.LTV || row.ltv) || 0,
-                      balance: Number(row.Saldo_Pendiente || row['Saldo Pendiente'] || row.balance) || 0,
-                      notes: row.Notas || row.notes || '',
-                      beneficiaries: [],
-                      credentials: []
-                  }));
+              try {
+                  const importedClients: Client[] = parsedData.map((row: any) => {
+                      const client: any = {
+                          beneficiaries: [],
+                          credentials: []
+                      };
+                      
+                      CLIENT_CSV_COLUMNS.forEach(col => {
+                          // Intentar obtener por etiqueta legible o por llave técnica
+                          const val = row[col.label] !== undefined ? row[col.label] : (row[col.key] !== undefined ? row[col.key] : '');
+                          
+                          if (col.key === 'serviceStatus') {
+                              client.serviceStatus = getStatusKeyFromLabel(String(val || ''));
+                          } else if (col.key === 'contractedServices') {
+                              client.contractedServices = val ? String(val).split(';') : [];
+                          } else if (['adminCost', 'referralCommissionAmount', 'discountPercentage', 'advisorCommissionAmount', 'advisorCommissionPercentage', 'ltv', 'balance'].includes(col.key)) {
+                              client[col.key] = val ? Number(val) : 0;
+                          } else if (col.key === 'id') {
+                              client.id = (val && String(val).trim() !== '' && String(val) !== 'undefined') ? val : crypto.randomUUID();
+                          } else if (col.key === 'entryDate') {
+                              client.entryDate = val || new Date().toISOString().split('T')[0];
+                          } else {
+                              client[col.key] = val !== undefined ? String(val).trim() : '';
+                          }
+                      });
+                      
+                      return client as Client;
+                  });
 
                   // Usar el hook para guardar masivamente
                   saveClient({
-                      client: importedClients[0], // Dummy para cumplir la firma
+                      client: importedClients[0], // Dummy
                       addMultiple: (currentClients, currentAdvisors) => {
                           const mergedClients = [...currentClients];
                           const mergedAdvisors = [...currentAdvisors];
@@ -341,7 +334,6 @@ export const ClientsView = () => {
                           importedClients.forEach(newClient => {
                               if (!newClient.fullName || !newClient.documentId) return;
                               
-                              // Check and create advisor if needed
                               if (newClient.assignedAdvisor) {
                                   const advisorExists = mergedAdvisors.some(a => a.name.toLowerCase() === newClient.assignedAdvisor.toLowerCase());
                                   if (!advisorExists) {
@@ -361,8 +353,6 @@ export const ClientsView = () => {
                               const existingIndex = mergedClients.findIndex(c => String(c.documentId).trim() === String(newClient.documentId).trim());
                               
                               if (existingIndex >= 0) {
-                                  // Mantener ID original y datos complejos (beneficiarios, credenciales)
-                                  // Si el original no tenía ID válido, usar el nuevo
                                   const existingId = mergedClients[existingIndex].id;
                                   const validId = (existingId && String(existingId) !== 'undefined') ? existingId : newClient.id;
                                   
@@ -381,23 +371,35 @@ export const ClientsView = () => {
                           });
 
                           if (newAdvisorsCount > 0) {
-                              toast({ title: "Asesores creados", description: `Se crearon ${newAdvisorsCount} nuevos asesores a partir del CSV.` });
+                              toast({ title: "Asesores creados", description: `Se crearon ${newAdvisorsCount} nuevos asesores.` });
                           }
+                          
+                          toast({ title: "Importación completada", description: `Agregados: ${added}, Actualizados: ${updated}` });
 
                           return { updatedClients: mergedClients, updatedAdvisors: mergedAdvisors };
                       }
                   });
 
               } catch (error) {
-                  console.error("Error importando CSV:", error);
-                  toast({ variant: "destructive", title: "Error de importación", description: "El archivo CSV no tiene el formato correcto." });
+                  console.error("Error importando datos:", error);
+                  toast({ variant: "destructive", title: "Error de importación", description: "Los datos no tienen el formato correcto." });
               }
           },
           error: (error: any) => {
               console.error("PapaParse error:", error);
-              toast({ variant: "destructive", title: "Error de lectura", description: "No se pudo leer el archivo CSV." });
+              toast({ variant: "destructive", title: "Error de lectura", description: "No se pudieron procesar los datos." });
           }
       });
+  };
+
+  const handleImportCSV = (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const csvText = event.target?.result as string;
+          processCSVData(csvText);
       };
       reader.readAsText(file);
       
@@ -433,7 +435,10 @@ export const ClientsView = () => {
                             <Download className="mr-2 h-4 w-4" /> Exportar CSV
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
-                            <Upload className="mr-2 h-4 w-4" /> Importar CSV
+                            <Upload className="mr-2 h-4 w-4" /> Importar CSV (Archivo)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsQuickImportOpen(true)} className="cursor-pointer">
+                            <ClipboardList className="mr-2 h-4 w-4" /> Pegar Datos (Texto)
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -443,6 +448,11 @@ export const ClientsView = () => {
             </div>
         }
     >
+        <QuickImportDialog 
+            open={isQuickImportOpen} 
+            onOpenChange={setIsQuickImportOpen} 
+            onImport={processCSVData} 
+        />
         {/* STATS DASHBOARD */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/10 border-blue-100 dark:border-blue-900">

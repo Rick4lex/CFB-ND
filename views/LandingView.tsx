@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Lock, Calculator, ArrowRight, CheckCircle2, AlertTriangle, MessageCircle, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Lock, Calculator, ArrowRight, CheckCircle2, AlertTriangle, MessageCircle, Info, ChevronLeft, ChevronRight, Facebook, Mail } from 'lucide-react';
 import { carouselImages } from '../data/landingContent';
 
 export const LandingView = () => {
@@ -131,15 +131,30 @@ export const LandingView = () => {
                     <div className="flex-1 relative w-full max-w-md mx-auto">
                         {/* Carousel */}
                         <div className="aspect-[4/5] relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white/40 group">
-                            {carouselImages.map((img, index) => (
-                                <img 
-                                    key={img.id}
-                                    src={img.url} 
-                                    alt={img.alt}
-                                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}
-                                    referrerPolicy="no-referrer"
-                                />
-                            ))}
+                            {carouselImages.map((media, index) => {
+                                const isVideo = media.url.toLowerCase().endsWith('.mp4');
+                                const isActive = index === currentSlide;
+                                
+                                return isVideo ? (
+                                    <video
+                                        key={media.id}
+                                        src={media.url}
+                                        autoPlay
+                                        muted
+                                        loop
+                                        playsInline
+                                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`}
+                                    />
+                                ) : (
+                                    <img 
+                                        key={media.id}
+                                        src={media.url} 
+                                        alt={media.alt}
+                                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`}
+                                        referrerPolicy="no-referrer"
+                                    />
+                                );
+                            })}
                             
                             {/* Carousel Controls */}
                             <div className="absolute inset-0 flex items-center justify-between p-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -416,6 +431,16 @@ export const LandingView = () => {
                         <span className="font-bold text-xl">CFBra!nd</span>
                     </div>
                     <p className="text-gray-400 mb-6">Gestión de Seguridad Social en Colombia.</p>
+                    <div className="flex justify-center gap-6 mb-8">
+                        <a href="https://www.facebook.com/cfbraind/" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                            <Facebook className="w-5 h-5" />
+                            <span className="text-sm">Facebook</span>
+                        </a>
+                        <a href="mailto:cfb.dig@gmail.com" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+                            <Mail className="w-5 h-5" />
+                            <span className="text-sm">cfb.dig@gmail.com</span>
+                        </a>
+                    </div>
                     <div className="text-sm text-gray-500">
                         &copy; {new Date().getFullYear()} CFBra!nd. Todos los derechos reservados.
                     </div>

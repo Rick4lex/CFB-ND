@@ -2,23 +2,32 @@
 import { useState, useRef, type ChangeEvent } from 'react';
 import { useAppStore } from '../lib/store';
 import { PageLayout } from '../components/layout/Layout';
-import { CatalogService } from '../lib/types';
+import { CatalogService, Account, Category } from '../lib/types';
 import { 
     Tabs, TabsList, TabsTrigger, Button, Input, Switch, ScrollArea, 
     Card, CardContent, CardHeader, CardTitle, CardDescription, Separator,
-    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+    Textarea, Label
 } from '../components/ui/Shared';
-import { Save, Download, Upload, PlusCircle, Trash2, Database, LifeBuoy, ShieldAlert, Code } from 'lucide-react';
+import { Save, Download, Upload, PlusCircle, Trash2, Database, LifeBuoy, ShieldAlert, Code, Wallet, Activity, ClipboardCheck, Copy } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
 
 export const ConfigView = () => {
-    const { config, setConfig, catalogServices, setCatalogServices } = useAppStore();
+    const { 
+        config, setConfig, 
+        catalogServices, setCatalogServices,
+        accounts, setAccounts,
+        categories, setCategories
+    } = useAppStore();
     const { toast } = useToast();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState('services');
     
     // UI state for modals
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [isQuickDataModalOpen, setIsQuickDataModalOpen] = useState(false);
+    const [quickDataType, setQuickDataType] = useState<'categories' | 'accounts' | null>(null);
+    const [quickDataJson, setQuickDataJson] = useState('');
 
     // Local state for edits
     const [tempServices, setTempServices] = useState<CatalogService[]>(catalogServices || []);
@@ -60,7 +69,7 @@ export const ConfigView = () => {
         const state = useAppStore.getState();
         const data = {
             metadata: {
-                version: "2.1",
+                version: "2.5",
                 exportedAt: new Date().toISOString(),
                 app: "CFBND"
             },
@@ -70,7 +79,12 @@ export const ConfigView = () => {
                 entities: state.entities,
                 config: state.config,
                 cotizadorProfiles: state.cotizadorProfiles,
-                brandingElements: state.brandingElements
+                brandingElements: state.brandingElements,
+                catalogServices: state.catalogServices,
+                accounts: state.accounts,
+                categories: state.categories,
+                transactions: state.transactions,
+                invoices: state.invoices
             }
         };
 
@@ -79,11 +93,11 @@ export const ConfigView = () => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `backup_cfbnd_${new Date().toISOString().split('T')[0]}.json`;
+            link.download = `full_backup_cfbnd_${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            toast({ title: "Copia de Seguridad Generada", description: "Archivo descargado correctamente." });
+            toast({ title: "Respaldo Completo", description: "Todos los módulos (CRM + Finanzas + Branding) han sido exportados." });
         } catch (e) {
             console.error(e);
             toast({ variant: "destructive", title: "Error", description: "No se pudo generar el respaldo." });
@@ -101,16 +115,24 @@ export const ConfigView = () => {
                 const parsed = JSON.parse(content);
                 const incomingData = parsed.data || parsed;
                 
-                if (!Array.isArray(incomingData.clients)) throw new Error("Archivo inválido.");
+                if (!Array.isArray(incomingData.clients) && !Array.isArray(incomingData.accounts)) {
+                    throw new Error("Archivo inválido.");
+                }
 
                 if (window.confirm("¿Restaurar todos los datos? Se borrará la información actual y se reiniciará la plataforma.")) {
-                    const { setClients, setAdvisors, setEntities, setConfig, setCotizadorProfiles, setBrandingElements } = useAppStore.getState();
-                    if (incomingData.clients) setClients(incomingData.clients);
-                    if (incomingData.advisors) setAdvisors(incomingData.advisors);
-                    if (incomingData.entities) setEntities(incomingData.entities);
-                    if (incomingData.config) setConfig(incomingData.config);
-                    if (incomingData.cotizadorProfiles) setCotizadorProfiles(incomingData.cotizadorProfiles);
-                    if (incomingData.brandingElements) setBrandingElements(incomingData.brandingElements);
+                    const store = useAppStore.getState();
+                    
+                    if (incomingData.clients) store.setClients(incomingData.clients);
+                    if (incomingData.advisors) store.setAdvisors(incomingData.advisors);
+                    if (incomingData.entities) store.setEntities(incomingData.entities);
+                    if (incomingData.config) store.setConfig(incomingData.config);
+                    if (incomingData.cotizadorProfiles) store.setCotizadorProfiles(incomingData.cotizadorProfiles);
+                    if (incomingData.brandingElements) store.setBrandingElements(incomingData.brandingElements);
+                    if (incomingData.catalogServices) store.setCatalogServices(incomingData.catalogServices);
+                    if (incomingData.accounts) store.setAccounts(incomingData.accounts);
+                    if (incomingData.categories) store.setCategories(incomingData.categories);
+                    if (incomingData.transactions) store.setTransactions(incomingData.transactions);
+                    if (incomingData.invoices) store.setInvoices(incomingData.invoices);
                     
                     toast({ title: "Datos Restaurados", description: "Reiniciando plataforma..." });
                     setTimeout(() => window.location.reload(), 1000);
@@ -120,6 +142,31 @@ export const ConfigView = () => {
             }
         };
         reader.readAsText(file);
+    };
+
+    const openQuickDataTransfer = (type: 'categories' | 'accounts') => {
+        setQuickDataType(type);
+        const data = type === 'categories' ? categories : accounts;
+        setQuickDataJson(JSON.stringify(data, null, 2));
+        setIsQuickDataModalOpen(true);
+    };
+
+    const handleQuickDataImport = () => {
+        try {
+            const parsed = JSON.parse(quickDataJson);
+            if (!Array.isArray(parsed)) throw new Error("Debe ser un array.");
+            
+            if (quickDataType === 'categories') {
+                setCategories(parsed);
+                toast({ title: "Maestro de Categorías Sincronizado", description: `${parsed.length} categorías actualizadas.` });
+            } else if (quickDataType === 'accounts') {
+                setAccounts(parsed);
+                toast({ title: "Cuentas Bancarias Sincronizadas", description: `${parsed.length} cuentas actualizadas.` });
+            }
+            setIsQuickDataModalOpen(false);
+        } catch (e) {
+            toast({ variant: "destructive", title: "JSON Inválido", description: "Verifica el formato del texto pegado." });
+        }
     };
 
     return (
@@ -134,8 +181,11 @@ export const ConfigView = () => {
                         <TabsTrigger value="services" className="rounded-xl px-8 h-12">
                             <LifeBuoy className="w-4 h-4 mr-2" /> Servicios
                         </TabsTrigger>
+                        <TabsTrigger value="maestros" className="rounded-xl px-8 h-12">
+                            <Database className="w-4 h-4 mr-2" /> Maestros Pro
+                        </TabsTrigger>
                         <TabsTrigger value="backup" className="rounded-xl px-8 h-12">
-                            <Database className="w-4 h-4 mr-2" /> Sistema y Backup
+                            <Activity className="w-4 h-4 mr-2" /> Sistema y Backup
                         </TabsTrigger>
                     </TabsList>
 
@@ -231,6 +281,42 @@ export const ConfigView = () => {
                         </div>
                     )}
 
+                    {activeTab === 'maestros' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-top-2 duration-500">
+                             <Card className="border-emerald-500/20 shadow-lg relative overflow-hidden">
+                                <CardHeader className="pb-4">
+                                    <div className="flex justify-between items-center">
+                                        <CardTitle className="text-xl">Maestro de Categorías</CardTitle>
+                                        <Activity className="w-6 h-6 text-emerald-500 opacity-20" />
+                                    </div>
+                                    <CardDescription>JSON de categorías de Ingresos/Gastos.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                     <p className="text-xs text-muted-foreground">Útil para transferir la jerarquía de clasificación financiera entre dispositivos de forma aislada.</p>
+                                     <Button onClick={() => openQuickDataTransfer('categories')} className="w-full h-12 rounded-xl" variant="outline">
+                                         <ClipboardCheck className="w-4 h-4 mr-2" /> Transferencia Rápida
+                                     </Button>
+                                </CardContent>
+                             </Card>
+
+                             <Card className="border-blue-500/20 shadow-lg relative overflow-hidden">
+                                <CardHeader className="pb-4">
+                                    <div className="flex justify-between items-center">
+                                        <CardTitle className="text-xl">Cuentas y Cajas</CardTitle>
+                                        <Wallet className="w-6 h-6 text-blue-500 opacity-20" />
+                                    </div>
+                                    <CardDescription>JSON de cuentas bancarias y balances.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                     <p className="text-xs text-muted-foreground">Transfiere tus bancos, billeteras digitales y cajas menores con sus balances actuales.</p>
+                                     <Button onClick={() => openQuickDataTransfer('accounts')} className="w-full h-12 rounded-xl" variant="outline">
+                                         <ClipboardCheck className="w-4 h-4 mr-2" /> Transferencia Rápida
+                                     </Button>
+                                </CardContent>
+                             </Card>
+                        </div>
+                    )}
+
                     {activeTab === 'backup' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-top-2 duration-500">
                             <Card className="border-primary/20 shadow-lg hover:shadow-xl transition-shadow">
@@ -299,6 +385,55 @@ export const ConfigView = () => {
                         <div className="flex justify-end">
                             <Button onClick={() => setIsExportModalOpen(false)}>¡Entendido!</Button>
                         </div>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={isQuickDataModalOpen} onOpenChange={setIsQuickDataModalOpen}>
+                    <DialogContent className="sm:max-w-xl flex flex-col max-h-[90vh]">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Code className="w-5 h-5 text-indigo-500" />
+                                Transferencia Rápida — {quickDataType === 'categories' ? 'Categorías' : 'Cuentas'}
+                            </DialogTitle>
+                            <DialogDescription>
+                                Copia el bloque JSON inferior o pega uno nuevo para actualizar el maestro instantáneamente.
+                            </DialogDescription>
+                        </DialogHeader>
+                        
+                        <div className="flex-1 min-h-0 py-4 space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Bloque JSON de Datos</Label>
+                                <Textarea 
+                                    className="font-mono text-xs h-[300px] resize-none focus-visible:ring-indigo-500"
+                                    value={quickDataJson}
+                                    onChange={(e) => setQuickDataJson(e.target.value)}
+                                    spellCheck={false}
+                                />
+                            </div>
+                            
+                            <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg border border-indigo-200 dark:border-indigo-900/50 text-indigo-700 dark:text-indigo-400 text-[10px] leading-relaxed">
+                                <ShieldAlert className="w-4 h-4 shrink-0" />
+                                <p>Al importar, los datos actuales de este módulo serán reemplazados. Asegúrate de que el formato sea un Array [] de objetos válido.</p>
+                            </div>
+                        </div>
+
+                        <DialogFooter className="gap-2 sm:gap-0 mt-4">
+                            <Button 
+                                variant="outline" 
+                                onClick={() => {
+                                    navigator.clipboard.writeText(quickDataJson);
+                                    toast({ title: "Copiado", description: "Datos listos para pegar en otro navegador." });
+                                }}
+                            >
+                                <Copy className="w-4 h-4 mr-2" /> Copiar al Portapapeles
+                            </Button>
+                            <Button 
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white" 
+                                onClick={handleQuickDataImport}
+                            >
+                                <Save className="w-4 h-4 mr-2" /> Guardar e Importar
+                            </Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
             </div>

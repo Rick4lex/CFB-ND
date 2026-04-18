@@ -10,6 +10,11 @@ export const carouselImages = [
         alt: 'SMLV' 
     },
     { 
+        id: 9, 
+        url: 'https://res.cloudinary.com/dyeppbrfl/video/upload/q_auto/f_auto/v1776519908/VID_20260418_064422_139_bsl_yhzqzg.mp4', 
+        alt: 'Rick' 
+    },
+    { 
         id: 5, 
         url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/q_auto/f_auto/v1775851187/CFB_Post_1_jir2rg.jpg', 
         alt: 'ARL xDIAS' 

@@ -105,6 +105,36 @@ export const CLIENT_STATUS_META: Record<string, any> = {
   },
 };
 
+// ─────────────────────────────────────────────────────────
+// 📊  ESTRUCTURA CSV DE CLIENTES
+// ─────────────────────────────────────────────────────────
+
+export const CLIENT_CSV_COLUMNS = [
+  { key: 'id',                         label: 'ID' },
+  { key: 'fullName',                   label: 'Nombre' },
+  { key: 'documentId',                 label: 'Documento' },
+  { key: 'documentType',               label: 'Tipo_Doc' },
+  { key: 'email',                      label: 'Email' },
+  { key: 'phone',                      label: 'Telefono' },
+  { key: 'whatsapp',                   label: 'Whatsapp' },
+  { key: 'serviceStatus',              label: 'Estado' },
+  { key: 'assignedAdvisor',            label: 'Asesor' },
+  { key: 'entryDate',                  label: 'Fecha_Ingreso' },
+  { key: 'address',                    label: 'Direccion' },
+  { key: 'legalRepName',               label: 'Representante_Legal' },
+  { key: 'legalRepId',                 label: 'ID_Representante' },
+  { key: 'referredBy',                 label: 'Referido_Por' },
+  { key: 'contractedServices',         label: 'Servicios_Contratados' },
+  { key: 'adminCost',                  label: 'Costo_Admin' },
+  { key: 'referralCommissionAmount',   label: 'Comision_Referido' },
+  { key: 'discountPercentage',         label: 'Porcentaje_Descuento' },
+  { key: 'advisorCommissionAmount',     label: 'Monto_Comision_Asesor' },
+  { key: 'advisorCommissionPercentage', label: 'Porcentaje_Comision_Asesor' },
+  { key: 'ltv',                        label: 'LTV' },
+  { key: 'balance',                    label: 'Saldo_Pendiente' },
+  { key: 'notes',                      label: 'Notas' },
+];
+
 /**
  * Orden de prioridad para el motor de estados automáticos.
  * Se evalúan de arriba hacia abajo; el primero que aplique gana.
