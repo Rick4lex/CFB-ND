@@ -1,5 +1,10 @@
 export const carouselImages = [
     { 
+        id: 9, 
+        url: 'https://res.cloudinary.com/dyeppbrfl/video/upload/q_auto/f_auto/v1776519908/VID_20260418_064422_139_bsl_yhzqzg.mp4', 
+        alt: 'Rick' 
+    },
+    { 
         id: 1, 
         url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/q_auto/f_auto/v1775428745/CFB_Post_14_kvcqjf.jpg', 
         alt: 'Gestión de Seguridad Social 1' 
@@ -8,11 +13,6 @@ export const carouselImages = [
         id: 2, 
         url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/q_auto/f_auto/v1775428765/CFB_Post_7_ho3qms.jpg', 
         alt: 'SMLV' 
-    },
-    { 
-        id: 9, 
-        url: 'https://res.cloudinary.com/dyeppbrfl/video/upload/q_auto/f_auto/v1776519908/VID_20260418_064422_139_bsl_yhzqzg.mp4', 
-        alt: 'Rick' 
     },
     { 
         id: 5, 

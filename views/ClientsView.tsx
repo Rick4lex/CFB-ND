@@ -1,6 +1,6 @@
 
 import { useState, useMemo, useCallback, useRef, type ChangeEvent, useEffect } from 'react';
-import { UserCog, Building, PlusCircle, Search, FileText, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, Upload, KeyRound, Wrench, ClipboardList } from 'lucide-react';
+import { UserCog, Building, PlusCircle, Search, FileText, Trash2, Filter, Users, Clock, CheckCircle, ChevronLeft, ChevronRight, X, Download, Upload, KeyRound, Wrench, ClipboardList, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Papa from 'papaparse';
 import { useAppStore } from '../lib/store';
@@ -14,7 +14,7 @@ import { Client, Advisor, Entity, ClientWithMultiple } from '../lib/types';
 import { serviceStatuses } from '../lib/constants';
 import { CLIENT_STATUS_META, CLIENT_STATUS, CLIENT_CSV_COLUMNS } from '../lib/crm-states';
 import { useToast } from '../hooks/use-toast';
-import { debounce } from '../lib/utils'; 
+import { debounce, normalizeString, formatCurrency } from '../lib/utils'; 
 
 const ITEMS_PER_PAGE = 10;
 
@@ -58,33 +58,6 @@ export const ClientsView = () => {
   // Store Global
   const { clients, advisors, entities, transactions, setAdvisors, setEntities, updateClient } = useAppStore();
 
-  // Calculate LTV and Balance automatically based on transactions
-  useEffect(() => {
-    let updatesCount = 0;
-    clients.forEach(client => {
-      
-      const clientTransactions = transactions.filter(t => t.clientId === client.id);
-      
-      let calculatedLtv = 0;
-      let calculatedBalance = 0;
-
-      clientTransactions.forEach(t => {
-         if (t.type === 'INCOME') {
-             calculatedLtv += t.amount;
-         }
-      });
-
-      const newLtv = clientTransactions.length > 0 ? calculatedLtv : client.ltv; 
-      const newBalance = client.balance; // We will use current functionality for balance, keeping ltv dynamically computed
-
-      if (newLtv !== client.ltv) {
-         updateClient({ ...client, ltv: newLtv });
-         updatesCount++;
-      }
-    });
-
-  }, [clients, transactions, updateClient]);
-
   // Hook Controlador
   const { saveClient, deleteClient, repairClient } = useClientOperations();
 
@@ -116,6 +89,8 @@ export const ClientsView = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [advisorFilter, setAdvisorFilter] = useState<string>('all');
+  const [debtFilter, setDebtFilter] = useState<'all' | 'debtors' | 'current'>('all');
+  const [serviceFilter, setServiceFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'name'>('newest');
   
   // Pagination
@@ -132,14 +107,40 @@ export const ClientsView = () => {
       debouncedUpdate(value);
   }, []);
 
+  const availableServices = useMemo(() => {
+    const services = new Set<string>();
+    clients.forEach(c => c.contractedServices?.forEach(s => services.add(s)));
+    return Array.from(services).sort();
+  }, [clients]);
+
   const filteredClients = useMemo(() => {
-    let result = clients.filter(c => {
-        const matchesSearch = !debouncedSearchTerm || 
-            c.fullName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
-            c.documentId.includes(debouncedSearchTerm);
+    const normalizedSearch = normalizeString(debouncedSearchTerm);
+    
+    let result = clients.map(c => {
+        // Calculate dynamic LTV for each client
+        const clientIncome = transactions
+            .filter(t => t.clientId === c.id && t.type === 'INCOME')
+            .reduce((sum, t) => sum + t.amount, 0);
+        
+        return {
+            ...c,
+            calculatedLtv: clientIncome || c.ltv || 0
+        };
+    }).filter(c => {
+        const matchesSearch = !normalizedSearch || 
+            normalizeString(c.fullName).includes(normalizedSearch) || 
+            c.documentId.includes(normalizedSearch);
         const matchesStatus = statusFilter === 'all' || c.serviceStatus === statusFilter;
         const matchesAdvisor = advisorFilter === 'all' || c.assignedAdvisor === advisorFilter;
-        return matchesSearch && matchesStatus && matchesAdvisor;
+        
+        const matchesDebt = debtFilter === 'all' 
+            ? true 
+            : (debtFilter === 'debtors' ? (c.balance || 0) > 0 : (c.balance || 0) <= 0);
+            
+        const matchesService = serviceFilter === 'all' 
+            || (c.contractedServices && c.contractedServices.includes(serviceFilter));
+            
+        return matchesSearch && matchesStatus && matchesAdvisor && matchesDebt && matchesService;
     });
 
     result.sort((a, b) => {
@@ -150,16 +151,20 @@ export const ClientsView = () => {
     });
 
     return result;
-  }, [clients, debouncedSearchTerm, statusFilter, advisorFilter, sortOrder]);
+  }, [clients, transactions, debouncedSearchTerm, statusFilter, advisorFilter, debtFilter, serviceFilter, sortOrder]);
 
   const totalPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE);
   const paginatedClients = filteredClients.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const stats = useMemo(() => ({
-    total: clients.length,
-    active: clients.filter(c => c.serviceStatus === 'Activo').length,
-    pending: clients.filter(c => ['En trámite', 'Documentación pendiente'].includes(c.serviceStatus)).length
-  }), [clients]);
+  const stats = useMemo(() => {
+    const totalBalance = clients.reduce((sum, c) => sum + (c.balance || 0), 0);
+    return {
+        total: clients.length,
+        active: clients.filter(c => c.serviceStatus === 'Activo').length,
+        pending: clients.filter(c => ['En trámite', 'Documentación pendiente'].includes(c.serviceStatus)).length,
+        receivable: totalBalance
+    };
+  }, [clients]);
 
   // --- Handlers ---
   const handleOpenProfile = (client: Client) => {
@@ -277,20 +282,21 @@ export const ClientsView = () => {
           skipEmptyLines: true,
           complete: (results) => {
               let parsedData = results.data;
+              const headers = results.meta.fields || [];
               
-              // Reparación automática si Excel guardó todo en una sola columna o el pegado es crudo
-              const hasHeaders = results.meta.fields && results.meta.fields.length > 2;
+              // Phase 3: Robust Header Matching (Insensitive & Normalized)
+              const headerMap: Record<string, string> = {}; // actualHeader -> targetKey
               
-              if (!hasHeaders) {
-                // Si no hay cabeceras claras, intentar inyectarlas o reparar
-                if (results.meta.fields && results.meta.fields.length === 1 && (results.meta.fields[0].includes(',') || results.meta.fields[0].includes(';'))) {
-                    const header = results.meta.fields[0];
-                    const rows = parsedData.map((row: any) => row[header]);
-                    const repairedCsvText = [header, ...rows].join('\n');
-                    const repairedResults = Papa.parse(repairedCsvText, { header: true, skipEmptyLines: true });
-                    parsedData = repairedResults.data;
-                }
-              }
+              headers.forEach(actualHeader => {
+                  const normalizedActual = normalizeString(actualHeader);
+                  const matchingCol = CLIENT_CSV_COLUMNS.find(col => 
+                      normalizeString(col.label) === normalizedActual || 
+                      normalizeString(col.key) === normalizedActual
+                  );
+                  if (matchingCol) {
+                      headerMap[actualHeader] = matchingCol.key;
+                  }
+              });
 
               try {
                   const importedClients: Client[] = parsedData.map((row: any) => {
@@ -299,24 +305,34 @@ export const ClientsView = () => {
                           credentials: []
                       };
                       
-                      CLIENT_CSV_COLUMNS.forEach(col => {
-                          // Intentar obtener por etiqueta legible o por llave técnica
-                          const val = row[col.label] !== undefined ? row[col.label] : (row[col.key] !== undefined ? row[col.key] : '');
-                          
-                          if (col.key === 'serviceStatus') {
-                              client.serviceStatus = getStatusKeyFromLabel(String(val || ''));
-                          } else if (col.key === 'contractedServices') {
-                              client.contractedServices = val ? String(val).split(';') : [];
-                          } else if (['adminCost', 'referralCommissionAmount', 'discountPercentage', 'advisorCommissionAmount', 'advisorCommissionPercentage', 'ltv', 'balance'].includes(col.key)) {
-                              client[col.key] = val ? Number(val) : 0;
-                          } else if (col.key === 'id') {
-                              client.id = (val && String(val).trim() !== '' && String(val) !== 'undefined') ? val : crypto.randomUUID();
-                          } else if (col.key === 'entryDate') {
-                              client.entryDate = val || new Date().toISOString().split('T')[0];
+                      // Phase 3: Map data using the headerMap and sanitize
+                      Object.entries(row).forEach(([actualHeader, val]) => {
+                          const key = headerMap[actualHeader];
+                          if (!key) return;
+
+                          let value = val !== undefined ? String(val).trim() : '';
+
+                          if (key === 'serviceStatus') {
+                              client.serviceStatus = getStatusKeyFromLabel(value);
+                          } else if (key === 'contractedServices') {
+                              client.contractedServices = value ? value.split(';') : [];
+                          } else if (key === 'documentId') {
+                              // Phase 3: Document Sanitization (remove dots, commas, spaces)
+                              client.documentId = value.replace(/[.,\s]/g, '');
+                          } else if (['adminCost', 'referralCommissionAmount', 'discountPercentage', 'advisorCommissionAmount', 'advisorCommissionPercentage', 'ltv', 'balance'].includes(key)) {
+                              // Sanitize monetary/numeric values
+                              client[key] = value ? Number(value.replace(/[^0-9.-]/g, '')) : 0;
+                          } else if (key === 'id') {
+                              client.id = (value && value !== 'undefined') ? value : crypto.randomUUID();
+                          } else if (key === 'entryDate') {
+                              client.entryDate = value || new Date().toISOString().split('T')[0];
                           } else {
-                              client[col.key] = val !== undefined ? String(val).trim() : '';
+                              client[key] = value;
                           }
                       });
+
+                      // Fallback for missing ID or mandatory fields
+                      if (!client.id) client.id = crypto.randomUUID();
                       
                       return client as Client;
                   });
@@ -334,8 +350,10 @@ export const ClientsView = () => {
                           importedClients.forEach(newClient => {
                               if (!newClient.fullName || !newClient.documentId) return;
                               
+                              // Advisor Auto-creation Logic
                               if (newClient.assignedAdvisor) {
-                                  const advisorExists = mergedAdvisors.some(a => a.name.toLowerCase() === newClient.assignedAdvisor.toLowerCase());
+                                  const advisorNameNorm = normalizeString(newClient.assignedAdvisor);
+                                  const advisorExists = mergedAdvisors.some(a => normalizeString(a.name) === advisorNameNorm);
                                   if (!advisorExists) {
                                       mergedAdvisors.push({
                                           id: crypto.randomUUID(),
@@ -350,21 +368,26 @@ export const ClientsView = () => {
                                   }
                               }
 
-                              const existingIndex = mergedClients.findIndex(c => String(c.documentId).trim() === String(newClient.documentId).trim());
+                              // Phase 3: Improved Duplicity Check (sanitized documentId)
+                              const cleanDoc = String(newClient.documentId).replace(/[.,\s]/g, '');
+                              const existingIndex = mergedClients.findIndex(c => 
+                                  String(c.documentId).replace(/[.,\s]/g, '') === cleanDoc
+                              );
                               
                               if (existingIndex >= 0) {
+                                  // Update existing
                                   const existingId = mergedClients[existingIndex].id;
-                                  const validId = (existingId && String(existingId) !== 'undefined') ? existingId : newClient.id;
-                                  
                                   mergedClients[existingIndex] = {
                                       ...mergedClients[existingIndex],
                                       ...newClient,
-                                      id: validId,
-                                      beneficiaries: mergedClients[existingIndex].beneficiaries || [],
-                                      credentials: mergedClients[existingIndex].credentials || []
+                                      id: (existingId && existingId !== 'undefined') ? existingId : newClient.id,
+                                      // Preserve arrays if they are empty in CSV but have data in DB
+                                      beneficiaries: mergedClients[existingIndex].beneficiaries || newClient.beneficiaries || [],
+                                      credentials: mergedClients[existingIndex].credentials || newClient.credentials || []
                                   };
                                   updated++;
                               } else {
+                                  // Add new
                                   mergedClients.push(newClient);
                                   added++;
                               }
@@ -411,6 +434,8 @@ export const ClientsView = () => {
       setDebouncedSearchTerm('');
       setStatusFilter('all');
       setAdvisorFilter('all');
+      setDebtFilter('all');
+      setServiceFilter('all');
       setCurrentPage(1);
   };
 
@@ -454,7 +479,7 @@ export const ClientsView = () => {
             onImport={processCSVData} 
         />
         {/* STATS DASHBOARD */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/10 border-blue-100 dark:border-blue-900">
                 <CardContent className="p-6 flex items-center justify-between">
                     <div><p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Clientes</p><h3 className="text-3xl font-bold mt-1">{stats.total}</h3></div>
@@ -473,11 +498,18 @@ export const ClientsView = () => {
                     <div className="h-12 w-12 bg-white/50 dark:bg-amber-900/50 rounded-2xl flex items-center justify-center shadow-sm"><Clock className="h-6 w-6 text-amber-600 dark:text-amber-400"/></div>
                 </CardContent>
             </Card>
+            <Card className="bg-gradient-to-br from-rose-50 to-rose-100/50 dark:from-rose-950/40 dark:to-rose-900/10 border-rose-100 dark:border-rose-900">
+                <CardContent className="p-6 flex items-center justify-between">
+                    <div><p className="text-sm font-medium text-rose-600 dark:text-rose-400">Cartera por Cobrar</p><h3 className="text-3xl font-bold mt-1">{formatCurrency(stats.receivable)}</h3></div>
+                    <div className="h-12 w-12 bg-white/50 dark:bg-rose-900/50 rounded-2xl flex items-center justify-center shadow-sm"><div className="h-6 w-6 flex items-center justify-center font-bold text-rose-600 dark:text-rose-400">$</div></div>
+                </CardContent>
+            </Card>
         </div>
 
-        {/* FILTER BAR */}
+        {/* FILTER BAR - DYNAMIC & CLEAN */}
         <div className="bg-card p-4 rounded-xl border shadow-sm mb-6 space-y-4">
             <div className="flex flex-col md:flex-row gap-4">
+                {/* Primary Search */}
                 <div className="relative flex-grow">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
                     <Input 
@@ -485,52 +517,139 @@ export const ClientsView = () => {
                         name="search"
                         autoComplete="off"
                         placeholder="Buscar por nombre o documento..." 
-                        className="pl-10 bg-background/50" 
+                        className="pl-10 bg-background/50 h-11" 
                         value={searchTerm} 
                         onChange={handleSearchChange} 
                     />
                 </div>
-                <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2">
-                    <Select value={statusFilter} onValueChange={(v: string) => { setStatusFilter(v); setCurrentPage(1); }}>
-                        <SelectTrigger className="w-full sm:w-[180px]">
-                            <div className="flex items-center gap-2">
-                                <Filter className="h-4 w-4 text-muted-foreground"/>
-                                <SelectValue placeholder="Estado" />
-                            </div>
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos los estados</SelectItem>
-                            {serviceStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
 
-                    <Select value={advisorFilter} onValueChange={(v: string) => { setAdvisorFilter(v); setCurrentPage(1); }}>
-                         <SelectTrigger className="w-full sm:w-[180px]">
-                             <SelectValue placeholder="Asesor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todos los asesores</SelectItem>
-                            {advisors.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-
+                {/* Sort Order - Always Visible */}
+                <div className="w-full md:w-[180px]">
                     <Select value={sortOrder} onValueChange={(v: any) => setSortOrder(v)}>
-                        <SelectTrigger className="w-full sm:w-[160px] col-span-2 sm:col-span-1">
-                            <SelectValue placeholder="Orden" />
+                        <SelectTrigger className="h-11 bg-background/50">
+                            <SelectValue placeholder="Ordenar por" />
                         </SelectTrigger>
-                         <SelectContent>
+                        <SelectContent>
                             <SelectItem value="newest">Más recientes</SelectItem>
                             <SelectItem value="oldest">Más antiguos</SelectItem>
                             <SelectItem value="name">Nombre (A-Z)</SelectItem>
                         </SelectContent>
                     </Select>
-                    
-                    {(searchTerm || statusFilter !== 'all' || advisorFilter !== 'all') && (
-                        <Button variant="ghost" onClick={clearFilters} size="icon" title="Limpiar filtros" className="shrink-0 col-span-2 sm:col-span-1 w-full sm:w-10">
-                            <X className="h-4 w-4"/>
-                        </Button>
-                    )}
                 </div>
+            </div>
+
+            {/* Dynamic Filter Controls */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-dashed border-muted">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mr-2">Filtros:</span>
+                
+                {/* Advisor Chip/Selector */}
+                {advisorFilter !== 'all' && (
+                    <div className="flex items-center bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-full px-1 pl-3 h-8 animate-in fade-in zoom-in duration-200">
+                        <span className="text-xs font-medium text-blue-700 dark:text-blue-300 mr-2 flex items-center gap-1">
+                            <UserCog className="w-3 h-3" /> Asesor:
+                        </span>
+                        <Select value={advisorFilter} onValueChange={(v: string) => { setAdvisorFilter(v); setCurrentPage(1); }}>
+                            <SelectTrigger className="h-6 border-none bg-transparent p-0 px-1 text-xs font-bold text-blue-900 dark:text-blue-100 focus:ring-0">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Eliminar</SelectItem>
+                                {advisors.map(a => <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full ml-1 hover:bg-blue-200 dark:hover:bg-blue-800" onClick={() => setAdvisorFilter('all')}>
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </div>
+                )}
+
+                {/* Status Chip/Selector */}
+                {statusFilter !== 'all' && (
+                    <div className="flex items-center bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-full px-1 pl-3 h-8 animate-in fade-in zoom-in duration-200">
+                        <span className="text-xs font-medium text-purple-700 dark:text-purple-300 mr-2 flex items-center gap-1">
+                            <Filter className="w-3 h-3" /> Estado:
+                        </span>
+                        <Select value={statusFilter} onValueChange={(v: string) => { setStatusFilter(v); setCurrentPage(1); }}>
+                            <SelectTrigger className="h-6 border-none bg-transparent p-0 px-1 text-xs font-bold text-purple-900 dark:text-purple-100 focus:ring-0">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Eliminar</SelectItem>
+                                {serviceStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full ml-1 hover:bg-purple-200 dark:hover:bg-purple-800" onClick={() => setStatusFilter('all')}>
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </div>
+                )}
+
+                {/* Debt Chip/Selector */}
+                {debtFilter !== 'all' && (
+                    <div className="flex items-center bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 rounded-full px-1 pl-3 h-8 animate-in fade-in zoom-in duration-200">
+                        <span className="text-xs font-medium text-rose-700 dark:text-rose-300 mr-2 flex items-center gap-1">
+                            <ClipboardList className="w-3 h-3" /> Pago:
+                        </span>
+                        <Select value={debtFilter} onValueChange={(v: any) => { setDebtFilter(v); setCurrentPage(1); }}>
+                            <SelectTrigger className="h-6 border-none bg-transparent p-0 px-1 text-xs font-bold text-rose-900 dark:text-rose-100 focus:ring-0">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Eliminar</SelectItem>
+                                <SelectItem value="debtors">Con Deuda</SelectItem>
+                                <SelectItem value="current">Al Día</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full ml-1 hover:bg-rose-200 dark:hover:bg-rose-800" onClick={() => setDebtFilter('all')}>
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </div>
+                )}
+
+                {/* Service Chip/Selector */}
+                {serviceFilter !== 'all' && (
+                    <div className="flex items-center bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-full px-1 pl-3 h-8 animate-in fade-in zoom-in duration-200">
+                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 mr-2 flex items-center gap-1">
+                            <Wrench className="w-3 h-3" /> Servicio:
+                        </span>
+                        <Select value={serviceFilter} onValueChange={(v: string) => { setServiceFilter(v); setCurrentPage(1); }}>
+                            <SelectTrigger className="h-6 border-none bg-transparent p-0 px-1 text-xs font-bold text-emerald-900 dark:text-emerald-100 focus:ring-0">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Eliminar</SelectItem>
+                                {availableServices.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full ml-1 hover:bg-emerald-200 dark:hover:bg-emerald-800" onClick={() => setServiceFilter('all')}>
+                            <X className="h-3 w-3" />
+                        </Button>
+                    </div>
+                )}
+
+                {/* Add Filter Dropdown */}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 rounded-full border-dashed gap-1 text-muted-foreground hover:text-primary hover:border-primary transition-all">
+                            <Plus className="w-3 h-3" /> Agregar Filtro
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-48">
+                        {statusFilter === 'all' && <DropdownMenuItem onClick={() => setStatusFilter(serviceStatuses[0])}>Estado de Servicio</DropdownMenuItem>}
+                        {advisorFilter === 'all' && <DropdownMenuItem onClick={() => { if(advisors.length > 0) setAdvisorFilter(advisors[0].name) }}>Asesor Asignado</DropdownMenuItem>}
+                        {debtFilter === 'all' && <DropdownMenuItem onClick={() => setDebtFilter('debtors')}>Estado de Deuda</DropdownMenuItem>}
+                        {serviceFilter === 'all' && <DropdownMenuItem onClick={() => { if(availableServices.length > 0) setServiceFilter(availableServices[0]) }}>Servicio Específico</DropdownMenuItem>}
+                        {statusFilter !== 'all' && advisorFilter !== 'all' && debtFilter !== 'all' && serviceFilter !== 'all' && (
+                            <DropdownMenuItem disabled className="text-xs text-muted-foreground">Todos los filtros activos</DropdownMenuItem>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                {(searchTerm || statusFilter !== 'all' || advisorFilter !== 'all' || debtFilter !== 'all' || serviceFilter !== 'all') && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-muted-foreground hover:text-destructive">
+                        Limpiar Todo
+                    </Button>
+                )}
             </div>
         </div>
 
@@ -567,11 +686,11 @@ export const ClientsView = () => {
                                 <TableCell className="hidden md:table-cell">
                                     <div className="flex flex-col">
                                         <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400 block" title="Lifetime Value (Total Ingresado)">
-                                            LTV: ${c.ltv?.toLocaleString() || '0'}
+                                            LTV: {formatCurrency(c.calculatedLtv)}
                                         </span>
                                         {(c.balance && c.balance > 0) ? (
                                             <span className="text-xs text-destructive flex items-center gap-1 font-semibold" title="Saldo Pendiente de Pago">
-                                                Deuda: ${c.balance.toLocaleString()}
+                                                Deuda: {formatCurrency(c.balance)}
                                             </span>
                                         ) : (
                                             <span className="text-xs text-muted-foreground/70" title="Cliente al día con sus pagos">Al día</span>

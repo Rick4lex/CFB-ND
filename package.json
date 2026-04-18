@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npm run build"
+    "deploy": "npm run build",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

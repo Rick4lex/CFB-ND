@@ -434,7 +434,7 @@ export const LandingView = () => {
                     <div className="flex justify-center gap-6 mb-8">
                         <a href="https://www.facebook.com/cfbraind/" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
                             <Facebook className="w-5 h-5" />
-                            <span className="text-sm">Facebook</span>
+                            <span className="text-sm">cfbraind</span>
                         </a>
                         <a href="mailto:cfb.dig@gmail.com" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
                             <Mail className="w-5 h-5" />
