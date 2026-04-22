@@ -117,7 +117,7 @@ export const LandingView = () => {
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#641E1E] to-red-600">sin enredos.</span>
                         </h1>
                         <p className="text-lg md:text-xl max-w-xl text-gray-700 leading-relaxed">
-                            Gestión experta de liquidación y aportes en Planilla PILA, ARL Express y Afiliaciones para independientes y empresas en Colombia.
+                            Gestión experta de liquidación y aportes en Planilla PILA, ARL por Días y Afiliaciones para independientes y empresas en Colombia.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4">
                             <a href="#cotizador" onClick={(e) => scrollToSection(e, 'cotizador')} className="inline-flex items-center justify-center px-6 py-3 rounded-xl font-bold text-white transition-transform hover:scale-105" style={{ backgroundColor: '#641E1E' }}>
