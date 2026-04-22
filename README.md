@@ -1,20 +1,49 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+<img width="1200" height="475" alt="GHBanner" src="https://res.cloudinary.com/dyeppbrfl/image/upload/v1776844729/Desktop_-_3_ziwksd.png" />
 </div>
 
-# Run and deploy your AI Studio app
+# 📂 CFB-ND | Plataforma de Gestión Integral
 
-This contains everything you need to run your app locally.
+> *"Transformando datos en conocimiento, y administración en maestría."*
 
-View your app in AI Studio: https://ai.studio/apps/66612bfe-9c6d-4f85-80a0-c6f29c58b322
+**CFB-ND** (CFBra!nd) es un ecosistema administrativo y financiero diseñado para la gestión de seguridad social, asesoría administrativa y control de libro diario. Opera bajo el principio de **Privacidad por Diseño**, manteniendo los datos sensibles bajo control del usuario mediante almacenamiento local.
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## 🏛️ Módulos Principales
 
+| Módulo | Descripción |
+|---|---|
+| **Gestión de Clientes** | CRM con motor de estados automáticos, seguimiento de LTV y segmentación dinámica (VIP, Moroso, Activo) |
+| **Control Financiero** | Panel financiero con motor de Partida Doble, KPIs en tiempo real y análisis de rentabilidad |
+| **Documentos Autogenerados** | Generador de documentos con sincronización automática al libro mayor |
+| **Cotizador** | Creación de presupuestos técnicos con exportación PNG/PDF |
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+---
+
+## 🛠️ Stack Tecnológico
+
+- **Core:** React 18 + TypeScript
+- **Build:** Vite
+- **Estado Global:** Zustand (con persistencia JSON)
+- **Estilos:** Tailwind CSS
+- **Iconos:** Lucide React
+- **Imágenes:** `html-to-image`
+
+---
+
+## 🚀 Instalación
+
+```bash
+git clone https://github.com/tu-usuario/cfb-nd.git
+cd cfb-nd
+npm install
+npm run dev       # Desarrollo
+npm run build     # Producción
+```
+
+---
+
+## ⚖️ Licencia
+
+Proyecto privado — **CFBra!nd**. Todos los derechos reservados.
