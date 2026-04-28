@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://rick4lex.github.io/CFB-ND/sitemap.xml
