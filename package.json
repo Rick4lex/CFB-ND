@@ -17,6 +17,7 @@
     "date-fns": "^3.6.0",
     "html-to-image": "^1.11.11",
     "idb": "^8.0.3",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.378.0",
     "motion": "^12.38.0",
     "papaparse": "^5.4.1",

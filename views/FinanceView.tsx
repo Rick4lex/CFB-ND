@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { PageLayout } from '../components/layout/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Tabs, TabsList, TabsTrigger, Button, Badge, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/Shared';
-import { Plus, Wallet, ArrowUpRight, ArrowDownRight, Activity, CalendarDays } from 'lucide-react';
+import { Plus, Wallet, ArrowUpRight, ArrowDownRight, Activity, CalendarDays, Printer, Loader2 } from 'lucide-react';
 import { useAppStore } from '../lib/store';
 import { TransactionFormDialog, AccountFormDialog, CategoryFormDialog } from '../components/features/Dialogs';
+import { FinancialReportTemplate } from '../components/features/FinancialReportTemplate';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { saveTransactionWithAccountBalance } from '../lib/db';
 import { formatCurrency } from '../lib/utils';
@@ -135,49 +136,71 @@ export const FinanceView = () => {
 
     const handleSaveTransaction = async (transaction: any) => {
         try {
-            // Manejo de actualización de cuenta bancaria
-            const sourceAccount = accounts.find(a => a.id === transaction.sourceAccountId);
-            
-            if (sourceAccount) {
-                // Determine balance change. If editing, we'd need to reverse the old amount, but for simplicity we assume manual transactions are mostly additions or simple edits.
-                const isIncome = transaction.type === 'INCOME';
-                let amountChange = transaction.amount;
-                
-                if (editingTransaction) {
-                    amountChange = transaction.amount - editingTransaction.amount;
-                    if (editingTransaction.type !== transaction.type) {
-                        amountChange = isIncome ? (transaction.amount + editingTransaction.amount) : -(transaction.amount + editingTransaction.amount);
-                    } else if (!isIncome) {
-                        amountChange = -(transaction.amount - editingTransaction.amount);
-                    }
-                } else if (!isIncome) {
-                    amountChange = -transaction.amount;
-                }
-
-                const updatedAccount = { ...sourceAccount, balance: sourceAccount.balance + amountChange };
-
-                if (!editingTransaction) {
-                    // Integridad Atómica Guardada en IndexedDB // DIRECTRIZ 6
-                    await saveTransactionWithAccountBalance(transaction, updatedAccount);
-                    addTransaction(transaction);
-                } else {
-                    updateTransaction(transaction);
-                }
-                updateAccount(updatedAccount);
-                
-                toast({
-                    title: "Transacción Atómica Registrada",
-                    description: `El libro mayor y el balance de la cuenta se actualizaron simultáneamente.`,
-                });
-            } else {
-                if (editingTransaction) updateTransaction(transaction);
-                else addTransaction(transaction);
+            // Validation
+            if (transaction.type === 'TRANSFER' && (!transaction.sourceAccountId || !transaction.destinationAccountId)) {
+                toast({ variant: 'destructive', title: 'Error', description: 'Cuentas de origen y destino requeridas para transferencia.' });
+                return;
             }
+            if (transaction.type !== 'TRANSFER' && !transaction.sourceAccountId) {
+                toast({ variant: 'destructive', title: 'Error', description: 'Cuenta requerida.' });
+                return;
+            }
+
+            // Map to track net change per account
+            const accountChanges = new Map<string, number>();
+            const applyChange = (accountId: string | undefined, change: number) => {
+                if (accountId && accountId !== 'accounts-receivable-system-id') {
+                    accountChanges.set(accountId, (accountChanges.get(accountId) || 0) + change);
+                }
+            };
+
+            // Revert editingTransaction changes
+            if (editingTransaction) {
+                if (editingTransaction.type === 'INCOME') applyChange(editingTransaction.sourceAccountId, -editingTransaction.amount);
+                if (editingTransaction.type === 'EXPENSE') applyChange(editingTransaction.sourceAccountId, editingTransaction.amount);
+                if (editingTransaction.type === 'TRANSFER') {
+                    applyChange(editingTransaction.sourceAccountId, editingTransaction.amount);
+                    applyChange(editingTransaction.destinationAccountId, -editingTransaction.amount);
+                }
+            }
+
+            // Apply new transaction changes
+            if (transaction.type === 'INCOME') applyChange(transaction.sourceAccountId, transaction.amount);
+            if (transaction.type === 'EXPENSE') applyChange(transaction.sourceAccountId, -transaction.amount);
+            if (transaction.type === 'TRANSFER') {
+                applyChange(transaction.sourceAccountId, -transaction.amount);
+                applyChange(transaction.destinationAccountId, transaction.amount);
+            }
+
+            // Update Zustand Store for Transaction
+            if (!editingTransaction) {
+                addTransaction(transaction);
+            } else {
+                updateTransaction(transaction);
+            }
+
+            // Update Zustand Store for Accounts
+            let accountsUpdated = 0;
+            for (let [accountId, change] of accountChanges.entries()) {
+                if (change !== 0) {
+                    const acc = accounts.find(a => a.id === accountId);
+                    if (acc) {
+                        updateAccount({ ...acc, balance: acc.balance + change });
+                        accountsUpdated++;
+                    }
+                }
+            }
+
+            toast({
+                title: editingTransaction ? "Transacción Actualizada" : "Transacción Registrada",
+                description: `Se actualizó la contabilidad (${accountsUpdated} cuenta(s) modificada(s)).`,
+            });
+            
         } catch (error) {
            toast({
                variant: 'destructive',
                title: "Error de Integridad",
-               description: "No se pudo asegurar la transacción en la base de datos.",
+               description: "No se pudo asegurar la transacción.",
            });
         }
     };
@@ -191,16 +214,99 @@ export const FinanceView = () => {
     const handleEditCategory = (category: any) => { setEditingCategory(category); setIsCategoryModalOpen(true); };
     const handleSaveCategory = (category: any) => { editingCategory ? updateCategory(category) : addCategory(category); };
 
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+    const reportRef = React.useRef<HTMLDivElement>(null);
+
+    const handlePrint = async () => {
+        try {
+            setIsGeneratingPDF(true);
+            toast({ title: 'Generando Informe', description: 'Por favor, espere un momento...' });
+            
+            const element = reportRef.current;
+            if (!element) return;
+
+            // Pause for rendering
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const htmlToImage = await import('html-to-image');
+            const jsPDF = (await import('jspdf')).default;
+
+            const pages = element.querySelectorAll('.pdf-page');
+            
+            if (pages.length > 0) {
+                 const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'px',
+                    format: [816, 1056]
+                });
+                
+                for(let i=0; i<pages.length; i++) {
+                     if (i > 0) pdf.addPage();
+                     const pageEl = pages[i] as HTMLElement;
+                     const dataUrl = await htmlToImage.toPng(pageEl, { 
+                         quality: 0.95, 
+                         backgroundColor: '#ffffff',
+                         pixelRatio: 2,
+                         filter: (node) => {
+                             if (node.tagName === 'LINK' && (node as HTMLLinkElement).href && (node as HTMLLinkElement).href.includes('font-awesome')) {
+                                 return false;
+                             }
+                             return true;
+                         }
+                     });
+                     pdf.addImage(dataUrl, 'PNG', 0, 0, 816, 1056);
+                }
+                pdf.save(`Resumen-Financiero-${dateRange}-${new Date().toISOString().split('T')[0]}.pdf`);
+                
+                toast({ title: 'PDF Generado', description: 'El resumen se ha descargado correctamente.' });
+            } else {
+                 toast({ variant: 'destructive', title: 'Error', description: 'No se encontraron páginas para generar.' });
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudo generar el PDF: ' + error.message });
+        } finally {
+            setIsGeneratingPDF(false);
+        }
+    };
+
     return (
         <PageLayout title="Dashboard Financiero" subtitle="Partida Doble: Control y crecimiento" onBackRoute="/app/dashboard">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                 <div className="flex gap-2">
+            <style>{`
+                @media print {
+                    nav, header, aside, [role="tablist"], button { display: none !important; }
+                    .page-content { padding: 0 !important; margin: 0 !important; }
+                    .print-only { display: block !important; }
+                    .recharts-wrapper { width: 100% !important; height: auto !important; }
+                    body { background: white; color: black; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .dashboard-tabs-content { display: block !important; }
+                }
+            `}</style>
+
+            <div className="hidden print:block print:mb-8 border-b pb-6">
+                <div className="flex justify-between items-end">
+                    <div>
+                        <h1 className="text-4xl font-bold text-gray-900">Resumen Financiero</h1>
+                        <p className="text-xl text-gray-500 mt-2">Periodo: {dateRange === 'current_month' ? 'Mes Actual' : dateRange === 'last_month' ? 'Mes Anterior' : dateRange === 'year' ? 'Este Año' : 'Histórico Total'}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-sm font-bold text-gray-400">FECHA DE GENERACIÓN</p>
+                        <p className="text-lg text-gray-800">{format(new Date(), "dd 'de' MMMM, yyyy", { locale: es })}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 print:hidden">
+                 <div className="flex gap-2 flex-wrap">
                     <Button onClick={() => handleCreateTransaction('INCOME')}><Plus className="w-4 h-4 mr-2"/> Registrar Ingreso</Button>
                     <Button variant="outline" onClick={() => handleCreateTransaction('EXPENSE')}><Plus className="w-4 h-4 mr-2"/> Registrar Gasto</Button>
                  </div>
                  
-                 <div className="w-full sm:w-auto flex items-center gap-2">
-                    <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                 <div className="w-full sm:w-auto flex items-center gap-2 flex-wrap">
+                    <Button variant="secondary" onClick={handlePrint} disabled={isGeneratingPDF}>
+                        {isGeneratingPDF ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Printer className="w-4 h-4 mr-2"/>} 
+                        Resumen PDF
+                    </Button>
+                    <CalendarDays className="w-4 h-4 text-muted-foreground ml-2" />
                     <Select value={dateRange} onValueChange={(val: any) => setDateRange(val)}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Periodo" />
@@ -224,7 +330,7 @@ export const FinanceView = () => {
                 </TabsList>
 
                 {activeTab === 'overview' && (
-                    <div className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-4">
+                    <div id="report-metrics-container" className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-4 p-4 bg-background">
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <Card className="bg-gradient-to-br from-emerald-500/10 via-background border-emerald-500/20">
                             <CardHeader className="pb-2">
@@ -310,16 +416,16 @@ export const FinanceView = () => {
                                     {filteredTransactions.slice(0, 5).map(tx => (
                                          <div key={tx.id} className="flex justify-between items-center p-3 hover:bg-muted/30 rounded-lg transition-colors border-b last:border-0 border-dashed">
                                              <div className="flex items-center gap-3">
-                                                 <div className={`p-2 rounded-full ${tx.type === 'INCOME' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50' : 'bg-red-100 text-red-600 dark:bg-red-950/50'}`}>
-                                                     {tx.type === 'INCOME' ? <ArrowUpRight className="h-4 w-4"/> : <ArrowDownRight className="h-4 w-4"/>}
+                                                 <div className={`p-2 rounded-full ${tx.type === 'INCOME' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50' : tx.type === 'TRANSFER' ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/50' : 'bg-red-100 text-red-600 dark:bg-red-950/50'}`}>
+                                                     {tx.type === 'INCOME' ? <ArrowUpRight className="h-4 w-4"/> : tx.type === 'TRANSFER' ? <ArrowDownRight className="h-4 w-4 transform rotate-90"/> : <ArrowDownRight className="h-4 w-4"/>}
                                                  </div>
                                                  <div>
                                                      <p className="font-medium text-sm">{tx.description}</p>
                                                      <p className="text-xs text-muted-foreground">{format(new Date(tx.date), "dd/MM/yyyy", { locale: es })}</p>
                                                  </div>
                                              </div>
-                                             <div className={`font-semibold text-sm ${tx.type === 'INCOME' ? 'text-emerald-600' : 'text-red-600'}`}>
-                                                 {tx.type === 'EXPENSE' ? '-' : '+'}{formatCurrency(tx.amount)}
+                                             <div className={`font-semibold text-sm ${tx.type === 'INCOME' ? 'text-emerald-600' : tx.type === 'TRANSFER' ? 'text-blue-600' : 'text-red-600'}`}>
+                                                 {tx.type === 'EXPENSE' ? '-' : (tx.type === 'INCOME' ? '+' : '')}{formatCurrency(tx.amount)}
                                              </div>
                                          </div>
                                     ))}
@@ -346,7 +452,7 @@ export const FinanceView = () => {
                                     <TableRow>
                                         <TableHead>Fecha</TableHead>
                                         <TableHead>Descripción</TableHead>
-                                        <TableHead>Cuenta Origen</TableHead>
+                                        <TableHead>Cuenta(s)</TableHead>
                                         <TableHead>Tipo</TableHead>
                                         <TableHead className="text-right">Valor</TableHead>
                                     </TableRow>
@@ -358,7 +464,22 @@ export const FinanceView = () => {
                                         </TableRow>
                                     ) : (
                                         filteredTransactions.map(t => {
-                                            const acc = accounts.find(a => a.id === t.sourceAccountId);
+                                            const sourceAcc = accounts.find(a => a.id === t.sourceAccountId);
+                                            const destAcc = accounts.find(a => a.id === t.destinationAccountId);
+                                            
+                                            // Handle implicit custom Badge component since 'transfer' might not be a valid variant. We can use style/class.
+                                            let badgeVariant = 'outline';
+                                            let badgeClass = '';
+                                            if (t.type === 'INCOME') {
+                                                badgeVariant = 'success';
+                                            } else if (t.type === 'EXPENSE') {
+                                                badgeVariant = 'destructive';
+                                            } else if (t.type === 'TRANSFER') {
+                                                badgeClass = 'bg-blue-100 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300';
+                                            }
+
+                                            const getAccountName = (acc: any, id: string) => id === 'accounts-receivable-system-id' ? 'Cuentas por Cobrar (Sistema)' : (acc?.name || 'Desconocida');
+
                                             return (
                                                 <TableRow key={t.id} className="cursor-pointer hover:bg-muted/30" onClick={() => handleEditTransaction(t)}>
                                                     <TableCell className="font-mono text-xs">{format(new Date(t.date), "MMM dd, yyyy", { locale: es })}</TableCell>
@@ -366,13 +487,15 @@ export const FinanceView = () => {
                                                         {t.description}
                                                         {t.documentId && <Badge variant="outline" className="ml-2 text-[10px] h-4">Fac: {t.documentId}</Badge>}
                                                     </TableCell>
-                                                    <TableCell className="text-muted-foreground text-sm">{acc?.name || 'Desconocida'}</TableCell>
+                                                    <TableCell className="text-muted-foreground text-sm">
+                                                        {t.type === 'TRANSFER' ? `${getAccountName(sourceAcc, t.sourceAccountId)} -> ${getAccountName(destAcc, t.destinationAccountId!)}` : getAccountName(sourceAcc, t.sourceAccountId)}
+                                                    </TableCell>
                                                     <TableCell>
-                                                        <Badge variant={t.type === 'INCOME' ? 'success' : 'destructive'} className="text-[10px] uppercase">
-                                                            {t.type === 'INCOME' ? 'Ingreso' : 'Egreso'}
+                                                        <Badge variant={badgeVariant as any} className={`text-[10px] uppercase ${badgeClass}`}>
+                                                            {t.type === 'INCOME' ? 'Ingreso' : t.type === 'TRANSFER' ? 'Transf.' : 'Egreso'}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className={`text-right font-bold ${t.type === 'INCOME' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                                    <TableCell className={`text-right font-bold ${t.type === 'INCOME' ? 'text-emerald-600 dark:text-emerald-400' : t.type === 'TRANSFER' ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
                                                         {formatCurrency(t.amount)}
                                                     </TableCell>
                                                 </TableRow>
@@ -461,7 +584,7 @@ export const FinanceView = () => {
                     onSave={handleSaveTransaction} 
                     item={editingTransaction}
                     initialType={initialTransactionType}
-                    accounts={accounts}
+                    accounts={[{ id: 'accounts-receivable-system-id', name: 'Cuentas por Cobrar (Sistema)' }, ...accounts]}
                     categories={categories}
                     clients={clients}
                 />
@@ -484,6 +607,17 @@ export const FinanceView = () => {
                     item={editingCategory} 
                 />
             )}
+
+            <FinancialReportTemplate 
+                ref={reportRef}
+                dateRange={dateRange}
+                totalIncome={totalIncome}
+                totalExpense={totalExpense}
+                netFlow={netFlow}
+                accountsReceivable={accountsReceivable}
+                filteredTransactions={filteredTransactions}
+                accounts={accounts}
+            />
         </PageLayout>
     );
 };

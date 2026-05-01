@@ -140,51 +140,82 @@ export const DocumentsView = () => {
   };
 
   const handleSaveInvoiceToStore = () => {
-      const isIndividual = captureTarget === 'individual';
-      const client = isIndividual ? clientForInvoice : groupPayerClient;
-      if (!client) return;
-
-      const totalAmount = isIndividual ? totalInvoiceAmount : groupTotalAmount;
-      const date = isIndividual ? individualInvoiceDate : groupInvoiceDate;
-      const additionalItems = isIndividual ? individualInvoice.items : groupInvoice.items;
-      
-      const invoiceId = `INV-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
-      
-      const mappedItems = additionalItems.map(i => ({
-          description: i.description,
-          quantity: 1,
-          unitPrice: i.value,
-          total: i.value
-      }));
-
-      // Add base services to items list
-      client.contractedServices?.forEach(sId => {
-          const s = catalogServices.find(c => c.id === sId || c.name === sId);
-          if (s) {
-              mappedItems.unshift({
-                  description: s.name,
-                  quantity: 1,
-                  unitPrice: s.basePrice,
-                  total: s.basePrice
-              });
+      try {
+          const isIndividual = activePreviewType === 'individual';
+          const client = isIndividual ? clientForInvoice : groupPayerClient;
+          if (!client) {
+              toast({ variant: 'destructive', title: 'Error', description: 'No hay cliente seleccionado.' });
+              return;
           }
-      });
 
-      addInvoice({
-          id: invoiceId,
-          clientId: client.id,
-          date: date,
-          dueDate: new Date(new Date(date).getTime() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +15 days
-          totalAmount: totalAmount,
-          status: 'Pendiente',
-          items: mappedItems
-      });
+          const totalAmount = isIndividual ? totalInvoiceAmount : groupTotalAmount;
+          const date = isIndividual ? individualInvoiceDate : groupInvoiceDate;
+          const additionalItems = isIndividual ? individualInvoice.items : groupInvoice.items;
+          
+          if (!date) {
+               toast({ variant: 'destructive', title: 'Error', description: 'La fecha es inválida.' });
+               return;
+          }
 
-      toast({
-          title: "Factura registrada",
-          description: `Se ha registrado la factura ${invoiceId} en el perfil del cliente.`,
-      });
-      setIsPreviewModalOpen(false);
+          const invoiceId = `INV-${crypto.randomUUID().split('-')[0].toUpperCase()}`;
+          
+          const mappedItems = additionalItems.map(i => ({
+              description: i.description,
+              quantity: 1,
+              unitPrice: i.value,
+              total: i.value
+          }));
+
+          // Add base services to items list
+          client.contractedServices?.forEach(sId => {
+              const s = catalogServices.find(c => c.id === sId || c.name === sId);
+              if (s) {
+                  mappedItems.unshift({
+                      description: s.name,
+                      quantity: 1,
+                      unitPrice: s.basePrice,
+                      total: s.basePrice
+                  });
+              }
+          });
+
+          const createdDate = new Date(date).getTime();
+          if (isNaN(createdDate)) {
+               toast({ variant: 'destructive', title: 'Error', description: 'La fecha parseada es inválida.' });
+               return;
+          }
+
+          addInvoice({
+              id: invoiceId,
+              clientId: client.id,
+              date: date,
+              dueDate: new Date(createdDate + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +15 days
+              totalAmount: totalAmount || 0,
+              status: 'Pendiente',
+              items: mappedItems
+          });
+
+          // Crear transacción para reflejar en el Libro Mayor
+          useAppStore.getState().addTransaction({
+              id: `TX-${crypto.randomUUID().split('-')[0].toUpperCase()}`,
+              date: createdDate,
+              type: 'INCOME',
+              amount: totalAmount || 0,
+              description: `Cuenta por Cobrar - Factura ${invoiceId}`,
+              categoryId: '', // Ideally we have a category mapped
+              sourceAccountId: 'accounts-receivable-system-id', // ID placeholder
+              clientId: client.id,
+              documentId: invoiceId,
+          });
+
+          toast({
+              title: "Factura registrada",
+              description: `Se ha registrado la factura ${invoiceId} y el movimiento contable.`,
+          });
+          setIsPreviewModalOpen(false);
+      } catch (err: any) {
+          toast({ variant: 'destructive', title: 'Error Interno', description: err.message });
+      }
   };
 
   const handleItemDescriptionChange = (e: React.ChangeEvent<HTMLInputElement>, invoiceHandler: typeof individualInvoice | typeof groupInvoice) => {
