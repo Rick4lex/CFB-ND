@@ -53,17 +53,18 @@ export const ClientProfileSheet = ({ isOpen, onOpenChange, client, onEdit, onDoc
 
     const handleMarkAsPaid = async (invoice: InvoiceRecord) => {
         // Auto-create transaction
-        const firstAccount = accounts?.[0]; // Default to first available account
+        const firstAccount = accounts?.find(a => a.isLiquidCash) || accounts?.[0]; // Default to first liquid available account
         
         let newTx;
         if (firstAccount) {
             newTx = {
-                id: crypto.randomUUID(),
+                id: `TX-${crypto.randomUUID().split('-')[0].toUpperCase()}`,
                 date: Date.now(),
-                type: 'INCOME' as const,
+                type: 'TRANSFER' as const,
                 amount: invoice.totalAmount,
-                description: `Pago Factura ${invoice.id}`,
-                sourceAccountId: firstAccount.id,
+                description: `Ingreso por Pago Factura ${invoice.id}`,
+                sourceAccountId: 'accounts-receivable-system-id',
+                destinationAccountId: firstAccount.id,
                 clientId: client?.id,
                 documentId: invoice.id
             };

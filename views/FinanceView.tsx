@@ -78,6 +78,82 @@ export const FinanceView = () => {
         };
     }, [filteredTransactions, invoices]);
 
+    const cashFlowMetrics = useMemo(() => {
+        const liquidAccounts = accounts.filter(a => a.isLiquidCash);
+        const liquidAccIds = new Set(liquidAccounts.map(a => a.id));
+
+        const positiveCategories = new Set(categories.filter(c => c.cashflowImpact === 'positive').map(c => c.id));
+        const negativeCategories = new Set(categories.filter(c => c.cashflowImpact === 'negative').map(c => c.id));
+
+        const now = new Date();
+        let periodStart: Date | null = null;
+        let periodEnd: Date | null = null;
+        
+        if (dateRange === 'current_month') {
+            periodStart = startOfMonth(now);
+            periodEnd = endOfMonth(now);
+        } else if (dateRange === 'last_month') {
+            const prev = subMonths(now, 1);
+            periodStart = startOfMonth(prev);
+            periodEnd = endOfMonth(prev);
+        } else if (dateRange === 'year') {
+            periodStart = startOfYear(now);
+            periodEnd = endOfYear(now);
+        }
+
+        let inPeriodIncome = 0;
+        let inPeriodExpense = 0;
+        let netLiquidImpactSinceStart = 0;
+
+        transactions.forEach(t => {
+            const tDate = new Date(t.date);
+            const isInsidePeriod = (!periodStart || (tDate >= periodStart && tDate <= periodEnd!));
+            const isAfterOrOnPeriodStart = (!periodStart || tDate >= periodStart);
+
+            let impactOnLiquid = 0;
+
+            if (t.type === 'INCOME' && liquidAccIds.has(t.sourceAccountId)) {
+                impactOnLiquid += t.amount;
+                if (isInsidePeriod && positiveCategories.has(t.categoryId)) {
+                    inPeriodIncome += t.amount;
+                }
+            }
+            if (t.type === 'EXPENSE' && liquidAccIds.has(t.sourceAccountId)) {
+                impactOnLiquid -= t.amount;
+                if (isInsidePeriod && negativeCategories.has(t.categoryId)) {
+                    inPeriodExpense += t.amount;
+                }
+            }
+            if (t.type === 'TRANSFER') {
+                if (liquidAccIds.has(t.destinationAccountId) && !liquidAccIds.has(t.sourceAccountId)) {
+                    impactOnLiquid += t.amount;
+                    if (isInsidePeriod) inPeriodIncome += t.amount;
+                } else if (!liquidAccIds.has(t.destinationAccountId) && liquidAccIds.has(t.sourceAccountId)) {
+                    impactOnLiquid -= t.amount;
+                    if (isInsidePeriod) inPeriodExpense += t.amount;
+                }
+            }
+
+            if (isAfterOrOnPeriodStart) {
+                netLiquidImpactSinceStart += impactOnLiquid;
+            }
+        });
+
+        const currentLiquidBalance = liquidAccounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+        const carryover = currentLiquidBalance - netLiquidImpactSinceStart;
+        const netFlow = inPeriodIncome - inPeriodExpense;
+        const finalBalance = carryover + netFlow;
+
+        return {
+            carryover: carryover,
+            income: inPeriodIncome,
+            expense: inPeriodExpense,
+            netFlow: netFlow,
+            finalBalance: finalBalance,
+            currentBalanceMatching: currentLiquidBalance
+        };
+    }, [transactions, accounts, categories, dateRange]);
+
     const salesByCategoryData = useMemo(() => {
         const categoryMap: { [key: string]: { name: string, value: number, color: string } } = {};
         
@@ -331,10 +407,10 @@ export const FinanceView = () => {
 
                 {activeTab === 'overview' && (
                     <div id="report-metrics-container" className="space-y-6 mt-6 animate-in fade-in slide-in-from-bottom-4 p-4 bg-background">
-                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <Card className="bg-gradient-to-br from-emerald-500/10 via-background border-emerald-500/20">
                             <CardHeader className="pb-2">
-                                <CardDescription className="text-emerald-700 dark:text-emerald-400 font-medium">Ingresos Totales ({dateRange === 'current_month' ? 'Mes' : dateRange === 'last_month' ? 'Mes Pasado' : dateRange === 'year' ? 'Año' : 'Histórico'})</CardDescription>
+                                <CardDescription className="text-emerald-700 dark:text-emerald-400 font-medium">Ingresos Totales (Devengados - {dateRange === 'current_month' ? 'Mes' : dateRange === 'last_month' ? 'Mes Pasado' : dateRange === 'year' ? 'Año' : 'Histórico'})</CardDescription>
                                 <CardTitle className="text-4xl font-bold text-emerald-600 flex items-center justify-between">
                                     {formatCurrency(totalIncome)}
                                     <ArrowUpRight className="h-6 w-6 opacity-50" />
@@ -344,28 +420,57 @@ export const FinanceView = () => {
                         
                         <Card className="bg-gradient-to-br from-amber-500/10 via-background border-amber-500/20">
                             <CardHeader className="pb-2">
-                                <CardDescription className="text-amber-700 dark:text-amber-400 font-medium">Cuentas por Cobrar (Facturas)</CardDescription>
+                                <CardDescription className="text-amber-700 dark:text-amber-400 font-medium">Cuentas por Cobrar (Facturas Pendientes)</CardDescription>
                                 <CardTitle className="text-4xl font-bold text-amber-600 flex items-center justify-between">
                                     {formatCurrency(accountsReceivable)}
                                     <Activity className="h-6 w-6 opacity-50" />
                                 </CardTitle>
                             </CardHeader>
                         </Card>
-
-                        <Card className="bg-background relative overflow-hidden">
-                            <div className={`absolute right-0 top-0 bottom-0 w-2 ${netFlow >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                            <CardHeader className="pb-2">
-                                <CardDescription>Flujo de Caja Real</CardDescription>
-                                <CardTitle className={`text-4xl font-bold flex items-center justify-between ${netFlow >= 0 ? 'text-primary' : 'text-red-600'}`}>
-                                    {formatCurrency(netFlow)}
-                                    <Wallet className="h-6 w-6 opacity-20" />
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-xs text-muted-foreground mt-2">Gastos restados en periodo = {formatCurrency(totalExpense)}</p>
-                            </CardContent>
-                        </Card>
                     </div>
+
+                    <Card className="border-2 border-primary/10 shadow-sm relative overflow-hidden">
+                        <div className={`absolute top-0 left-0 right-0 h-1 ${cashFlowMetrics.netFlow >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Wallet className="h-5 w-5 text-primary" />
+                                Flujo de Caja Mensual (Dinero Líquido Real)
+                            </CardTitle>
+                            <CardDescription>
+                                Cálculo basado en cuentas marcadas como dinero líquido real y categorías con impacto.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 divide-y md:divide-y-0 md:divide-x dark:divide-slate-800 bg-slate-50 dark:bg-slate-900/50 p-6 rounded-xl">
+                                <div className="flex flex-col gap-1 md:px-4 py-2 text-center md:text-left">
+                                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Saldo Inicial (Carryover)</span>
+                                    <span className="text-xl font-semibold font-mono">{formatCurrency(cashFlowMetrics.carryover)}</span>
+                                </div>
+                                <div className="flex flex-col gap-1 md:px-4 py-2 text-center md:text-left">
+                                    <span className="text-sm font-medium text-emerald-600 uppercase tracking-wider">+ Ingresos del Mes</span>
+                                    <span className="text-xl font-semibold font-mono text-emerald-600">{formatCurrency(cashFlowMetrics.income)}</span>
+                                </div>
+                                <div className="flex flex-col gap-1 md:px-4 py-2 text-center md:text-left">
+                                    <span className="text-sm font-medium text-red-600 uppercase tracking-wider">- Egresos del Mes</span>
+                                    <span className="text-xl font-semibold font-mono text-red-600">{formatCurrency(cashFlowMetrics.expense)}</span>
+                                </div>
+                                <div className="flex flex-col gap-1 md:px-4 py-2 text-center md:text-left">
+                                    <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">= Flujo Neto</span>
+                                    <span className={`text-xl font-bold font-mono ${cashFlowMetrics.netFlow >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                        {formatCurrency(cashFlowMetrics.netFlow)}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col gap-1 md:px-4 py-2 text-center md:text-left relative">
+                                    <span className="text-sm font-medium text-primary uppercase tracking-wider">= Saldo Final</span>
+                                    <span className="text-2xl font-black text-primary font-mono">{formatCurrency(cashFlowMetrics.finalBalance)}</span>
+                                </div>
+                            </div>
+                            <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                                <div>* Las Cuentas por Cobrar/Pagar (ej. Cartera) que no sean dinero líquido NO afectan este cálculo.</div>
+                                <div className="opacity-50">Saldos Cuentas Líquidas Actual: {formatCurrency(cashFlowMetrics.currentBalanceMatching)}</div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <Card className="border shadow-sm">

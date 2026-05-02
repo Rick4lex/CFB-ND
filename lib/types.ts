@@ -127,6 +127,7 @@ export interface Account {
   type: 'ASSET' | 'LIABILITY' | 'EQUITY';
   balance: number; 
   currency: string;
+  isLiquidCash?: boolean; // Propiedad para identificar si es dinero líquido
 }
 
 export interface Category {
@@ -135,6 +136,8 @@ export interface Category {
   type: 'INCOME' | 'EXPENSE';
   parentId?: string; // Para subcategorías (ej. Gastos > Nómina)
   color?: string;    // Para los gráficos del panel
+  cashflowImpact?: 'positive' | 'negative' | 'neutral';
+  categoryNature?: 'direct_cost' | 'operative_expense' | 'non_operative';
 }
 
 export interface Transaction {

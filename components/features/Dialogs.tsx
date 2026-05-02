@@ -1338,6 +1338,11 @@ export function TransactionFormDialog({ isOpen, onOpenChange, onSave, item, init
                                         {accounts?.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
+                                {accounts?.find((a: any) => a.id === field.value && !a.isLiquidCash) && (
+                                    <div className="p-3 mt-2 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-md text-xs">
+                                        <strong>Nota:</strong> Esta cuenta no es de dinero líquido. El movimiento no afectará el Flujo de Caja Mensual. Para que lo afecte, deberá registrar un ingreso en una cuenta bancaria/caja real.
+                                    </div>
+                                )}
                                 <FormMessage />
                             </FormItem>
                         )} />
@@ -1352,6 +1357,11 @@ export function TransactionFormDialog({ isOpen, onOpenChange, onSave, item, init
                                             {accounts?.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
+                                    {accounts?.find((a: any) => a.id === field.value && !a.isLiquidCash) && (
+                                        <div className="p-3 mt-2 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-md text-xs">
+                                            <strong>Nota:</strong> Esta cuenta de destino no es de dinero líquido. El dinero transferido será restado de tu Flujo de Caja.
+                                        </div>
+                                    )}
                                 </FormItem>
                             )} />
                         )}
@@ -1405,6 +1415,7 @@ export function AccountFormDialog({ isOpen, onOpenChange, onSave, item }: any) {
             type: 'ASSET',
             balance: 0,
             currency: 'COP',
+            isLiquidCash: true,
         }
     });
 
@@ -1431,6 +1442,22 @@ export function AccountFormDialog({ isOpen, onOpenChange, onSave, item }: any) {
                                     </SelectContent>
                                 </Select>
                             </FormItem>
+                        )} />
+                        <FormField name="isLiquidCash" control={form.control} render={({ field }) => (
+                             <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                 <FormControl>
+                                     <Checkbox
+                                         checked={field.value}
+                                         onCheckedChange={field.onChange}
+                                     />
+                                 </FormControl>
+                                 <div className="space-y-1 leading-none">
+                                     <FormLabel>Es Dinero Líquido (Real)</FormLabel>
+                                     <p className="text-sm text-muted-foreground">
+                                         Marcar si esta cuenta representa dinero en efectivo o en banco (ej. Nequi, Caja, Bancolombia). Dejar sin marcar para Cuentas por Cobrar/Pagar.
+                                     </p>
+                                 </div>
+                             </FormItem>
                         )} />
                         <div className="grid grid-cols-2 gap-4">
                              <FormField name="balance" control={form.control} render={({ field }) => (
@@ -1460,6 +1487,8 @@ export function CategoryFormDialog({ isOpen, onOpenChange, onSave, item }: any) 
             name: '',
             type: 'EXPENSE',
             color: '#CBD5E1',
+            cashflowImpact: 'negative',
+            categoryNature: 'operative_expense',
         }
     });
 
@@ -1493,6 +1522,34 @@ export function CategoryFormDialog({ isOpen, onOpenChange, onSave, item }: any) 
                                     <FormControl><Input type="color" {...field} className="w-12 h-10 p-1" /></FormControl>
                                     <Input type="text" value={field.value} onChange={field.onChange} className="flex-1 uppercase font-mono text-sm" />
                                 </div>
+                            </FormItem>
+                        )} />
+                        {form.watch("type") === 'EXPENSE' && (
+                            <FormField name="categoryNature" control={form.control} render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Naturaleza del Gasto</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..."/></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="direct_cost">Costo Directo (Ligado a Servicio)</SelectItem>
+                                            <SelectItem value="operative_expense">Gasto Operativo (Ej. Arriendo, Fijos)</SelectItem>
+                                            <SelectItem value="non_operative">Gasto No Operativo (Ej. Intereses, Multas)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                            )} />
+                        )}
+                        <FormField name="cashflowImpact" control={form.control} render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Impacto en Flujo de Caja</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccione..."/></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="positive">Positivo (Suma dinero real al banco)</SelectItem>
+                                        <SelectItem value="negative">Negativo (Resta dinero real del banco)</SelectItem>
+                                        <SelectItem value="neutral">Neutral (Técnico/No mueve dinero hoy)</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </FormItem>
                         )} />
                         <DialogFooter>
