@@ -21,12 +21,12 @@ export const carouselImages = [
     },
     { 
         id: 3, 
-        url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/q_auto/f_auto/v1775428477/CFB_WHistory_3_yrj0m0.jpg', 
+        url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/v1777353753/CFB_WHistory_3_yrj0m0.jpg', 
         alt: 'Trámite rápido de ARL EXPRESS en 24 horas' 
     },
     { 
         id: 4, 
-        url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/q_auto/f_auto/v1775428412/CFB_Post_13_xzohe9.jpg', 
+        url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/v1777353736/CFB_Post_13_xzohe9.jpg', 
         alt: 'Liquidación de Planilla Y para trabajadores independientes' 
     },
     { 

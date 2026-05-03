@@ -94,7 +94,7 @@ export function InvoicePreview({ client, additionalItems, totalAmount: _unusedTo
                 <div className="grid grid-cols-9 gap-6 print:grid print:grid-cols-9 print:gap-4">
                     <div className="col-span-9 md:col-span-3 print:col-span-3 space-y-4 flex flex-col justify-start">
                         <div className='bg-white p-4 rounded-lg text-center border-2 border-dashed print:p-2'>
-                            <img src='https://res.cloudinary.com/dyeppbrfl/image/upload/v1763148510/codigo_QR_MOVii_yiv4sc.jpg' alt='QR Code' width={200} height={200} className='mx-auto w-full max-w-[150px]' crossOrigin="anonymous"/>
+                            <img src='https://res.cloudinary.com/dyeppbrfl/image/upload/v1777767669/codigo_QR_MOVii_yiv4sc.png' alt='QR Code' width={200} height={200} className='mx-auto w-full max-w-[150px]' crossOrigin="anonymous"/>
                             <p className='font-bold text-sm mt-2 print:text-xs'>Paga desde la app de cualquier entidad habilitada</p>
                             <div className='flex justify-center mt-2 print:flex print:justify-center'>
                                 <EntidadHabilitadaIcon/>
