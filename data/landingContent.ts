@@ -10,6 +10,11 @@ export const carouselImages = [
         alt: 'Asesoría y liquidación de aportes a Seguridad Social para independientes' 
     },
     { 
+        id: 10, 
+        url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/v1777874079/CFB_Post_3_eyfmez.jpg', 
+        alt: 'Calendario' 
+    },
+    { 
         id: 2, 
         url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/q_auto/f_auto/v1775428765/CFB_Post_7_ho3qms.jpg', 
         alt: 'Salario Mínimo Legal Vigente y aportes a pensión en Colombia' 
