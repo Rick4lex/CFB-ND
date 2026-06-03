@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { Loader2, Eye, Printer, Download, FileText, DollarSign, Share2, Users, UserPlus, Trash2, Plus, DownloadCloud } from 'lucide-react';
 import Papa from 'papaparse';
 import { useAppStore } from '../lib/store';
+import { calculateAdvisorCommission } from '../lib/utils';
 import { PageLayout } from '../components/layout/Layout';
 import { InvoicePreview } from '../components/features/InvoicePreview';
 import { 
@@ -325,25 +326,8 @@ export const DocumentsView = () => {
       const advisorDetails = advisors.find(a => a.name === reportAdvisor);
       if (!advisorDetails) return total;
 
-      const servicesCost = client.contractedServices?.reduce((acc, serviceIdentifier) => {
-        const service = catalogServices?.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
-        return acc + (service?.basePrice || 0);
-      }, 0) || 0;
-      
-      if (advisorDetails.commissionType === 'percentage') {
-        const commission = servicesCost * ((advisorDetails.commissionValue || 0) / 100);
-        return total + commission;
-      }
-      
-      if (advisorDetails.commissionType === 'fixed') {
-        const affiliationServiceCount = client.contractedServices?.filter(s => {
-             const name = catalogServices?.find(cat => cat.id === s)?.name || s;
-             return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
-        }).length || 0;
-        const commission = affiliationServiceCount * (advisorDetails.commissionValue || 0);
-        return total + commission;
-      }
-      return total;
+      const { commission } = calculateAdvisorCommission(advisorDetails, client.contractedServices || [], catalogServices);
+      return total + commission;
     }, 0);
   }, [commissionReportData, advisors, reportAdvisor, catalogServices]);
 
@@ -381,17 +365,9 @@ export const DocumentsView = () => {
       else {
           const advisorDetails = advisors.find(a => a.name === client.assignedAdvisor);
           if(advisorDetails){
-              if(advisorDetails.commissionType === 'percentage'){
-                  commission = servicesCost * ((advisorDetails.commissionValue || 0) / 100);
-                  commissionDisplay = `${advisorDetails.commissionValue}% (Estimado)`;
-              } else {
-                  const affiliationServiceCount = client.contractedServices?.filter(s => {
-                      const name = config.servicesCatalog.find(cat => cat.id === s)?.name || s;
-                      return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
-                  }).length || 0;
-                  commission = affiliationServiceCount * (advisorDetails.commissionValue || 0);
-                  commissionDisplay = "Valor Fijo (Estimado)";
-              }
+              const { commission: calcComm, commissionDisplay: calcDisp } = calculateAdvisorCommission(advisorDetails, client.contractedServices || [], catalogServices);
+              commission = calcComm;
+              commissionDisplay = calcDisp;
           }
       }
 
@@ -714,17 +690,9 @@ export const DocumentsView = () => {
                                                         else {
                                                             const advisorDetails = advisors.find(a => a.name === client.assignedAdvisor);
                                                             if(advisorDetails){
-                                                                if(advisorDetails.commissionType === 'percentage'){
-                                                                    commission = servicesCost * ((advisorDetails.commissionValue || 0) / 100);
-                                                                    commissionDisplay = `${advisorDetails.commissionValue}% (Estimado)`;
-                                                                } else {
-                                                                    const affiliationServiceCount = client.contractedServices?.filter(s => {
-                                                                        const name = catalogServices?.find(cat => cat.id === s)?.name || s;
-                                                                        return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
-                                                                    }).length || 0;
-                                                                    commission = affiliationServiceCount * (advisorDetails.commissionValue || 0);
-                                                                    commissionDisplay = `${affiliationServiceCount} x ${advisorDetails.commissionValue.toLocaleString('es-CO', {style:'currency', currency: 'COP'})}`;
-                                                                }
+                                                                const { commission: calcComm, commissionDisplay: calcDisp } = calculateAdvisorCommission(advisorDetails, client.contractedServices || [], catalogServices);
+                                                                commission = calcComm;
+                                                                commissionDisplay = calcDisp;
                                                             }
                                                         }
 
@@ -769,7 +737,7 @@ export const DocumentsView = () => {
           }
         }
       `}</style>
-        <Dialog open={isPreviewModalOpen} onOpenChange={(open) => {
+        <Dialog open={isPreviewModalOpen} onOpenChange={(open: boolean) => {
             if (!open) {
                 setIsPreviewModalOpen(false);
                 setCaptureTarget(null);

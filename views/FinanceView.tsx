@@ -114,21 +114,21 @@ export const FinanceView = () => {
 
             if (t.type === 'INCOME' && liquidAccIds.has(t.sourceAccountId)) {
                 impactOnLiquid += t.amount;
-                if (isInsidePeriod && positiveCategories.has(t.categoryId)) {
+                if (isInsidePeriod && positiveCategories.has(t.categoryId || '')) {
                     inPeriodIncome += t.amount;
                 }
             }
             if (t.type === 'EXPENSE' && liquidAccIds.has(t.sourceAccountId)) {
                 impactOnLiquid -= t.amount;
-                if (isInsidePeriod && negativeCategories.has(t.categoryId)) {
+                if (isInsidePeriod && negativeCategories.has(t.categoryId || '')) {
                     inPeriodExpense += t.amount;
                 }
             }
             if (t.type === 'TRANSFER') {
-                if (liquidAccIds.has(t.destinationAccountId) && !liquidAccIds.has(t.sourceAccountId)) {
+                if (liquidAccIds.has(t.destinationAccountId || '') && !liquidAccIds.has(t.sourceAccountId)) {
                     impactOnLiquid += t.amount;
                     if (isInsidePeriod) inPeriodIncome += t.amount;
-                } else if (!liquidAccIds.has(t.destinationAccountId) && liquidAccIds.has(t.sourceAccountId)) {
+                } else if (!liquidAccIds.has(t.destinationAccountId || '') && liquidAccIds.has(t.sourceAccountId)) {
                     impactOnLiquid -= t.amount;
                     if (isInsidePeriod) inPeriodExpense += t.amount;
                 }
@@ -495,7 +495,7 @@ export const FinanceView = () => {
                                                     ))}
                                                 </Pie>
                                                 <RechartsTooltip 
-                                                    formatter={(value: number) => formatCurrency(value)}
+                                                    formatter={(value: any) => formatCurrency(value)}
                                                     contentStyle={{ borderRadius: '0.5rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
                                                 />
                                                 <Legend verticalAlign="bottom" height={36}/>

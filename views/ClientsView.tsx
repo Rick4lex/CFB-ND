@@ -358,8 +358,13 @@ export const ClientsView = () => {
                                       mergedAdvisors.push({
                                           id: crypto.randomUUID(),
                                           name: newClient.assignedAdvisor,
-                                          commissionType: 'percentage',
-                                          commissionValue: 0,
+                                          defaultCommissionBase: {
+                                              commissionType: 'percentage',
+                                              commissionValue: 0,
+                                          },
+                                          commissionType: 'percentage', // legacy
+                                          commissionValue: 0, // legacy
+                                          serviceCommissions: [],
                                           phone: '',
                                           email: '',
                                           paymentDetails: ''

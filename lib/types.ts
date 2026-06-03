@@ -75,11 +75,23 @@ export interface Client {
   balance?: number;
 }
 
+export interface ServiceCommissionRule {
+    serviceId: string;
+    commissionType: 'percentage' | 'fixed';
+    commissionValue: number;
+}
+
 export interface Advisor { 
     id: string; 
     name: string; 
-    commissionType: 'percentage' | 'fixed'; 
-    commissionValue: number; 
+    defaultCommissionBase: {
+        commissionType: 'percentage' | 'fixed';
+        commissionValue: number;
+    };
+    serviceCommissions?: ServiceCommissionRule[];
+    // Legacy mapping (optional for backwards compatibility)
+    commissionType?: 'percentage' | 'fixed'; 
+    commissionValue?: number;
     phone?: string; 
     email?: string; 
     paymentDetails?: string; 

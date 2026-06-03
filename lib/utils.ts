@@ -75,3 +75,50 @@ export const calculateSocialSecurity = ({
         proRatedIbc
     };
 };
+
+export const calculateAdvisorCommission = (advisor: any, clientContractedServices: string[], catalogServices: any[]) => {
+    if (!advisor) return { commission: 0, commissionDisplay: "N/A" };
+
+    let totalCommission = 0;
+    
+    // Legacy fallback check
+    const baseRule = advisor.defaultCommissionBase || {
+        commissionType: advisor.commissionType || 'percentage',
+        commissionValue: advisor.commissionValue || 0
+    };
+
+    clientContractedServices?.forEach(serviceId => {
+        const service = catalogServices?.find(s => s.id === serviceId || s.name === serviceId);
+        if (!service) return;
+
+        // Check if there's a specific rule
+        const specificRule = advisor.serviceCommissions?.find((rule: any) => rule.serviceId === service.id || rule.serviceId === service.name);
+
+        const ruleToApply = specificRule || baseRule;
+
+        if (ruleToApply.commissionType === 'percentage') {
+            totalCommission += (service.basePrice || service.price || 0) * (ruleToApply.commissionValue / 100);
+        } else {
+            // Evaluamos la naturaleza del servicio en caso default fijo, como comportamiento legacy
+            const serviceNameLower = service.name.toLowerCase();
+            const isAffiliationOrLiquidation = serviceNameLower.includes('afiliación') || serviceNameLower.includes('liquidación');
+            
+            // Si es regla específica la aplicamos siempre. Si es base rule (fija), solo a las de afiliación/liquidación para retrocompatibilidad
+            if (specificRule || isAffiliationOrLiquidation) {
+                totalCommission += ruleToApply.commissionValue;
+            }
+        }
+    });
+
+    let commissionDisplay = "Mixto/Reglas";
+    if (!advisor.serviceCommissions || advisor.serviceCommissions.length === 0) {
+        commissionDisplay = baseRule.commissionType === 'percentage' 
+            ? `${baseRule.commissionValue}%`
+            : `Valor Fijo`;
+    }
+
+    return {
+        commission: totalCommission,
+        commissionDisplay: commissionDisplay + " (Estimado)"
+    };
+};

@@ -77,7 +77,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       // Estado Inicial
       clients: [],
-      advisors: [{ id: '1', name: "Asesor Principal", commissionType: 'percentage', commissionValue: 10 }],
+      advisors: [{ id: '1', name: "Asesor Principal", defaultCommissionBase: { commissionType: 'percentage', commissionValue: 10 }, commissionType: 'percentage', commissionValue: 10 }],
       entities: [],
       brandingElements: [],
       config: defaultGlobalConfig,

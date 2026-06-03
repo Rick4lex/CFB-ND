@@ -81,13 +81,24 @@ export const managerSchema = z.object({
   entities: z.array(entitySchema),
 });
 
+export const serviceCommissionRuleSchema = z.object({
+  serviceId: z.string(),
+  commissionType: z.enum(['percentage', 'fixed']),
+  commissionValue: z.coerce.number().min(0),
+});
+
 export const advisorSchema = z.object({
     id: z.string(),
     name: z.string().min(3, "El nombre debe tener al menos 3 caracteres."),
     phone: z.string().optional(),
     email: z.string().email("Email inválido").optional().or(z.literal('')),
-    commissionType: z.enum(['percentage', 'fixed']),
-    commissionValue: z.coerce.number().min(0, "El valor debe ser positivo."),
+    defaultCommissionBase: z.object({
+        commissionType: z.enum(['percentage', 'fixed']),
+        commissionValue: z.coerce.number().min(0, "El valor debe ser positivo.")
+    }),
+    serviceCommissions: z.array(serviceCommissionRuleSchema).optional(),
+    commissionType: z.enum(['percentage', 'fixed']).optional(),
+    commissionValue: z.coerce.number().optional(),
     paymentDetails: z.string().optional(),
 });
 

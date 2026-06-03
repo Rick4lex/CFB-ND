@@ -127,7 +127,7 @@ export const ClientProfileSheet = ({ isOpen, onOpenChange, client, onEdit, onDoc
                             <Card className="bg-emerald-500/10 border-emerald-500/20 shadow-none">
                                 <CardContent className="p-4">
                                     <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Life-Time Value</p>
-                                    <h3 className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{formatCurrency(client.ltv > 0 ? client.ltv : ltv)}</h3>
+                                    <h3 className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 mt-1">{formatCurrency((client.ltv || 0) > 0 ? client.ltv! : ltv)}</h3>
                                     <p className="text-xs text-emerald-600/80 mt-1">Ingresos históricos</p>
                                 </CardContent>
                             </Card>

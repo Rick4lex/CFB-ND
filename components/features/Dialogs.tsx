@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { 
     PlusCircle, Trash2, Edit, Save, X, Phone, Mail, MapPin, 
     MessageSquare, LayoutGrid, List, ExternalLink, Upload, Download, FileText, UserPlus, KeyRound, Link as LinkIcon,
-    Copy, Eye, EyeOff, Shield, Check, FileJson, AlertTriangle, Wrench, Share2
+    Copy, Eye, EyeOff, Shield, Check, FileJson, AlertTriangle, Wrench, Share2, Plus
 } from 'lucide-react';
 import { 
     advisorSchema, managerSchema as entityManagerStateSchema, clientSchema, 
@@ -27,7 +27,7 @@ import {
     documentTypes, serviceStatuses, defaultGlobalConfig
 } from '@/lib/constants';
 import { useAppStore } from '@/lib/store';
-import { normalizeString } from '@/lib/utils';
+import { normalizeString, calculateAdvisorCommission } from '@/lib/utils';
 import type { Advisor, Client, Entity, EntityContact, ClientWithMultiple } from '@/lib/types';
 import { CLIENT_STATUS, CLIENT_STATUS_META } from '@/lib/crm-states';
 
@@ -222,6 +222,68 @@ export function ClientCredentialsDialog({ isOpen, onOpenChange, client, entities
   );
 }
 
+// --- Service Commissions Nested Component ---
+function ServiceCommissionsList({ nestIndex, control, catalogServices }: { nestIndex: number, control: any, catalogServices: any[] }) {
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: `advisors.${nestIndex}.serviceCommissions` as const
+  });
+
+  if (catalogServices.length === 0) return null;
+
+  return (
+    <div className="space-y-2 mt-4 p-4 border border-blue-100 dark:border-blue-900/40 rounded-lg bg-blue-50/30 dark:bg-blue-900/10">
+       <span className="font-semibold text-sm text-blue-800 dark:text-blue-300">Reglas por Servicio Específico</span>
+       <p className="text-[10px] text-muted-foreground mb-2">Aplica sólo a estos servicios. Si no está en la lista, se usará la Comisión Base.</p>
+       
+       {fields.map((item, k) => (
+          <div key={item.id} className="grid grid-cols-12 gap-2 items-end">
+            <div className="col-span-5">
+               <FormField name={`advisors.${nestIndex}.serviceCommissions.${k}.serviceId`} control={control} render={({ field }: any) => (
+                  <FormItem>
+                      <Select key={item.id} onValueChange={field.onChange} defaultValue={field.value || ''}>
+                          <FormControl>
+                             <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Servicio" /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                             {catalogServices.map(s => <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </FormItem>
+               )} />
+            </div>
+            <div className="col-span-3">
+               <FormField name={`advisors.${nestIndex}.serviceCommissions.${k}.commissionType`} control={control} render={({ field }: any) => (
+                  <FormItem>
+                      <Select onValueChange={field.onChange} defaultValue={field.value || 'percentage'}>
+                          <FormControl>
+                             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                             <SelectItem value="percentage" className="text-xs">Porcentaje</SelectItem>
+                             <SelectItem value="fixed" className="text-xs">Valor Fijo</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </FormItem>
+               )} />
+            </div>
+            <div className="col-span-3">
+                <FormField name={`advisors.${nestIndex}.serviceCommissions.${k}.commissionValue`} control={control} render={({ field }: any) => (
+                  <FormItem><FormControl><Input {...field} type="number" className="h-8 text-xs" onChange={e => field.onChange(Number(e.target.value))}/></FormControl></FormItem>
+                )} />
+            </div>
+            <div className="col-span-1 text-right">
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(k)}><Trash2 className="h-3 w-3"/></Button>
+            </div>
+          </div>
+       ))}
+       <Button type="button" variant="outline" size="sm" className="w-full mt-2 text-xs border-dashed" onClick={() => append({ serviceId: '', commissionType: 'percentage', commissionValue: 0 })}>
+          <Plus className="h-3 w-3 mr-1"/> Añadir Regla Excepcional
+       </Button>
+    </div>
+  );
+}
+
 // --- Advisor Manager ---
 interface AdvisorManagerDialogProps {
   isOpen: boolean;
@@ -232,7 +294,7 @@ interface AdvisorManagerDialogProps {
 
 export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAdvisors, onSave }: AdvisorManagerDialogProps) {
   const { toast } = useToast();
-  const { clients } = useAppStore();
+  const { clients, catalogServices } = useAppStore();
   const [editingId, setEditingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -267,8 +329,13 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
     append({
         id: newId,
         name: '',
+        defaultCommissionBase: {
+            commissionType: 'percentage',
+            commissionValue: 10,
+        },
         commissionType: 'percentage',
         commissionValue: 10, 
+        serviceCommissions: [],
         phone: '',
         email: '',
         paymentDetails: '',
@@ -335,8 +402,13 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
                   const newAdvisor: Advisor = {
                       id: row.id || crypto.randomUUID(),
                       name: row.name,
+                      defaultCommissionBase: row.defaultCommissionBase || {
+                          commissionType: row.commissionType === 'fixed' ? 'fixed' : 'percentage',
+                          commissionValue: Number(row.commissionValue) || 0,
+                      },
                       commissionType: row.commissionType === 'fixed' ? 'fixed' : 'percentage',
                       commissionValue: Number(row.commissionValue) || 0,
+                      serviceCommissions: row.serviceCommissions || [],
                       phone: row.phone || '',
                       email: row.email || '',
                       paymentDetails: row.paymentDetails || ''
@@ -419,24 +491,27 @@ export function AdvisorManagerDialog({ isOpen, onOpenChange, advisors: initialAd
                                 <FormItem><FormLabel>Email</FormLabel><FormControl><Input {...field} type="email" placeholder="asesor@email.com" /></FormControl><FormMessage /></FormItem>
                             )} />
                           </div>
-                           <div className="grid grid-cols-2 gap-4">
-                            <FormField name={`advisors.${index}.commissionType`} control={form.control} render={({ field }: any) => (
-                                <FormItem>
-                                    <FormLabel>Tipo Comisión</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="percentage">Porcentaje (%)</SelectItem>
-                                            <SelectItem value="fixed">Valor Fijo ($)</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                     <FormMessage />
-                                </FormItem>
-                            )} />
-                             <FormField name={`advisors.${index}.commissionValue`} control={form.control} render={({ field }: any) => (
-                                <FormItem><FormLabel>Valor Comisión</FormLabel><FormControl><Input {...field} type="number" /></FormControl><FormMessage /></FormItem>
-                            )} />
-                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                             <FormField name={`advisors.${index}.defaultCommissionBase.commissionType`} control={form.control} render={({ field }: any) => (
+                                 <FormItem>
+                                     <FormLabel>Tipo Comisión Base</FormLabel>
+                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                         <SelectContent>
+                                             <SelectItem value="percentage">Porcentaje (%)</SelectItem>
+                                             <SelectItem value="fixed">Valor Fijo ($)</SelectItem>
+                                         </SelectContent>
+                                     </Select>
+                                      <FormMessage />
+                                 </FormItem>
+                             )} />
+                              <FormField name={`advisors.${index}.defaultCommissionBase.commissionValue`} control={form.control} render={({ field }: any) => (
+                                 <FormItem><FormLabel>Valor Comisión Base</FormLabel><FormControl><Input {...field} type="number" onChange={e => field.onChange(Number(e.target.value))} /></FormControl><FormMessage /></FormItem>
+                             )} />
+                           </div>
+                           
+                           <ServiceCommissionsList nestIndex={index} control={form.control} catalogServices={catalogServices} />
                            <FormField name={`advisors.${index}.paymentDetails`} control={form.control} render={({ field }: any) => (
                                 <FormItem><FormLabel>Datos de Pago</FormLabel><FormControl><Textarea {...field} placeholder="Ej: Cuenta de Ahorros Bancolombia #123-456789-00" /></FormControl><FormMessage /></FormItem>
                            )} />
@@ -1000,22 +1075,9 @@ interface ClientFormDialogProps {
         if (data.assignedAdvisor) {
             const advisor = advisors.find(a => a.name === data.assignedAdvisor);
             if (advisor) {
-                const servicesCost = (data.contractedServices || []).reduce((acc: number, serviceIdentifier: string) => {
-                    const service = catalogServices?.find(s => s.id === serviceIdentifier || s.name === serviceIdentifier);
-                    return acc + (service?.basePrice || 0);
-                }, 0);
-                
-                if (advisor.commissionType === 'percentage') {
-                    data.advisorCommissionPercentage = advisor.commissionValue;
-                    data.advisorCommissionAmount = servicesCost * (advisor.commissionValue / 100);
-                } else {
-                    const affiliationServiceCount = (data.contractedServices || []).filter((s: string) => {
-                        const name = catalogServices?.find(cat => cat.id === s)?.name || s;
-                        return name.toLowerCase().includes('afiliación') || name.toLowerCase().includes('liquidación');
-                    }).length;
-                    data.advisorCommissionPercentage = undefined;
-                    data.advisorCommissionAmount = affiliationServiceCount * advisor.commissionValue;
-                }
+                const { commission } = calculateAdvisorCommission(advisor, data.contractedServices || [], catalogServices);
+                data.advisorCommissionAmount = commission;
+                data.advisorCommissionPercentage = undefined; // clear out older field since snapshot amount covers it
             }
         } else {
             data.advisorCommissionPercentage = undefined;
