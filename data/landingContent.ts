@@ -11,7 +11,7 @@ export const carouselImages = [
     },
     { 
         id: 10, 
-        url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/v1777874079/CFB_Post_3_eyfmez.jpg', 
+        url: 'https://res.cloudinary.com/dyeppbrfl/image/upload/v1780864104/CFB_Post_we7glo.jpg', 
         alt: 'Calendario' 
     },
     { 
